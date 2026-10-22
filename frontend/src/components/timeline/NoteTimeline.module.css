@@ -1,0 +1,70 @@
+.timeline {
+  position: relative; /* offsetTop of items is measured from the list */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+/* A small gap marks a new measure ("|" in the song file). */
+.measureStart {
+  margin-left: var(--space-3);
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 56px;
+  min-height: 64px;
+  padding: var(--space-1) var(--space-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.note:hover {
+  border-color: var(--color-accent);
+}
+
+.past {
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+
+/* Current note: thicker border, filled background and a ▶ symbol, not colour alone. */
+.current {
+  border-width: 3px;
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.position {
+  font-size: 0.75rem;
+}
+
+.number {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.noteName {
+  font-size: 0.8rem;
+}
+
+.readOnly {
+  cursor: default;
+}
+
+.readOnly:hover {
+  border-color: var(--color-border);
+}
