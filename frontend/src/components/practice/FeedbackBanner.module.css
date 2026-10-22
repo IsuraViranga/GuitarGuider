@@ -1,0 +1,60 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px; /* keeps the layout from jumping when feedback appears */
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+  text-align: left;
+}
+
+.symbol {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--color-on-feedback, #fff);
+}
+
+.message {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.correct {
+  border-color: var(--color-correct);
+  background: var(--color-correct-soft);
+}
+
+.correct .symbol {
+  background: var(--color-correct);
+}
+
+.incorrect {
+  border-color: var(--color-incorrect);
+  border-width: 3px;
+  background: var(--color-incorrect-soft);
+}
+
+.incorrect .symbol {
+  background: var(--color-incorrect);
+}
+
+.complete {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.complete .symbol {
+  background: var(--color-accent);
+}
+
+.neutral .message {
+  color: var(--color-muted);
+}

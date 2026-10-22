@@ -1,9 +1,36 @@
-// Practice session state. Phase 1 covers song-position navigation only;
-// listening/feedback states are added in Phases 2–3 on top of the same reducer.
+// Practice session state: where the student is in the song, and what the last played note
+// was judged as. Pure logic (no audio, no React), so every practice rule is unit-tested.
+//
+// Rules (project brief §7–8):
+// - Correct note → green feedback, advance exactly once. (No sound: handled by the page.)
+// - Wrong note → red feedback, stay on the same note. Only judged on the stricter
+//   "noteConfirmed" event, so a brief unclear sound never counts as a mistake.
+// - Each detected note (noteId) is handled at most once: a ringing note can't advance twice.
+// - A slightly out-of-tune note still counts (see matching.ts); the feedback adds a tuning hint.
+// - Any position change (automatic or manual) clears feedback and bumps positionVersion,
+//   which tells the listener to ignore notes still ringing from before.
+
+import type { NoteEvent } from '../audio/noteRecognizer'
+import { compareToTarget } from './matching'
+
+export type Feedback =
+  | { kind: 'none' }
+  | { kind: 'correct'; noteIndex: number; heardMidi: number; cents: number; inTune: boolean }
+  | { kind: 'incorrect'; noteIndex: number; targetMidi: number; detectedMidi: number; heardMidi: number; octaveOff: boolean }
 
 export type PracticeState = {
-  noteCount: number
+  /** Expected pitch (MIDI) of every note in the song. */
+  targets: readonly number[]
   currentIndex: number
+  completed: boolean
+  feedback: Feedback
+  /** Increases with every new feedback; lets the page react once (e.g. one error sound). */
+  feedbackId: number
+  /** Increases with every position change, automatic or manual. */
+  positionVersion: number
+  /** The detected note that already produced a result; its later events are ignored. */
+  handledNoteId: number | null
+  wrongCount: number
 }
 
 export type PracticeAction =
@@ -11,9 +38,19 @@ export type PracticeAction =
   | { type: 'previous' }
   | { type: 'jumpTo'; index: number }
   | { type: 'reset' }
+  | { type: 'noteEvent'; event: NoteEvent }
 
-export function createPracticeState(noteCount: number): PracticeState {
-  return { noteCount, currentIndex: 0 }
+export function createPracticeState(targets: readonly number[]): PracticeState {
+  return {
+    targets,
+    currentIndex: 0,
+    completed: false,
+    feedback: { kind: 'none' },
+    feedbackId: 0,
+    positionVersion: 0,
+    handledNoteId: null,
+    wrongCount: 0,
+  }
 }
 
 function clampIndex(index: number, noteCount: number): number {
@@ -21,24 +58,61 @@ function clampIndex(index: number, noteCount: number): number {
   return Math.min(Math.max(Math.trunc(index), 0), noteCount - 1)
 }
 
+function moveTo(state: PracticeState, index: number): PracticeState {
+  return {
+    ...state,
+    currentIndex: clampIndex(index, state.targets.length),
+    completed: false,
+    feedback: { kind: 'none' },
+    positionVersion: state.positionVersion + 1,
+    handledNoteId: null,
+  }
+}
+
+function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
+  if (state.completed || event.noteId === state.handledNoteId) return state
+
+  const noteIndex = state.currentIndex
+  const targetMidi = state.targets[noteIndex]
+  const { result, cents, heardMidi, octaveOff, inTune } = compareToTarget(event.midi, targetMidi)
+
+  if (result === 'correct') {
+    const isLast = noteIndex >= state.targets.length - 1
+    return {
+      ...state,
+      currentIndex: isLast ? noteIndex : noteIndex + 1,
+      completed: isLast,
+      feedback: { kind: 'correct', noteIndex, heardMidi, cents, inTune },
+      feedbackId: state.feedbackId + 1,
+      positionVersion: state.positionVersion + 1,
+      handledNoteId: event.noteId,
+    }
+  }
+
+  // Wrong: wait for the stricter confirmation before telling the student.
+  if (event.type !== 'noteConfirmed') return state
+  return {
+    ...state,
+    feedback: { kind: 'incorrect', noteIndex, targetMidi, detectedMidi: event.midi, heardMidi, octaveOff },
+    feedbackId: state.feedbackId + 1,
+    handledNoteId: event.noteId,
+    wrongCount: state.wrongCount + 1,
+  }
+}
+
 export function practiceReducer(state: PracticeState, action: PracticeAction): PracticeState {
-  let index: number
   switch (action.type) {
     case 'next':
-      index = state.currentIndex + 1
-      break
+      return moveTo(state, state.currentIndex + 1)
     case 'previous':
-      index = state.currentIndex - 1
-      break
+      return moveTo(state, state.currentIndex - 1)
     case 'jumpTo':
-      index = action.index
-      break
+      return moveTo(state, action.index)
     case 'reset':
-      index = 0
-      break
+      return { ...moveTo(state, 0), wrongCount: 0 }
+    case 'noteEvent':
+      return handleNote(state, action.event)
   }
-  const currentIndex = clampIndex(index, state.noteCount)
-  return currentIndex === state.currentIndex ? state : { ...state, currentIndex }
 }
 
 export function isFirstNote(state: PracticeState): boolean {
@@ -46,5 +120,5 @@ export function isFirstNote(state: PracticeState): boolean {
 }
 
 export function isLastNote(state: PracticeState): boolean {
-  return state.currentIndex >= state.noteCount - 1
+  return state.currentIndex >= state.targets.length - 1
 }

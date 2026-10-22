@@ -1,22 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { createPracticeState, isFirstNote, isLastNote, practiceReducer, type PracticeAction } from './practiceReducer'
+import type { NoteEvent } from '../audio/noteRecognizer'
+import { createPracticeState, isFirstNote, isLastNote, practiceReducer, type PracticeAction, type PracticeState } from './practiceReducer'
 
-const run = (noteCount: number, ...actions: PracticeAction[]) =>
-  actions.reduce(practiceReducer, createPracticeState(noteCount))
+const E4 = 64
+const F4 = 65
+const G4 = 67
 
-describe('practiceReducer navigation', () => {
+const run = (targets: number[] | number, ...actions: PracticeAction[]) =>
+  actions.reduce(practiceReducer, createPracticeState(Array.isArray(targets) ? targets : Array(targets).fill(E4)))
+
+let nextId = 100
+/** A played note as the detector reports it: start, then confirmation, same id. */
+const played = (midi: number, id = nextId++): PracticeAction[] => [
+  { type: 'noteEvent', event: { type: 'noteStart', noteId: id, midi, time: 0 } satisfies NoteEvent },
+  { type: 'noteEvent', event: { type: 'noteConfirmed', noteId: id, midi, time: 50 } satisfies NoteEvent },
+]
+const startOnly = (midi: number, id = nextId++): PracticeAction => ({
+  type: 'noteEvent',
+  event: { type: 'noteStart', noteId: id, midi, time: 0 },
+})
+
+describe('navigation', () => {
   it('starts at the first note', () => {
-    const state = createPracticeState(5)
+    const state = createPracticeState([E4, F4])
     expect(state.currentIndex).toBe(0)
     expect(isFirstNote(state)).toBe(true)
+    expect(state.feedback.kind).toBe('none')
   })
 
-  it('moves forward and back', () => {
-    expect(run(5, { type: 'next' }, { type: 'next' }).currentIndex).toBe(2)
+  it('moves forward and back, stopping at both ends', () => {
     expect(run(5, { type: 'next' }, { type: 'next' }, { type: 'previous' }).currentIndex).toBe(1)
-  })
-
-  it('stops at both ends', () => {
     expect(run(3, { type: 'previous' }).currentIndex).toBe(0)
     const end = run(3, { type: 'next' }, { type: 'next' }, { type: 'next' })
     expect(end.currentIndex).toBe(2)
@@ -35,8 +48,95 @@ describe('practiceReducer navigation', () => {
     expect(practiceReducer(state, { type: 'previous' }).currentIndex).toBe(5)
   })
 
-  it('returns the same object when nothing changes', () => {
-    const state = createPracticeState(3)
-    expect(practiceReducer(state, { type: 'previous' })).toBe(state)
+  it('every position change bumps positionVersion and clears feedback', () => {
+    const wrong = run([E4, F4], ...played(G4))
+    expect(wrong.feedback.kind).toBe('incorrect')
+    for (const action of [{ type: 'next' }, { type: 'previous' }, { type: 'jumpTo', index: 0 }, { type: 'reset' }] as const) {
+      const moved = practiceReducer(wrong, action)
+      expect(moved.feedback.kind).toBe('none')
+      expect(moved.positionVersion).toBe(wrong.positionVersion + 1)
+      expect(moved.handledNoteId).toBeNull()
+    }
+  })
+})
+
+describe('correct notes (§7.1)', () => {
+  it('advances to the next note with correct feedback', () => {
+    const state = run([E4, F4, G4], ...played(E4))
+    expect(state.currentIndex).toBe(1)
+    expect(state.feedback).toMatchObject({ kind: 'correct', noteIndex: 0, heardMidi: E4 })
+  })
+
+  it('accepts on the fast noteStart event', () => {
+    expect(run([E4, F4], startOnly(E4)).currentIndex).toBe(1)
+  })
+
+  it('advances only once per played note (its confirmation is ignored)', () => {
+    // E4 then E4 again: the confirmation of the first pluck must not satisfy note 2.
+    const state = run([E4, E4, E4], ...played(E4, 1))
+    expect(state.currentIndex).toBe(1)
+  })
+
+  it('accepts small tuning differences', () => {
+    expect(run([E4, F4], ...played(E4 + 0.3)).currentIndex).toBe(1)
+  })
+
+  it('a fresh pluck of the same pitch advances again (repeated notes)', () => {
+    expect(run([E4, E4, E4], ...played(E4), ...played(E4)).currentIndex).toBe(2)
+  })
+
+  it('completes the song after the last note, and ignores notes afterwards', () => {
+    const done = run([E4, F4], ...played(E4), ...played(F4))
+    expect(done.completed).toBe(true)
+    expect(done.currentIndex).toBe(1)
+    const after = practiceReducer(done, played(G4)[1])
+    expect(after).toBe(done) // unchanged: no feedback, no mistake counted
+  })
+})
+
+describe('wrong notes (§7.2)', () => {
+  it('shows the mistake and stays on the same note', () => {
+    const state = run([E4, F4], ...played(G4))
+    expect(state.currentIndex).toBe(0)
+    expect(state.feedback).toMatchObject({ kind: 'incorrect', noteIndex: 0, targetMidi: E4, heardMidi: G4 })
+    expect(state.wrongCount).toBe(1)
+  })
+
+  it('waits for confirmation before calling a note wrong', () => {
+    const state = run([E4, F4], startOnly(G4))
+    expect(state.feedback.kind).toBe('none')
+    expect(state.feedbackId).toBe(0)
+  })
+
+  it('produces one result per wrong note, however long it rings', () => {
+    const id = 7
+    const once = run([E4, F4], ...played(G4, id))
+    const again = run([E4, F4], ...played(G4, id), ...played(G4, id))
+    expect(again.feedbackId).toBe(once.feedbackId)
+    expect(again.wrongCount).toBe(1)
+  })
+
+  it('a correct note after a mistake advances', () => {
+    const state = run([E4, F4], ...played(G4), ...played(E4))
+    expect(state.currentIndex).toBe(1)
+    expect(state.feedback.kind).toBe('correct')
+  })
+
+  it('treats the right note in the wrong octave as wrong, and says so', () => {
+    expect(run([E4, F4], ...played(E4 - 12)).feedback).toMatchObject({ kind: 'incorrect', octaveOff: true })
+  })
+})
+
+describe('out-of-tune guitars', () => {
+  it('accepts a note up to 70 cents off as correct, with a tuning hint', () => {
+    // Real case from a student's phone: D4 expected, 304.46 Hz heard (62 cents sharp).
+    const state: PracticeState = run([E4 - 2, F4], ...played(E4 - 2 + 0.62))
+    expect(state.currentIndex).toBe(1)
+    expect(state.wrongCount).toBe(0)
+    expect(state.feedback).toMatchObject({ kind: 'correct', inTune: false })
+  })
+
+  it('still calls the next fret (about 100 cents) wrong', () => {
+    expect(run([E4, F4], ...played(E4 + 0.95)).feedback.kind).toBe('incorrect')
   })
 })

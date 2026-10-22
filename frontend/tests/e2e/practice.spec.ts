@@ -15,8 +15,8 @@ test('student picks a sample song and navigates through it', async ({ page }) =>
   await expect(expected).toHaveText('10')
   await expect(page.getByRole('img', { name: /string 1, open/ })).toBeVisible()
 
-  await page.getByRole('button', { name: /Next/ }).click()
-  await page.getByRole('button', { name: /Next/ }).click()
+  await page.getByRole('button', { name: /Next$/ }).click()
+  await page.getByRole('button', { name: /Next$/ }).click()
   await expect(expected).toHaveText('13')
   await expect(page.getByRole('img', { name: 'Play string 1, fret 3.' })).toBeVisible()
 
@@ -39,8 +39,11 @@ test('pages fit a small phone screen without sideways scrolling', async ({ page 
 test('practice controls stay visible on a phone after jumping', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'mobile layout only')
   await page.goto('/songs/sample-c-major-scale/practice')
+  await expect(page.getByRole('button', { name: /Next$/ })).toBeInViewport()
   await page.getByRole('button', { name: /^Note 12 of 16/ }).click()
-  await expect(page.getByRole('button', { name: /Next/ })).toBeInViewport()
+  await expect(page.getByRole('button', { name: /Next$/ })).toBeInViewport()
+  await page.getByRole('button', { name: /Start listening/ }).scrollIntoViewIfNeeded()
+  await expect(page.getByRole('button', { name: /Next$/ })).toBeInViewport()
 })
 
 test('keyboard users can reach and use the controls', async ({ page }) => {
@@ -49,9 +52,9 @@ test('keyboard users can reach and use the controls', async ({ page }) => {
   // Tab from the top of the page until the Next button has focus.
   for (let i = 0; i < 15; i++) {
     await page.keyboard.press('Tab')
-    if (await page.getByRole('button', { name: /Next/ }).evaluate((el) => el === document.activeElement)) break
+    if (await page.getByRole('button', { name: /Next$/ }).evaluate((el) => el === document.activeElement)) break
   }
-  await expect(page.getByRole('button', { name: /Next/ })).toBeFocused()
+  await expect(page.getByRole('button', { name: /Next$/ })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('expected-number')).toHaveText('50')
 })

@@ -1,0 +1,124 @@
+.panel > * + * {
+  margin-top: var(--space-3);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.header h2 {
+  margin: 0;
+}
+
+.status {
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.live {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.liveLabel {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.liveNote {
+  font-size: 2rem;
+  font-weight: 800;
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+}
+
+.meterFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: width 0.1s linear;
+}
+
+.heard p {
+  margin: 0;
+}
+
+.match {
+  color: var(--color-correct);
+}
+
+.mismatch {
+  color: var(--color-incorrect);
+}
+
+.details summary {
+  cursor: pointer;
+  min-height: var(--touch-target);
+  display: flex;
+  align-items: center;
+}
+
+.details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  position: relative;
+}
+
+/* Thin mark on the level bar: sounds left of it are treated as silence. */
+.meterGate {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--color-text);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+}
+
+.option input {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+
+.recording {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.recording p {
+  margin-bottom: var(--space-2);
+}

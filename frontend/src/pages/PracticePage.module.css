@@ -1,12 +1,15 @@
 .layout {
   display: grid;
   gap: var(--space-4);
+  /* On phones the controls are placed last so "position: sticky; bottom: 0" keeps them
+     on screen at every scroll position. In the HTML they stay right after the target note,
+     so keyboard and screen-reader users still reach them early. */
   grid-template-areas:
     'header'
     'target'
-    'controls'
     'listening'
-    'timeline';
+    'timeline'
+    'controls';
 }
 
 .header {
@@ -63,20 +66,48 @@
   bottom: 0;
   z-index: 1;
   display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
   padding: var(--space-2) 0;
   background: var(--color-bg);
 }
 
+/* Icon above a short label, so four buttons fit a 360 px phone. */
 .controls :global(.button) {
-  padding: 0 var(--space-2);
-  min-height: 52px;
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-1);
+  min-height: 56px;
+  font-size: 0.9rem;
   white-space: nowrap;
+}
+
+.controls :global(.button) > span[aria-hidden='true'] {
+  font-size: 1.15rem;
+  line-height: 1.1;
 }
 
 .listening {
   grid-area: listening;
+}
+
+.upcoming {
+  margin: 0 0 var(--space-2);
+  font-size: 1.15rem;
+  color: var(--color-muted);
+  min-height: 1.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.upcoming strong {
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.micLine {
+  margin: 0 0 var(--space-2);
+  font-size: 0.95rem;
+  color: var(--color-muted);
 }
 
 .timeline {

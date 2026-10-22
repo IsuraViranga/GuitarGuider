@@ -13,6 +13,10 @@
   --color-correct: #146c43;
   --color-incorrect: #b3261e;
   --color-warning-bg: #fff4d6;
+  --color-warning: #8a5a00;
+  --color-correct-soft: #e3f4ea;
+  --color-incorrect-soft: #fbe6e4;
+  --color-on-feedback: #ffffff;
   --color-focus: #0a4fd6;
 
   --fb-wood: #efe2cc;
@@ -49,6 +53,10 @@
     --color-correct: #5fd39a;
     --color-incorrect: #ff8a80;
     --color-warning-bg: #3a3014;
+    --color-warning: #f2c14e;
+    --color-correct-soft: #14301f;
+    --color-incorrect-soft: #3a1a18;
+    --color-on-feedback: #10131a;
     --color-focus: #ffd166;
 
     --fb-wood: #3b3127;

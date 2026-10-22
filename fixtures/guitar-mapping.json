@@ -1,0 +1,28 @@
+{
+  "description": "Shared conversion cases for the instructor's guitar numbering system in standard tuning. Used by both frontend and backend tests so the two implementations cannot drift apart.",
+  "tuning": "standard",
+  "valid": [
+    { "number": "10", "stringNumber": 1, "fret": 0, "midi": 64, "note": "E4", "frequency": 329.63 },
+    { "number": "11", "stringNumber": 1, "fret": 1, "midi": 65, "note": "F4", "frequency": 349.23 },
+    { "number": "13", "stringNumber": 1, "fret": 3, "midi": 67, "note": "G4", "frequency": 392.0 },
+    { "number": "15", "stringNumber": 1, "fret": 5, "midi": 69, "note": "A4", "frequency": 440.0 },
+    { "number": "112", "stringNumber": 1, "fret": 12, "midi": 76, "note": "E5", "frequency": 659.26 },
+    { "number": "124", "stringNumber": 1, "fret": 24, "midi": 88, "note": "E6", "frequency": 1318.51 },
+    { "number": "20", "stringNumber": 2, "fret": 0, "midi": 59, "note": "B3", "frequency": 246.94 },
+    { "number": "21", "stringNumber": 2, "fret": 1, "midi": 60, "note": "C4", "frequency": 261.63 },
+    { "number": "25", "stringNumber": 2, "fret": 5, "midi": 64, "note": "E4", "frequency": 329.63 },
+    { "number": "30", "stringNumber": 3, "fret": 0, "midi": 55, "note": "G3", "frequency": 196.0 },
+    { "number": "31", "stringNumber": 3, "fret": 1, "midi": 56, "note": "G#3", "frequency": 207.65 },
+    { "number": "32", "stringNumber": 3, "fret": 2, "midi": 57, "note": "A3", "frequency": 220.0 },
+    { "number": "34", "stringNumber": 3, "fret": 4, "midi": 59, "note": "B3", "frequency": 246.94 },
+    { "number": "40", "stringNumber": 4, "fret": 0, "midi": 50, "note": "D3", "frequency": 146.83 },
+    { "number": "42", "stringNumber": 4, "fret": 2, "midi": 52, "note": "E3", "frequency": 164.81 },
+    { "number": "50", "stringNumber": 5, "fret": 0, "midi": 45, "note": "A2", "frequency": 110.0 },
+    { "number": "53", "stringNumber": 5, "fret": 3, "midi": 48, "note": "C3", "frequency": 130.81 },
+    { "number": "60", "stringNumber": 6, "fret": 0, "midi": 40, "note": "E2", "frequency": 82.41 },
+    { "number": "63", "stringNumber": 6, "fret": 3, "midi": 43, "note": "G2", "frequency": 98.0 },
+    { "number": "65", "stringNumber": 6, "fret": 5, "midi": 45, "note": "A2", "frequency": 110.0 },
+    { "number": "612", "stringNumber": 6, "fret": 12, "midi": 52, "note": "E3", "frequency": 164.81 }
+  ],
+  "invalid": ["", "1", "6", "70", "00", "05", "1x", "x1", "-13", "1.5", "125", "105", "1234"]
+}

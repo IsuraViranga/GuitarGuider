@@ -27,3 +27,6 @@ dist-ssr
 test-results
 playwright-report
 coverage
+
+# Generated test audio
+tests/fixtures/*.wav

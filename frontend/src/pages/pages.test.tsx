@@ -43,8 +43,8 @@ describe('Practice navigation', () => {
     expect(screen.getByTestId('progress')).toHaveTextContent('Note 1 of 8')
     expect(screen.getByRole('button', { name: /^Back/ })).toBeDisabled()
 
-    await userEvent.click(screen.getByRole('button', { name: /Next/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Next/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Next$/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Next$/ }))
     expect(expected()).toBe('13')
     expect(screen.getByRole('img', { name: 'Play string 1, fret 3.' })).toBeInTheDocument()
 
@@ -62,14 +62,14 @@ describe('Practice navigation', () => {
     expect(expected()).toBe('13')
     expect(note6).toHaveAttribute('aria-current', 'step')
     expect(screen.getByTestId('progress')).toHaveTextContent('Note 6 of 8')
-    expect(screen.getByRole('status')).toHaveTextContent('Note 6 of 8: 13, string 1, fret 3, G4')
+    expect(screen.getByTestId('position-status')).toHaveTextContent('Note 6 of 8: 13, string 1, fret 3, G4')
   })
 
   it('disables Next on the last note', async () => {
     renderApp('/songs/sample-first-frets/practice')
     await userEvent.click(await screen.findByRole('button', { name: /^Note 8 of 8/ }))
-    expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled()
-    expect(screen.getByRole('status')).toHaveTextContent('Last note.')
+    expect(screen.getByRole('button', { name: /Next$/ })).toBeDisabled()
+    expect(screen.getByTestId('position-status')).toHaveTextContent('Last note.')
   })
 
   it('is operable with the keyboard alone', async () => {

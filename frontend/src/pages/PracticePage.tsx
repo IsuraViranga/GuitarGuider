@@ -1,7 +1,11 @@
-import { useReducer } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { Fretboard } from '../components/fretboard/Fretboard'
+import type { NoteEvent } from '../audio/noteRecognizer'
+import { useListening } from '../audio/useListening'
+import { ListeningPanel } from '../components/listening/ListeningPanel'
+import { FeedbackBanner } from '../components/practice/FeedbackBanner'
 import { NoteTimeline } from '../components/timeline/NoteTimeline'
 import { STANDARD_TUNING, getTuning } from '../music/tuning'
 import { describeNote, noteAccessibleLabel } from '../songs/describeNote'
@@ -14,6 +18,8 @@ import {
   isLastNote,
   practiceReducer,
 } from '../practice/practiceReducer'
+import { useErrorSoundSetting, useMicBoostSetting } from '../practice/usePracticeSettings'
+import { midiToNoteName } from '../music/pitch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
 
@@ -38,11 +44,47 @@ export function PracticePage() {
   return <PracticeView key={song.id} song={song} />
 }
 
+/** At most one error sound in this period, even if several wrong notes are played quickly. */
+const ERROR_SOUND_COOLDOWN_MS = 800
+
 function PracticeView({ song }: { song: Song }) {
-  const [practice, dispatch] = useReducer(practiceReducer, song.notes.length, createPracticeState)
+  const [practice, dispatch] = useReducer(practiceReducer, song.notes.map((n) => n.midi), createPracticeState)
+  const [errorSound, setErrorSound] = useErrorSoundSetting()
+  const [boost, setBoost] = useMicBoostSetting()
+
+  const handleNoteEvents = useCallback((events: NoteEvent[]) => {
+    for (const event of events) dispatch({ type: 'noteEvent', event })
+  }, [])
+  const listening = useListening(handleNoteEvents)
+  const { resetNotes, setTarget, playErrorSound } = listening
+  const isListening = listening.status === 'listening' || listening.status === 'calibrating'
+  const micActive = isListening || listening.status === 'starting'
+
+  // Every position change (a correct note, or Back/Next/Restart/jump): ignore any note still
+  // ringing, so it can't count for the new target, and tell the detector what to listen for.
+  // The microphone keeps running.
+  const targetMidi = practice.completed ? null : practice.targets[practice.currentIndex]
+  useEffect(() => {
+    resetNotes({ requireFreshOnset: true })
+    setTarget(targetMidi)
+  }, [practice.positionVersion, targetMidi, resetNotes, setTarget])
+
+  // One short sound per confirmed wrong note. Never a sound for correct notes.
+  const lastErrorSound = useRef(-Infinity)
+  useEffect(() => {
+    if (practice.feedback.kind !== 'incorrect' || !errorSound) return
+    const now = performance.now()
+    if (now - lastErrorSound.current < ERROR_SOUND_COOLDOWN_MS) return
+    if (playErrorSound()) lastErrorSound.current = now
+    // Only a new feedback (feedbackId) should trigger the sound.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practice.feedbackId])
+
   const tuning = getTuning(song.tuningId) ?? STANDARD_TUNING
   const note = song.notes[practice.currentIndex]
   const text = describeNote(note)
+  const upcoming = song.notes.slice(practice.currentIndex + 1, practice.currentIndex + 5)
+  const heard = listening.reading?.reliable && listening.reading.midi !== null ? listening.reading.midi : null
 
   return (
     <div className={`page ${styles.layout}`}>
@@ -54,17 +96,25 @@ function PracticeView({ song }: { song: Song }) {
       </header>
 
       {/* Announces the new target to screen readers whenever the position changes. */}
-      <p role="status" className="visually-hidden">
+      <p role="status" className="visually-hidden" data-testid="position-status">
         {noteAccessibleLabel(note, song.notes.length)}
         {isLastNote(practice) ? '. Last note.' : ''}
       </p>
 
       <section className={`card ${styles.target}`} aria-labelledby="target-heading">
+        <FeedbackBanner practice={practice} notes={song.notes} listening={isListening} />
         <h2 id="target-heading" className={styles.targetHeading}>
-          Play next
+          {practice.completed ? 'Last note' : 'Play next'}
         </h2>
         <p className={styles.number} data-testid="expected-number">
           {text.number}
+        </p>
+        <p className={styles.upcoming} data-testid="upcoming">
+          {practice.completed
+            ? ''
+            : upcoming.length > 0
+              ? <>Then: <strong>{upcoming.map((n) => describeNote(n).number).join(' · ')}</strong></>
+              : 'Last note of the song'}
         </p>
         <p className={styles.targetDetails}>
           <span>{text.position}</span>
@@ -72,10 +122,18 @@ function PracticeView({ song }: { song: Song }) {
             Note <strong>{text.noteName}</strong> · {text.frequency}
           </span>
         </p>
+        <p className={styles.micLine} data-testid="mic-line">
+          <span aria-hidden="true">🎤 </span>
+          {listening.status === 'listening' && <>Listening{heard !== null && <> · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong></>}</>}
+          {listening.status === 'calibrating' && 'Measuring background noise… keep quiet'}
+          {listening.status === 'starting' && 'Starting the microphone…'}
+          {listening.status === 'idle' && 'Microphone off. Tap “Listen” to start.'}
+          {listening.status === 'error' && 'Microphone not available. See “Listening” below.'}
+        </p>
         <Fretboard position={note.position} tuning={tuning} />
       </section>
 
-      <div className={styles.controls} role="group" aria-label="Song position">
+      <div className={styles.controls} role="group" aria-label="Practice controls">
         <button
           type="button"
           className="button"
@@ -84,31 +142,46 @@ function PracticeView({ song }: { song: Song }) {
         >
           <span aria-hidden="true">◀</span> Back
         </button>
+        {micActive ? (
+          <button type="button" className="button" onClick={listening.stop}>
+            <span aria-hidden="true">❚❚</span> Pause
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => listening.start({ boost })}
+          >
+            <span aria-hidden="true">🎤</span> Listen
+          </button>
+        )}
         <button
           type="button"
-          className="button button-primary"
+          className="button"
           onClick={() => dispatch({ type: 'next' })}
           disabled={isLastNote(practice)}
         >
-          Next <span aria-hidden="true">▶</span>
+          <span aria-hidden="true">▶</span> Next
         </button>
         <button
           type="button"
           className="button"
           onClick={() => dispatch({ type: 'reset' })}
-          disabled={isFirstNote(practice)}
+          disabled={isFirstNote(practice) && !practice.completed}
         >
           <span aria-hidden="true">↺</span> Restart
         </button>
       </div>
 
-      <section className={`notice ${styles.listening}`} aria-labelledby="listening-heading">
-        <h2 id="listening-heading">Listening</h2>
-        <p>
-          Listening through the microphone is not available yet (it is the next development phase). For now, read
-          the notes and move through the song with the buttons or by choosing a note below.
-        </p>
-      </section>
+      <div className={styles.listening}>
+        <ListeningPanel
+          listening={listening}
+          errorSound={errorSound}
+          onErrorSoundChange={setErrorSound}
+          boost={boost}
+          onBoostChange={setBoost}
+        />
+      </div>
 
       <section className={styles.timeline} aria-labelledby="timeline-heading">
         <h2 id="timeline-heading">All notes</h2>
