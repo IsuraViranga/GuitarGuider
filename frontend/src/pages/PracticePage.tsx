@@ -5,6 +5,8 @@ import { Fretboard } from '../components/fretboard/Fretboard'
 import type { DetectedEvent } from '../audio/pitchTracker'
 import { useListening } from '../audio/useListening'
 import { ListeningPanel } from '../components/listening/ListeningPanel'
+import { Celebration } from '../components/decor/Celebration'
+import { LevelBars } from '../components/decor/LevelBars'
 import { FeedbackBanner } from '../components/practice/FeedbackBanner'
 import { NoteTimeline } from '../components/timeline/NoteTimeline'
 import { STANDARD_TUNING, getTuning } from '../music/tuning'
@@ -127,6 +129,7 @@ function PracticeView({ song }: { song: Song }) {
 
   return (
     <div className={`page ${styles.layout}`}>
+      {practice.completed && <Celebration key={practice.feedbackId} />}
       <header className={styles.header}>
         <h1 className={styles.title}>{song.title}</h1>
         <p className={styles.progress} data-testid="progress">
@@ -213,7 +216,13 @@ function PracticeView({ song }: { song: Song }) {
         )}
         <p className={styles.micLine} data-testid="mic-line">
           <span aria-hidden="true">🎤 </span>
-          {listening.status === 'listening' && <>Listening{heard !== null && <> · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong></>}</>}
+          {listening.status === 'listening' && (
+            <>
+              Listening
+              <LevelBars rms={listening.reading?.rms ?? 0} />
+              {heard !== null && <> · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong></>}
+            </>
+          )}
           {listening.status === 'calibrating' && 'Measuring background noise… keep quiet'}
           {listening.status === 'starting' && 'Starting the microphone…'}
           {listening.status === 'idle' && 'Microphone off. Tap “Listen” to start.'}

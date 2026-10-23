@@ -8,7 +8,10 @@ import { normalizeForSearch } from './text'
 import type { Song } from './types'
 
 export type SongSummary = Pick<Song, 'id' | 'title' | 'description' | 'difficulty' | 'source'> & {
+  /** Steps in the song (single notes and chords). */
   noteCount: number
+  /** How many of those steps are chords. */
+  chordCount: number
 }
 
 export type NewSong = Omit<Song, 'id' | 'source'>
@@ -22,7 +25,7 @@ export interface SongRepository {
 const IMPORTED_SONGS_KEY = 'guitar-practice:imported-songs:v1'
 
 function toSummary({ id, title, description, difficulty, source, notes }: Song): SongSummary {
-  return { id, title, description, difficulty, source, noteCount: notes.length }
+  return { id, title, description, difficulty, source, noteCount: notes.length, chordCount: notes.filter((n) => n.chord).length }
 }
 
 /**

@@ -1,0 +1,83 @@
+/* Stage banner: text on the left, Melantha on the right, a glowing guitar behind the glass. */
+.banner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: var(--space-3);
+  min-height: 190px;
+  padding: var(--space-5) var(--space-4) 0;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  background:
+    radial-gradient(22rem 14rem at 80% 20%, rgb(124 92 255 / 0.35), transparent 70%),
+    radial-gradient(18rem 12rem at 15% 100%, rgb(245 165 36 / 0.22), transparent 70%),
+    linear-gradient(135deg, rgb(18 15 26 / 0.85), rgb(11 9 16 / 0.85));
+}
+
+.bannerGuitar {
+  position: absolute;
+  left: 40%;
+  top: -40px;
+  height: 330px;
+  transform: rotate(32deg);
+  opacity: 0.55;
+}
+
+.bannerText {
+  position: relative;
+  align-self: center;
+  padding-bottom: var(--space-4);
+}
+
+.bannerText h1 {
+  font-size: clamp(2.2rem, 10vw, 3rem);
+  text-transform: uppercase;
+  margin-bottom: var(--space-1);
+  text-shadow: 0 0 28px rgb(245 165 36 / 0.35);
+}
+
+.bannerText p {
+  margin: 0;
+}
+
+.bannerText .kicker {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+  margin-bottom: var(--space-1);
+}
+
+.bannerPhoto {
+  position: relative;
+  width: 120px;
+  height: auto;
+  -webkit-mask-image: radial-gradient(ellipse 60% 75% at 50% 45%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 60% 75% at 50% 45%, #000 55%, transparent 100%);
+}
+
+@media (min-width: 720px) {
+  .banner {
+    min-height: 230px;
+    padding: var(--space-6) var(--space-6) 0;
+  }
+
+  .bannerPhoto {
+    width: 170px;
+  }
+
+  .bannerGuitar {
+    left: 45%;
+    height: 420px;
+  }
+}
+
+
+.noPhoto {
+  grid-template-columns: 1fr;
+  min-height: 150px;
+  padding-bottom: var(--space-2);
+}

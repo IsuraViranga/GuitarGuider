@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { STANDARD_TUNING } from '../music/tuning'
 import { notesFromPositions } from '../songs/validation'
+import { HeroSlideshow } from './decor/HeroSlideshow'
 import { Fretboard } from './fretboard/Fretboard'
 import { firstVisibleFret } from './fretboard/fretWindow'
 import { NoteTimeline } from './timeline/NoteTimeline'
@@ -115,5 +116,35 @@ describe('FeedbackBanner', () => {
     render(<FeedbackBanner practice={state} notes={notes} listening onRestart={onRestart} />)
     await userEvent.click(screen.getByRole('button', { name: /Play again/ }))
     expect(onRestart).toHaveBeenCalled()
+  })
+})
+
+describe('HeroSlideshow', () => {
+  const slides = [
+    { src: 'a.jpg', alt: 'Photo A', caption: 'A', focus: 'center' },
+    { src: 'b.jpg', alt: 'Photo B', caption: 'B', focus: 'center' },
+  ]
+
+  it('shows one photo at a time and moves on by itself', () => {
+    vi.useFakeTimers()
+    try {
+      render(<HeroSlideshow slides={slides} />)
+      expect(screen.getByRole('img', { name: 'Photo A' })).toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: 'Photo B' })).not.toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(6000))
+      expect(screen.getByRole('img', { name: 'Photo B' })).toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: 'Photo A' })).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('can be paused, and the dots choose a photo', async () => {
+    const user = userEvent.setup()
+    render(<HeroSlideshow slides={slides} />)
+    await user.click(screen.getByRole('button', { name: 'Pause photos' }))
+    expect(screen.getByRole('button', { name: 'Play photos' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show photo 2 of 2: B' }))
+    expect(screen.getByRole('img', { name: 'Photo B' })).toBeInTheDocument()
   })
 })

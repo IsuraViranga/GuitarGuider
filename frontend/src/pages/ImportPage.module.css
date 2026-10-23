@@ -1,9 +1,214 @@
-.bigLabel {
-  font-size: 1.15rem;
+.intro {
+  margin-bottom: 0;
+  font-size: 1.05rem;
 }
 
+/* The three kinds of song, each with a tiny sample; the recognised one lights up. */
+.formats {
+  list-style: none;
+  margin-bottom: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.format {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgb(40 32 54 / 0.6), rgb(20 16 28 / 0.7));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+
+.formatActive {
+  border-color: var(--color-accent);
+  box-shadow: var(--glow-accent), inset 0 0 20px rgb(245 165 36 / 0.12);
+  transform: translateY(-2px);
+}
+
+.formatName {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+
+.formatActive .formatName {
+  color: var(--color-accent-strong);
+}
+
+.formatSample {
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.35);
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: hidden;
+}
+
+/* 1 Paste - 2 Check - 3 Practise, joined by a line that fills in amber. */
+.progress {
+  list-style: none;
+  margin-bottom: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  position: relative;
+}
+
+.progress::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 16.7%;
+  right: 16.7%;
+  height: 2px;
+  background: var(--color-border);
+}
+
+.progressStep {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.progressDot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.progressDone {
+  color: var(--color-accent-strong);
+}
+
+.progressDone .progressDot {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--glow-accent);
+}
+
+/* The form as a glowing glass "studio" panel. */
+.studio {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-5) var(--space-4);
+  border-color: rgb(245 165 36 / 0.25);
+}
+
+.studio::before {
+  content: '';
+  position: absolute;
+  inset: -30% -20% auto auto;
+  width: 60%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(124 92 255 / 0.25), transparent 65%);
+  pointer-events: none;
+}
+
+.studio > * {
+  position: relative;
+}
+
+.bigLabel {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Paste box like lined music paper, with an amber margin line. */
 .paste {
   min-height: 12rem;
+  line-height: 28px;
+  padding: 4px var(--space-3) 4px calc(var(--space-3) + 10px);
+  background:
+    linear-gradient(90deg, transparent 10px, rgb(245 165 36 / 0.5) 10px 12px, transparent 12px),
+    repeating-linear-gradient(180deg, transparent 0 27px, rgb(255 255 255 / 0.06) 27px 28px),
+    rgb(10 8 14 / 0.85);
+  background-attachment: local;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: var(--radius);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.paste:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(245 165 36 / 0.2), var(--glow-accent);
+}
+
+.file {
+  padding: var(--space-2);
+  border: 1px dashed rgb(245 165 36 / 0.45);
+  border-radius: var(--radius);
+  background: rgb(245 165 36 / 0.05);
+  color: var(--color-muted);
+  max-width: 100%;
+}
+
+.file::file-selector-button {
+  margin-right: var(--space-3);
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: rgb(245 165 36 / 0.12);
+  color: var(--color-accent-strong);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (min-width: 720px) {
+  .formats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .format {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: var(--space-3);
+  }
+
+  .studio {
+    padding: var(--space-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .format,
+  .progressDot {
+    transition: none;
+  }
+
+  .formatActive {
+    transform: none;
+  }
 }
 
 .detected {

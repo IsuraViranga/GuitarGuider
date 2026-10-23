@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import avatar from '../assets/brand/melantha-avatar.jpg'
+import { GuitarArt } from '../components/decor/GuitarArt'
 import { APP_NAME } from './usePageTitle'
 
 export function Layout() {
@@ -24,6 +25,10 @@ export function Layout() {
 
   return (
     <>
+      {/* Stage decoration behind every page: a glowing guitar seen through the glass cards. */}
+      <div className="stage-backdrop" aria-hidden="true">
+        <GuitarArt className="stage-guitar" />
+      </div>
       <a className="skip-link" href="#main">
         Skip to main content
       </a>

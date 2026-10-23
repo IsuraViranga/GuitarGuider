@@ -45,43 +45,356 @@
   max-width: 34rem;
 }
 
-/* The concert photo fades into the stage background on every side, like a spotlit figure. */
-.heroPhoto {
-  justify-self: center;
-  width: min(60%, 230px);
-  height: auto;
-  margin-bottom: -2px;
-  -webkit-mask-image: radial-gradient(ellipse 62% 70% at 50% 42%, #000 55%, transparent 100%);
-  mask-image: radial-gradient(ellipse 62% 70% at 50% 42%, #000 55%, transparent 100%);
+.sectionTitle {
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
 }
 
-.steps ol {
+.section .kicker,
+.numbers .kicker {
+  color: var(--color-accent-strong);
+}
+
+/* How it works: three steps joined by a glowing "string" (vertical on phones, across on wide screens). */
+.steps {
+  position: relative;
+  list-style: none;
   margin: 0;
-  padding-left: var(--space-5);
-}
-
-.steps li + li {
-  margin-top: var(--space-2);
-}
-
-.meet {
+  padding: 0;
   display: grid;
-  grid-template-columns: 96px 1fr;
+  gap: var(--space-3);
+}
+
+.steps::before {
+  content: '';
+  position: absolute;
+  top: 36px;
+  bottom: 36px;
+  left: calc(var(--space-4) + 27px);
+  width: 2px;
+  background: linear-gradient(180deg, var(--color-accent), var(--color-stage), var(--color-stage-blue));
+  box-shadow: 0 0 10px rgb(245 165 36 / 0.5);
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
   gap: var(--space-4);
   align-items: center;
 }
 
-.meetPhoto {
-  width: 96px;
-  height: 96px;
+.stepIcon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  object-fit: cover;
+  background: radial-gradient(circle at 35% 30%, #3a2a12, #17131f 70%);
   border: 2px solid var(--color-accent);
-  box-shadow: var(--glow-accent);
+  box-shadow: var(--glow-accent), inset 0 0 12px rgb(245 165 36 / 0.25);
+  color: var(--color-accent-strong);
 }
 
-.meet p {
+.stepIcon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stepNumber {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #5b3fd9;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgb(124 92 255 / 0.6);
+}
+
+.stepTitle {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+
+.stepText {
+  display: block;
+  color: var(--color-muted);
+}
+
+/* How the numbers work. */
+.stringWord {
+  color: var(--color-accent-strong);
+}
+
+.fretWord {
+  color: #b9a6ff;
+}
+
+.anatomy {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+  margin: var(--space-4) 0;
+}
+
+.digits {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.digit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.digitBox {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 92px;
+  border-radius: 16px;
+  font-family: var(--font-display);
+  font-size: 3.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stringBox {
+  background: linear-gradient(160deg, var(--color-accent-strong), #c97a0c);
+  color: var(--color-on-accent);
+  box-shadow: 0 8px 26px rgb(245 165 36 / 0.4);
+}
+
+.fretBox {
+  background: linear-gradient(160deg, #9b84ff, #5236d6);
+  color: #fff;
+  box-shadow: 0 8px 26px rgb(124 92 255 / 0.45);
+}
+
+.digitLabel {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.anatomyBoard {
+  width: 100%;
+  max-width: 460px;
+}
+
+.examples {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+/* A chord example takes a whole row so its numbers stay on one line. */
+.wide {
+  grid-column: 1 / -1;
+}
+
+.exampleCode {
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-accent-strong);
+  background: none;
+  padding: 0;
+}
+
+.subTitle {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-2);
+}
+
+/* The six strings, drawn thin to thick like the real guitar. */
+.strings {
+  list-style: none;
   margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--fb-wood-edge), var(--fb-wood) 30%, var(--fb-wood) 70%, var(--fb-wood-edge));
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stringRow {
+  display: grid;
+  grid-template-columns: 28px 1fr 7.5rem;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.stringNumber {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid var(--fb-fret);
+  color: var(--fb-nut);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.stringLine {
+  display: block;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #fff, var(--fb-string) 50%, #8f8a83);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+.stringLine.wound {
+  background: repeating-linear-gradient(90deg, var(--fb-string-wound) 0 2px, #8a5f32 2px 3px);
+}
+
+.stringNote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  color: var(--fb-nut);
+  font-weight: 700;
+}
+
+.stringHint {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+/* Melantha's corner: a stage photo on top (side by side on wide screens) and numbered pick tips. */
+.tips {
+  display: grid;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid rgb(245 165 36 / 0.3);
+  background:
+    radial-gradient(22rem 14rem at 100% 100%, rgb(124 92 255 / 0.28), transparent 70%),
+    linear-gradient(160deg, rgb(58 42 18 / 0.75), rgb(18 14 26 / 0.85));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.45), var(--glow-accent);
+}
+
+.tipsPhoto {
+  position: relative;
+  margin: 0;
+}
+
+.tipsPhoto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 372 / 251;
+  object-fit: cover;
+  /* Fade the photo into the card so it feels part of the stage (no hard edge). */
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
+  mask-image: linear-gradient(180deg, #000 55%, transparent);
+}
+
+.tipsBody {
+  position: relative;
+  padding: 0 var(--space-4) var(--space-5);
+  margin-top: calc(var(--space-5) * -1);
+}
+
+.tipsBody .kicker {
+  color: var(--color-accent-strong);
+}
+
+.tipsTitle {
+  font-size: 1.8rem;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+.tipList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tip {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.tip strong {
+  color: var(--color-accent-strong);
+}
+
+.tipPick {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 8px rgb(245 165 36 / 0.5));
+}
+
+.tipPick svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tipPick span {
+  position: relative;
+  margin-top: -4px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-on-accent);
 }
 
 @media (min-width: 720px) {
@@ -90,8 +403,51 @@
     padding: var(--space-6) var(--space-6) 0;
   }
 
-  .heroPhoto {
-    width: 100%;
-    max-width: 300px;
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .steps::before {
+    top: calc(var(--space-4) + 27px);
+    bottom: auto;
+    left: 16%;
+    right: 16%;
+    width: auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-accent), var(--color-stage), var(--color-stage-blue));
+  }
+
+  .step {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    align-content: start;
+  }
+
+  .anatomy {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+
+  .tips {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+
+  .tipsPhoto {
+    height: 100%;
+  }
+
+  .tipsPhoto img {
+    height: 100%;
+    aspect-ratio: auto;
+    object-position: 30% center;
+    -webkit-mask-image: linear-gradient(90deg, #000 60%, transparent);
+    mask-image: linear-gradient(90deg, #000 60%, transparent);
+  }
+
+  .tipsBody {
+    align-self: center;
+    margin-top: 0;
+    padding: var(--space-5);
   }
 }

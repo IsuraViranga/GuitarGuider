@@ -1,0 +1,23 @@
+.bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  margin: 0 var(--space-1);
+  vertical-align: -2px;
+}
+
+.bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-accent-strong), var(--color-stage));
+  transform-origin: bottom;
+  transition: transform 0.1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}

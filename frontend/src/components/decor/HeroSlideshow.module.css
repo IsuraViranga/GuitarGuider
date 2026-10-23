@@ -1,0 +1,156 @@
+.show {
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(70%, 260px);
+  padding-bottom: var(--space-3);
+}
+
+/* Portrait frame that fades into the stage on every side, like a spotlit figure. */
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  -webkit-mask-image: radial-gradient(ellipse 50% 52% at 50% 46%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 52% at 50% 46%, #000 55%, transparent 100%);
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.12);
+  transition:
+    opacity 1.4s ease,
+    transform 7s ease-out;
+}
+
+/* The showing photo fades in and slowly drifts closer. */
+.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* A stage light beam sweeping across the photo. */
+.beam {
+  position: absolute;
+  inset: -20% -60%;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    rgb(255 210 140 / 0.18) 48%,
+    rgb(160 140 255 / 0.12) 54%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  animation: sweep 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-35%);
+  }
+  50% {
+    transform: translateX(35%);
+  }
+  100% {
+    transform: translateX(-35%);
+  }
+}
+
+/* Sits just under the photo, overlapping its faded edge. */
+.caption {
+  position: relative;
+  width: 92%;
+  margin: -2.6rem 0 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 10px;
+  background: rgb(13 11 18 / 0.7);
+  border: 1px solid rgb(245 165 36 / 0.45);
+  color: var(--color-accent-strong);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgb(245 165 36 / 0.35);
+  animation: caption-in 0.9s ease both;
+}
+
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Small visible dots inside full-size touch targets. */
+.dot,
+.pause {
+  display: grid;
+  place-items: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--color-muted);
+}
+
+.dot::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  transition: width 0.3s, background 0.3s;
+}
+
+.dotActive::before {
+  width: 26px;
+  background: var(--color-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.pause {
+  font-size: 0.75rem;
+}
+
+.pause:hover,
+.dot:hover::before {
+  color: var(--color-accent-strong);
+}
+
+@media (min-width: 720px) {
+  .show {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo {
+    transition: opacity 0.01s;
+    transform: none;
+  }
+
+  .beam,
+  .caption {
+    animation: none;
+  }
+}

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
+import { PageBanner } from '../components/decor/PageBanner'
 import { describeNote, songSourceLabel } from '../songs/describeNote'
 import { getTuning } from '../music/tuning'
 import { useSong } from '../songs/useSong'
@@ -20,8 +21,9 @@ export function SongDetailPage() {
 
   return (
     <div className="page stack">
-      <h1>{song.title}</h1>
-      {song.description && <p>{song.description}</p>}
+      <PageBanner kicker="Song" title={song.title} headingId="song-heading">
+        {song.description && <p>{song.description}</p>}
+      </PageBanner>
       <p className="muted">
         {song.notes.length} notes · {getTuning(song.tuningId)?.name ?? song.tuningId}
         {song.difficulty && ` · ${song.difficulty}`} · {songSourceLabel(song.source)}

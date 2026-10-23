@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
+import { PageBanner } from '../components/decor/PageBanner'
 import { describeNote } from '../songs/describeNote'
 import {
   checkImportFile,
@@ -30,6 +31,12 @@ const EXAMPLE_CHART = [
   'Then a little faster, keeping time',
 ].join('\n')
 
+const FORMAT_CARDS: { format: SongFileFormat; name: string; sample: string }[] = [
+  { format: 'chord-chart', name: 'Chord chart', sample: 'C        G\nWords of the song' },
+  { format: 'ascii-tab', name: 'Guitar tab', sample: 'e|--0--3--|\nB|--1-----|' },
+  { format: 'guitar-numbers', name: "Instructor's numbers", sample: '10 11 13\n[53 42 30 21 10]' },
+]
+
 function issueText(issue: SongIssue): string {
   const where = [issue.line && `Line ${issue.line}`, issue.column && `column ${issue.column}`].filter(Boolean)
   return where.length > 0 ? `${where.join(', ')}: ${issue.message}` : issue.message
@@ -50,6 +57,9 @@ export function ImportPage() {
 
   const detected = text.trim() ? detectFormat(text) : null
   const format = formatOverride === 'auto' ? detected : formatOverride
+  let step = 0
+  if (result?.ok) step = 2
+  else if (text.trim()) step = 1
 
   // Any edit makes the previous check out of date.
   const edited = <T,>(setter: (value: T) => void) => (value: T) => {
@@ -104,14 +114,46 @@ export function ImportPage() {
 
   return (
     <div className="page stack">
-      <h1>Add a song</h1>
-      <p>
-        Copy a song from any website and paste it below: a <strong>chord chart</strong> (chord names above the words), a{' '}
-        <strong>guitar tab</strong>, or your instructor&apos;s numbers. The app works out which it is and turns it into
-        guitar numbers for you.
+      <PageBanner kicker="Bring your own songs" title="Add a song" headingId="import-heading" />
+      <p className={styles.intro}>
+        Copy a song from any website and paste it below. The app works out which kind it is and turns it into guitar
+        numbers for you.
       </p>
 
-      <form className="stack" onSubmit={handleCheck} noValidate>
+      <ul className={styles.formats} aria-label="Kinds of song you can paste">
+        {FORMAT_CARDS.map((card) => {
+          const active = format === card.format
+          return (
+            <li key={card.format} className={`${styles.format} ${active ? styles.formatActive : ''}`}>
+              <span className={styles.formatName}>
+                {active && <span aria-hidden="true">✓ </span>}
+                {card.name}
+                {active && <span className="visually-hidden"> (recognised)</span>}
+              </span>
+              <pre className={styles.formatSample} aria-hidden="true">
+                {card.sample}
+              </pre>
+            </li>
+          )
+        })}
+      </ul>
+
+      <ol className={styles.progress} aria-label="Steps">
+        {['Paste', 'Check', 'Practise'].map((label, i) => {
+          return (
+            <li
+              key={label}
+              className={`${styles.progressStep} ${i <= step ? styles.progressDone : ''}`}
+              aria-current={i === step ? 'step' : undefined}
+            >
+              <span className={styles.progressDot}>{i + 1}</span>
+              {label}
+            </li>
+          )
+        })}
+      </ol>
+
+      <form className={`card stack ${styles.studio}`} onSubmit={handleCheck} noValidate>
         <div className="field">
           <label htmlFor="import-text" className={styles.bigLabel}>
             Paste the song here
@@ -162,7 +204,7 @@ export function ImportPage() {
 
         <div className="field">
           <label htmlFor="import-file">Or choose a text file</label>
-          <input id="import-file" type="file" accept=".txt,.tab,.cho,.chopro,.chordpro,.pro,text/plain" onChange={handleFile} />
+          <input id="import-file" className={styles.file} type="file" accept=".txt,.tab,.cho,.chopro,.chordpro,.pro,text/plain" onChange={handleFile} />
           {fileError && (
             <p role="alert" className="error-box">
               {fileError}

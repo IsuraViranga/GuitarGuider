@@ -494,6 +494,26 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - Chart parsing: one blank line allowed between chords and words; labels/separators never taken as words.
 - Next: 4.4 Guitar Pro / MusicXML (alphaTab), 4.5 tuning on real strum recordings.
 
+### 8h. Look and feel (Melantha Guitar Academy)
+
+- Dark stage theme only (amber accent, purple/blue glows, Oswald headings), branded for the artist
+  Melantha with his photos in `src/assets/brand/`.
+- A glowing guitar drawing (`decor/GuitarArt`) sits fixed behind every page; cards are frosted glass
+  (`backdrop-filter`) so the guitar shows through. The stage gradient is on `html` so the backdrop
+  (z-index -1) is visible.
+- `PageBanner` on Songs (with photo), Add a song and Song details; Songs is a numbered "set list" with
+  pick-shaped difficulty and chord/note counts.
+- Song cards: amber album-style cover tile with the track number, guitar-string strip, Sinhala badge,
+  compact glass "Practise" button.
+- Home: `HeroSlideshow` cross-fades two photos (slow zoom, sweeping stage light, motivational caption;
+  pause button and dots, no auto-play with reduced motion). "How it works" as three icon steps joined
+  by a glowing string; "How the numbers work" shows 13 split into a STRING and a FRET digit, a fretboard,
+  example tiles and the six strings drawn thin to thick. "Melantha's corner" practice tips with photo.
+- Add a song: three format tiles with tiny samples (the recognised one lights up), a 1-2-3
+  Paste/Check/Practise progress line, the form as a glass "studio" panel with a lined-paper paste box.
+- Practice: small level bars move with the microphone; a short pick shower on song completion.
+  All decoration is `aria-hidden`, and motion is off with `prefers-reduced-motion`.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.
