@@ -115,21 +115,36 @@ test('shows the live note while listening, and pausing releases the microphone',
   await expect(page.getByTestId('live-note')).toHaveCount(0)
 })
 
-test('saves a 6-second test recording as a WAV file', async ({ page }, testInfo) => {
+test('records a practice run and saves sound + decision log on the computer', async ({ page }) => {
+  const { existsSync, readFileSync, rmSync } = await import('node:fs')
+  const { resolve } = await import('node:path')
+  const { decodeWav } = await import('../../src/audio/wav')
+
   await page.goto(SONG)
   await startListening(page)
   await expect(page.getByText('Listening. Play the note.')).toBeVisible(LOOP)
-  await page.getByText('Detection details (for testing)').click()
+  await page.getByRole('button', { name: /Record this practice/ }).click()
+  await expect(page.getByText(/Recording 0:0\d of 2:00/)).toBeVisible()
+  await page.waitForTimeout(4500) // long enough to hear one G4 pluck
+  await page.getByRole('button', { name: /Stop and save/ }).click()
 
-  const download = page.waitForEvent('download')
-  await page.getByRole('button', { name: /Save a 6-second test recording/ }).click()
-  const file = await download
-  expect(file.suggestedFilename()).toMatch(/^guitar-test-\d{8}-\d{6}\.wav$/)
-  const path = testInfo.outputPath('recording.wav')
-  await file.saveAs(path)
-  const { statSync } = await import('node:fs')
-  expect(statSync(path).size).toBeGreaterThan(6 * 44100 * 4) // 6 s of 32-bit samples
-  await expect(page.getByText(/Saved “guitar-test-.*\.wav”/)).toBeVisible()
+  const saved = page.getByText(/Saved on your computer: recordings\/practice-\d{8}-\d{6}\.wav and recordings\/practice-\d{8}-\d{6}\.json/)
+  await expect(saved).toBeVisible()
+  const names = (await saved.textContent())!.match(/practice-\d{8}-\d{6}\.(wav|json)/g)!
+  const paths = names.map((name) => resolve('..', 'recordings', name))
+  try {
+    for (const path of paths) expect(existsSync(path)).toBe(true)
+    const wavBytes = readFileSync(paths[0])
+    const { samples, sampleRate } = decodeWav(wavBytes.buffer.slice(wavBytes.byteOffset, wavBytes.byteOffset + wavBytes.byteLength))
+    expect(samples.length / sampleRate).toBeGreaterThan(4)
+    const log = JSON.parse(readFileSync(paths[1], 'utf8'))
+    expect(log.frames.length).toBeGreaterThan(100)
+    expect(log.frames.some((f: { onset: boolean }) => f.onset)).toBe(true)
+    expect(log.events.some((e: { kind: string }) => e.kind === 'noteStart')).toBe(true)
+    expect(log.events.some((e: { kind: string; feedback?: string }) => e.kind === 'practice' && e.feedback === 'incorrect')).toBe(true)
+  } finally {
+    for (const path of paths) rmSync(path, { force: true })
+  }
 })
 
 test('the bottom bar starts listening; the note card shows mic status and the next notes', async ({ page }) => {

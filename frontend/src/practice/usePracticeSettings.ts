@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import type { PracticeMode } from './practiceReducer'
 
 // Per-device practice preferences, remembered in this browser.
 
 const ERROR_SOUND_KEY = 'guitar-practice:error-sound'
 const BOOST_KEY = 'guitar-practice:mic-boost'
+const MODE_KEY = 'guitar-practice:mode'
 
 function readBoolean(key: string, fallback: boolean): boolean {
   try {
@@ -42,6 +44,28 @@ export function useMicBoostSetting(): [boolean, (value: boolean) => void] {
     (value: boolean) => {
       setEnabled(value)
       writeBoolean(BOOST_KEY, value)
+    },
+  ]
+}
+
+/** Note by note (stops on each missed note) or play through (keeps up with fast playing). */
+export function usePracticeModeSetting(): [PracticeMode, (mode: PracticeMode) => void] {
+  const [mode, setMode] = useState<PracticeMode>(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) === 'flow' ? 'flow' : 'strict'
+    } catch {
+      return 'strict'
+    }
+  })
+  return [
+    mode,
+    (value: PracticeMode) => {
+      setMode(value)
+      try {
+        localStorage.setItem(MODE_KEY, value)
+      } catch {
+        // Not saved; still applies on this page.
+      }
     },
   ]
 }

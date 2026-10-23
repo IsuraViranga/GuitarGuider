@@ -1,5 +1,6 @@
 // Live listening in the browser: microphone → AnalyserNode → PitchTracker, ~40 times a second.
-// Nothing is recorded: each 43 ms frame is analysed and immediately discarded.
+// Nothing is recorded: each 43 ms frame is analysed and immediately discarded, unless the
+// student explicitly starts a diagnostic practice recording.
 
 import { MicrophoneError, requestMicrophone, type MicrophoneErrorKind } from './microphone'
 import type { NoteEvent } from './noteRecognizer'
@@ -9,11 +10,11 @@ export const FRAME_SIZE = 2048
 export const ANALYSIS_INTERVAL_MS = 25
 
 /** The wrong-note sound: short, and two clashing tones so it is not heard as a guitar note. */
-const ERROR_SOUND_SECONDS = 0.18
+const ERROR_SOUND_SECONDS = 0.12
 const ERROR_SOUND_TONES_HZ = [220, 233.08]
 const ERROR_SOUND_VOLUME = 0.15
 /** Detection pauses while the error sound plays, plus this much for echoes in the room. */
-const ERROR_SOUND_ECHO_MS = 250
+const ERROR_SOUND_ECHO_MS = 120
 
 export type ListeningStatus = 'idle' | 'starting' | 'calibrating' | 'listening' | 'error'
 
@@ -23,6 +24,47 @@ export type ListeningStats = {
   /** Average time to analyse one frame; must stay well below ANALYSIS_INTERVAL_MS. */
   analysisMs: number
   framesPerSecond: number
+}
+
+/** One analysed frame in a practice recording log (times in ms from the recording start). */
+export type LoggedFrame = {
+  t: number
+  hz: number | null
+  clarity: number
+  rms: number
+  midi: number | null
+  reliable: boolean
+  onset: boolean
+  matchedTarget: boolean
+  target: number | null
+  muted?: boolean
+}
+
+export type LoggedEvent = { t: number; kind: string; [key: string]: unknown }
+
+export type PracticeRecording = {
+  samples: Float32Array
+  sampleRate: number
+  log: {
+    createdAt: string
+    userAgent: string
+    sampleRate: number
+    frameSize: number
+    intervalMs: number
+    frames: LoggedFrame[]
+    events: LoggedEvent[]
+  }
+}
+
+type ActiveRecording = {
+  processor: ScriptProcessorNode
+  silent: GainNode
+  chunks: Float32Array[]
+  collected: number
+  maxSamples: number
+  startAudioTime: number | null
+  frames: LoggedFrame[]
+  events: LoggedEvent[]
 }
 
 export type ListeningCallbacks = {
@@ -39,14 +81,18 @@ export class ListeningSession {
   private stream: MediaStream | null = null
   private timer: ReturnType<typeof setInterval> | null = null
   private tracker: PitchTracker | null = null
-  private targetMidi: number | null = null
+  private targets: readonly number[] = []
   private source: MediaStreamAudioSourceNode | null = null
-  /** Ends a test recording early if listening stops while it is running. */
-  private finishRecording: (() => void) | null = null
+  private recording: ActiveRecording | null = null
+  /** A recording that was still running when listening stopped, kept so it can be saved. */
+  private interruptedRecording: PracticeRecording | null = null
+  private lastSampleRate = 48000
   private wakeLock: WakeLockSentinel | null = null
   private lastAudioTime = -1
   /** Audio-clock time (ms) until which the microphone is ignored (while the app makes a sound). */
   private mutedUntil = 0
+  /** True after frames were skipped (while the app made a sound): the next frame resumes after a gap. */
+  private resumingAfterGap = false
   private analysisTimes: number[] = []
   private frameTimes: number[] = []
   private status: ListeningStatus = 'idle'
@@ -92,7 +138,7 @@ export class ListeningSession {
       // The analyser is not connected to the speakers: the student never hears the microphone.
 
       this.tracker = new PitchTracker(context.sampleRate, FRAME_SIZE)
-      this.tracker.setTarget(this.targetMidi)
+      this.tracker.setTargets(this.targets)
       const buffer = new Float32Array(FRAME_SIZE)
       this.lastAudioTime = -1
       this.timer = setInterval(() => this.analyse(analyser, buffer), ANALYSIS_INTERVAL_MS)
@@ -109,51 +155,95 @@ export class ListeningSession {
     this.setStatus('idle')
   }
 
+  get isRecording(): boolean {
+    return this.recording !== null
+  }
+
   /**
-   * Records the raw microphone signal for a few seconds, for checking detection offline.
-   * Only used when the student explicitly asks for a test recording; it is kept in memory
-   * and handed back to the page, never uploaded.
+   * Starts a diagnostic practice recording: the raw microphone sound plus a log of every
+   * reading and decision, so detection can be checked against what was really played.
+   * Only started when the student asks for it; it stays in memory until stopRecording().
    */
-  recordClip(seconds: number): Promise<{ samples: Float32Array; sampleRate: number }> {
+  startRecording(maxSeconds: number): boolean {
     const context = this.context
     const source = this.source
-    if (!context || !source) return Promise.reject(new Error('Start listening first.'))
+    if (!context || !source || this.recording) return false
+    this.interruptedRecording = null
 
     // ScriptProcessorNode is deprecated but supported everywhere and needs no extra file;
-    // it is fine for a short diagnostic recording.
-    const recorder = context.createScriptProcessor(4096, 1, 1)
+    // it is fine for a diagnostic recording.
+    const processor = context.createScriptProcessor(4096, 1, 1)
     const silent = context.createGain()
     silent.gain.value = 0 // must reach the speakers to run, but at zero volume
-    const chunks: Float32Array[] = []
-    const needed = Math.round(seconds * context.sampleRate)
-    let collected = 0
+    const recording: ActiveRecording = {
+      processor,
+      silent,
+      chunks: [],
+      collected: 0,
+      maxSamples: Math.round(maxSeconds * context.sampleRate),
+      startAudioTime: null,
+      frames: [],
+      events: [],
+    }
+    processor.onaudioprocess = (event) => {
+      // The first block started one block before "now" on the audio clock.
+      recording.startAudioTime ??= context.currentTime * 1000 - (event.inputBuffer.duration * 1000)
+      if (recording.collected >= recording.maxSamples) return
+      recording.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)))
+      recording.collected += event.inputBuffer.length
+    }
+    source.connect(processor)
+    processor.connect(silent)
+    silent.connect(context.destination)
+    this.recording = recording
+    return true
+  }
 
-    return new Promise((resolve) => {
-      const finish = () => {
-        this.finishRecording = null
-        recorder.onaudioprocess = null
-        source.disconnect(recorder)
-        recorder.disconnect()
-        silent.disconnect()
-        const samples = new Float32Array(Math.min(collected, needed))
-        let offset = 0
-        for (const chunk of chunks) {
-          const part = chunk.subarray(0, samples.length - offset)
-          samples.set(part, offset)
-          offset += part.length
-        }
-        resolve({ samples, sampleRate: context.sampleRate })
-      }
-      recorder.onaudioprocess = (event) => {
-        chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)))
-        collected += event.inputBuffer.length
-        if (collected >= needed) finish()
-      }
-      this.finishRecording = finish
-      source.connect(recorder)
-      recorder.connect(silent)
-      silent.connect(context.destination)
-    })
+  /** Stops the practice recording and returns the sound and the log (null if none was running). */
+  stopRecording(): PracticeRecording | null {
+    if (!this.recording && this.interruptedRecording) {
+      const kept = this.interruptedRecording
+      this.interruptedRecording = null
+      return kept
+    }
+    const recording = this.recording
+    const context = this.context
+    if (!recording) return null
+    this.recording = null
+    recording.processor.onaudioprocess = null
+    this.source?.disconnect(recording.processor)
+    recording.processor.disconnect()
+    recording.silent.disconnect()
+
+    const samples = new Float32Array(Math.min(recording.collected, recording.maxSamples))
+    let offset = 0
+    for (const chunk of recording.chunks) {
+      const part = chunk.subarray(0, samples.length - offset)
+      samples.set(part, offset)
+      offset += part.length
+    }
+    const start = recording.startAudioTime ?? 0
+    const relative = <T extends { t: number }>(items: T[]) =>
+      items.filter((item) => item.t >= start).map((item) => ({ ...item, t: Math.round(item.t - start) }))
+    return {
+      samples,
+      sampleRate: context?.sampleRate ?? this.lastSampleRate,
+      log: {
+        createdAt: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        sampleRate: context?.sampleRate ?? this.lastSampleRate,
+        frameSize: FRAME_SIZE,
+        intervalMs: ANALYSIS_INTERVAL_MS,
+        frames: relative(recording.frames),
+        events: relative(recording.events),
+      },
+    }
+  }
+
+  /** Adds an app decision (e.g. "correct", "moved to note 5") to the practice recording log. */
+  logEvent(kind: string, data: Record<string, unknown> = {}): void {
+    if (!this.recording || !this.context) return
+    this.recording.events.push({ t: this.context.currentTime * 1000, kind, ...data })
   }
 
   /**
@@ -185,10 +275,13 @@ export class ListeningSession {
     return true
   }
 
-  /** The note the student should play now, so it can be recognised among ringing strings. */
-  setTarget(midi: number | null): void {
-    this.targetMidi = midi
-    this.tracker?.setTarget(midi)
+  /**
+   * The notes the student may play next (current note first), so they can be recognised among
+   * ringing strings. Empty when nothing is expected.
+   */
+  setTargets(midis: readonly number[]): void {
+    this.targets = midis
+    this.tracker?.setTargets(midis)
   }
 
   /** Forget pending note detection, e.g. after the student jumps to another note. */
@@ -203,12 +296,33 @@ export class ListeningSession {
     // Skip if no new audio arrived since the last frame (would count the same sound twice).
     if (context.currentTime === this.lastAudioTime) return
     this.lastAudioTime = context.currentTime
-    if (context.currentTime * 1000 < this.mutedUntil) return
+    if (context.currentTime * 1000 < this.mutedUntil) {
+      this.resumingAfterGap = true
+      this.recording?.frames.push({ t: context.currentTime * 1000, hz: null, clarity: 0, rms: 0, midi: null, reliable: false, onset: false, matchedTarget: false, target: this.targets[0] ?? null, muted: true })
+      return
+    }
 
     const started = performance.now()
     analyser.getFloatTimeDomainData(buffer)
-    const result = tracker.process(buffer, context.currentTime * 1000)
+    const result = tracker.process(buffer, context.currentTime * 1000, { afterGap: this.resumingAfterGap })
+    this.resumingAfterGap = false
     this.recordTiming(started)
+    if (this.recording) {
+      const r = result.reading
+      const round = (value: number, digits: number) => Number(value.toFixed(digits))
+      this.recording.frames.push({
+        t: r.time,
+        hz: r.frequency === null ? null : round(r.frequency, 2),
+        clarity: round(r.clarity, 3),
+        rms: round(r.rms, 5),
+        midi: r.midi === null ? null : round(r.midi, 2),
+        reliable: r.reliable,
+        onset: r.onset,
+        matchedTarget: r.matchedTarget,
+        target: this.targets[0] ?? null,
+      })
+      for (const event of result.events) this.logEventAt(r.time, event.type, { noteId: event.noteId, midi: round(event.midi, 2) })
+    }
 
     if (!result.calibrating && this.status === 'calibrating') this.setStatus('listening')
     this.callbacks.onReading(result.reading, {
@@ -218,6 +332,10 @@ export class ListeningSession {
       framesPerSecond: this.frameTimes.length > 1 ? (1000 * (this.frameTimes.length - 1)) / (this.frameTimes.at(-1)! - this.frameTimes[0]) : 0,
     })
     if (result.events.length > 0) this.callbacks.onNoteEvents(result.events)
+  }
+
+  private logEventAt(t: number, kind: string, data: Record<string, unknown>) {
+    this.recording?.events.push({ t, kind, ...data })
   }
 
   private recordTiming(started: number) {
@@ -250,7 +368,9 @@ export class ListeningSession {
   }
 
   private release() {
-    this.finishRecording?.()
+    // A recording still running when listening stops is kept so it can still be saved.
+    if (this.recording) this.interruptedRecording = this.stopRecording()
+    if (this.context) this.lastSampleRate = this.context.sampleRate
     if (this.timer !== null) clearInterval(this.timer)
     this.timer = null
     document.removeEventListener('visibilitychange', this.handleVisibility)

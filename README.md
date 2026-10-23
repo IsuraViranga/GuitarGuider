@@ -15,6 +15,7 @@ phone's microphone.
 | 1 – Guitar mapping, songs, fretboard, navigation | Done (frontend only) |
 | 2 – Microphone pitch detection | Done (confirmed on a real guitar) |
 | 3 – Guided practice (auto-advance, error sound) | Done; needs real-guitar check |
+| 3.5 – Detection quality on real recordings | Done; needs another real-guitar check |
 | 4–6 | Not started |
 
 ## Requirements

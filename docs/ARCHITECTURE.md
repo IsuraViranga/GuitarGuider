@@ -434,6 +434,26 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - **Practice screen:** Listen/Pause in the bottom bar, the next four notes shown, mic status in the
   note card, so practice needs no scrolling on a phone.
 
+## 8e. Phase 3.5: detection quality on real recordings
+
+- **Diagnostic practice recorder** (`PracticeRecorder`, `ListeningSession.startRecording`): sound +
+  log of every frame and decision; the dev server saves both into `recordings/` (dev-only plugin
+  `frontend/dev/saveRecordingsPlugin.ts`). Recordings are personal and git-ignored.
+- **Measurement** (`src/audio/realRecordings.test.ts`, skipped without recordings): every pluck is
+  labelled with hindsight; reports how many correct plucks are accepted, false acceptances and latency,
+  and replays whole-song practice. Guard rails: ≥ 44/52 correct plucks, ≤ 1 false acceptance,
+  play-through reaches the end of every recorded run.
+- **Findings (5 recordings, Android phone):** string 2 ~70 cents sharp, other strings 20–40; plucks
+  on string 6 instead of string 1 (same fret, two octaves lower); 0.43 s deaf period after the error
+  sound; a missed note made note-by-note practice stall (fast run: stuck at note 4, 29 "wrong").
+- **Changes kept (each measured):** pluck window 200 ms (81% → 85%, no new false acceptances);
+  per-string tuning compensation (learned from correct notes, ±50 cents); error sound 0.12 s +
+  0.12 s pause, with plucks during the pause recovered (louder or different note); **play-through
+  mode** with one note of look-ahead (all recorded runs reach the end; two notes of look-ahead caused
+  false jumps); wrong-string, "again", thinnest/thickest and Play-again hints.
+- **Tried and rejected:** "shortest nearly-best period" (McLeod key maximum) rule: no measurable
+  gain on real recordings (85.7% vs 85.9% agreement), so the simpler detector was kept.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

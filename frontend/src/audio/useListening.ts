@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ListeningSession, type ListeningStats, type ListeningStatus } from './listeningSession'
+import { ListeningSession, type ListeningStats, type ListeningStatus, type PracticeRecording } from './listeningSession'
 import type { MicrophoneErrorKind } from './microphone'
 import type { NoteEvent } from './noteRecognizer'
 import type { PitchReading } from './pitchTracker'
@@ -16,10 +16,16 @@ export type ListeningState = {
   stats: ListeningStats | null
   start: (options?: { boost?: boolean }) => void
   stop: () => void
-  recordClip: (seconds: number) => Promise<{ samples: Float32Array; sampleRate: number }>
+  /** True while a diagnostic practice recording is running. */
+  recording: boolean
+  startRecording: (maxSeconds: number) => boolean
+  /** Stops the recording (or returns one interrupted by listening stopping). */
+  stopRecording: () => PracticeRecording | null
+  /** Adds an app decision to the practice recording log (ignored when not recording). */
+  logEvent: (kind: string, data?: Record<string, unknown>) => void
   resetNotes: (options?: { requireFreshOnset?: boolean }) => void
-  /** Tells the detector which note is expected now (null when nothing is expected). */
-  setTarget: (midi: number | null) => void
+  /** Tells the detector which notes may come next, current note first (empty: nothing expected). */
+  setTargets: (midis: readonly number[]) => void
   /** Plays the wrong-note sound (and pauses detection while it plays). False if not listening. */
   playErrorSound: () => boolean
 }
@@ -28,6 +34,7 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
   const [status, setStatus] = useState<ListeningStatus>('idle')
   const [error, setError] = useState<MicrophoneErrorKind | null>(null)
   const [autoStopped, setAutoStopped] = useState(false)
+  const [recording, setRecording] = useState(false)
   const [display, setDisplay] = useState<{ reading: PitchReading | null; stats: ListeningStats | null }>({
     reading: null,
     stats: null,
@@ -45,7 +52,10 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
       onStatus: (next, kind) => {
         setStatus(next)
         setError(kind ?? null)
-        if (next === 'idle' || next === 'error') latest.current = { reading: null, stats: null }
+        if (next === 'idle' || next === 'error') {
+          latest.current = { reading: null, stats: null }
+          setRecording(false)
+        }
       },
       onReading: (reading, stats) => {
         latest.current = { reading, stats }
@@ -73,9 +83,24 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
     },
     [getSession],
   )
-  const recordClip = useCallback((seconds: number) => getSession().recordClip(seconds), [getSession])
+  const startRecording = useCallback(
+    (maxSeconds: number) => {
+      const started = getSession().startRecording(maxSeconds)
+      setRecording(started)
+      return started
+    },
+    [getSession],
+  )
+  const stopRecording = useCallback(() => {
+    setRecording(false)
+    return getSession().stopRecording()
+  }, [getSession])
+  const logEvent = useCallback(
+    (kind: string, data?: Record<string, unknown>) => sessionRef.current?.logEvent(kind, data),
+    [],
+  )
   const stop = useCallback(() => getSession().stop(), [getSession])
-  const setTarget = useCallback((midi: number | null) => getSession().setTarget(midi), [getSession])
+  const setTargets = useCallback((midis: readonly number[]) => getSession().setTargets(midis), [getSession])
   const playErrorSound = useCallback(() => sessionRef.current?.playErrorSound() ?? false, [])
   const resetNotes = useCallback((options?: { requireFreshOnset?: boolean }) => sessionRef.current?.resetNotes(options), [])
 
@@ -88,9 +113,12 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
     stats: active ? display.stats : null,
     start,
     stop,
-    recordClip,
+    recording,
+    startRecording,
+    stopRecording,
+    logEvent,
     resetNotes,
-    setTarget,
+    setTargets,
     playErrorSound,
   }
 }

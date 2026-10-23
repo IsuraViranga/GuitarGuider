@@ -27,7 +27,7 @@ export const DEFAULT_RECOGNIZER_CONFIG: RecognizerConfig = {
   confirmFrames: 5,
   stabilityCents: 35,
   releaseFrames: 3,
-  onsetWindowMs: 160,
+  onsetWindowMs: 200,
 }
 
 /**

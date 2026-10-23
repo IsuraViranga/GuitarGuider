@@ -58,3 +58,8 @@
 .neutral .message {
   color: var(--color-muted);
 }
+
+.again {
+  margin-top: var(--space-2);
+  display: flex;
+}

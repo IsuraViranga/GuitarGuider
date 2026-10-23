@@ -6,6 +6,8 @@ import { notesFromPositions } from '../songs/validation'
 import { Fretboard } from './fretboard/Fretboard'
 import { firstVisibleFret } from './fretboard/fretWindow'
 import { NoteTimeline } from './timeline/NoteTimeline'
+import { FeedbackBanner } from './practice/FeedbackBanner'
+import { createPracticeState, practiceReducer } from '../practice/practiceReducer'
 
 describe('Fretboard', () => {
   it('describes a fretted position in text, not just colour', () => {
@@ -62,5 +64,38 @@ describe('NoteTimeline', () => {
     render(<NoteTimeline notes={notes} currentIndex={-1} />)
     expect(screen.queryAllByRole('button')).toHaveLength(0)
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+})
+
+describe('FeedbackBanner', () => {
+  const notes = notesFromPositions(
+    [{ position: { stringNumber: 1, fret: 3 } }, { position: { stringNumber: 1, fret: 3 } }],
+    STANDARD_TUNING,
+  )
+  const heard = (midi: number) => {
+    let state = createPracticeState(notes.map((n) => n.midi), [1, 1])
+    for (const type of ['noteStart', 'noteConfirmed'] as const) {
+      state = practiceReducer(state, { type: 'noteEvent', event: { type, noteId: 1, midi, time: 0 } })
+    }
+    return state
+  }
+
+  it('explains when string 6 was played instead of string 1', () => {
+    render(<FeedbackBanner practice={heard(67 - 24)} notes={notes} listening onRestart={() => {}} />)
+    expect(screen.getByRole('status')).toHaveTextContent('That sounds like string 6 (the thickest). Use string 1, the thinnest string.')
+  })
+
+  it('says when the next note is the same one again', () => {
+    render(<FeedbackBanner practice={heard(67)} notes={notes} listening onRestart={() => {}} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Correct! 13 (G4). Now play it again.')
+  })
+
+  it('offers Play again when the song is complete', async () => {
+    const onRestart = vi.fn()
+    let state = heard(67)
+    state = practiceReducer(state, { type: 'noteEvent', event: { type: 'noteStart', noteId: 2, midi: 67, time: 0 } })
+    render(<FeedbackBanner practice={state} notes={notes} listening onRestart={onRestart} />)
+    await userEvent.click(screen.getByRole('button', { name: /Play again/ }))
+    expect(onRestart).toHaveBeenCalled()
   })
 })

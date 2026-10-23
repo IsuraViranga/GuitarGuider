@@ -113,12 +113,29 @@
   accent-color: var(--color-accent);
 }
 
-.recording {
-  margin-top: var(--space-3);
+.recorder {
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
 }
 
-.recording p {
+.recorder p {
   margin-bottom: var(--space-2);
+}
+
+.recorderTitle {
+  font-size: 1rem;
+  margin-bottom: var(--space-2);
+}
+
+.recorderResult p {
+  margin: var(--space-2) 0 0;
+}
+
+.recDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-incorrect);
+  vertical-align: middle;
 }

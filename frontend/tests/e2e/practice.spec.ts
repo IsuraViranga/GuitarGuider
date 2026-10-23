@@ -84,3 +84,13 @@ test('a song with a Sinhala title can be imported, found and practised', async (
   await page.getByRole('link', { name: 'Practise මගේ පළමු ගීතය' }).click()
   await expect(page.getByTestId('expected-number')).toHaveText('10')
 })
+
+test('practice mode can be switched and is remembered', async ({ page }) => {
+  await page.goto('/songs/sample-ode-to-joy/practice')
+  await expect(page.getByRole('radio', { name: 'Note by note' })).toBeChecked()
+  await page.getByRole('radio', { name: 'Play through' }).check()
+  await expect(page.getByRole('radio', { name: 'Play through' })).toBeChecked()
+  await expect(page.getByText('Keeps up when you play the song at speed.')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('radio', { name: 'Play through' })).toBeChecked()
+})

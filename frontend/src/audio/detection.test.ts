@@ -187,3 +187,36 @@ describe('noise gate calibration', () => {
     expect(startMidis(events)).toContain(64)
   })
 })
+
+describe('pluck during the error-sound pause', () => {
+  /** Plays `signal`, skipping frames (the app not listening) from `gapFrom` to `gapTo` ms. */
+  function playWithGap(signal: Float32Array, target: number, gapFrom: number, gapTo: number) {
+    const tracker = new PitchTracker(SAMPLE_RATE, 2048)
+    tracker.setTarget(target)
+    const events: NoteEvent[] = []
+    let skipped = false
+    for (let end = 2048; end <= signal.length; end += 1200) {
+      const time = (end / SAMPLE_RATE) * 1000
+      if (time > gapFrom && time < gapTo) {
+        skipped = true
+        continue
+      }
+      events.push(...tracker.process(signal.subarray(end - 2048, end), time, { afterGap: skipped }).events)
+      skipped = false
+    }
+    return events
+  }
+
+  it('the corrected note played during the pause is recognised when listening resumes', () => {
+    // A wrong F4 is plucked at 1.0 s; the pause starts 0.13 s later; G4 is plucked during it.
+    const signal = concat(quietStart(), note(65, 0.2, 3), note(67, 1.2, 5))
+    const events = playWithGap(signal, 67, 1130, 1370)
+    expect(startMidis(events)).toEqual([65, 67])
+  })
+
+  it('a wrong note that keeps ringing through the pause is not counted again', () => {
+    const signal = concat(quietStart(), note(65, 2, 3))
+    const events = playWithGap(signal, 67, 1130, 1370)
+    expect(startMidis(events)).toEqual([65])
+  })
+})

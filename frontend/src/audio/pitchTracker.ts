@@ -8,7 +8,7 @@
 import { frequencyToMidi, midiToFrequency } from '../music/pitch'
 import { DEFAULT_MATCH_CONFIG } from '../practice/matching'
 import { DEFAULT_RECOGNIZER_CONFIG, NoteRecognizer, type NoteEvent, type RecognizerConfig } from './noteRecognizer'
-import { createPitchDetector, DEFAULT_YIN_OPTIONS, type PitchDetector, type YinOptions } from './pitchDetector'
+import { createPitchDetector, DEFAULT_YIN_OPTIONS, type PitchDetector, type PitchMatch, type YinOptions } from './pitchDetector'
 
 export type TrackerConfig = {
   yin: YinOptions
@@ -76,6 +76,8 @@ export type PitchReading = {
   matchedTarget: boolean
 }
 
+type ExpectedNote = { midi: number; repeats: boolean; previousStrength: number; strengthBeforeOnset: number }
+
 export type TrackerResult = {
   reading: PitchReading
   events: NoteEvent[]
@@ -91,15 +93,15 @@ export class PitchTracker {
   private calibrationStart: number | null = null
   private calibrationLevels: number[] = []
   private noiseGate: number
-  private targetMidi: number | null = null
-  /** The new target has the same pitch as the previous one (a repeated note such as "21 21"). */
-  private targetRepeats = false
+  /** Notes that may be played next: the current note first, then (in play-through mode) the next ones. */
+  private targets: ExpectedNote[] = []
   private recentAttack: number[] = []
+  private lastRms = 0
+  /** Pitch of the last clear reading, to notice a different note after a gap. */
+  private lastClearMidi: number | null = null
   private lastOnset = -Infinity
-  private targetStrengthBeforeOnset = 0
-  /** The pluck (onset time) that has been shown to bring in the expected note. */
-  private targetPluck: number | null = null
-  private previousTargetStrength = 0
+  /** The pluck (onset time) that has been shown to bring in an expected note, and which one. */
+  private targetPluck: { onset: number; midi: number } | null = null
 
   constructor(sampleRate: number, frameSize: number, config: TrackerConfig = DEFAULT_TRACKER_CONFIG) {
     this.sampleRate = sampleRate
@@ -120,15 +122,32 @@ export class PitchTracker {
    * note even when another string is still ringing.
    */
   setTarget(midi: number | null) {
-    this.targetRepeats = midi !== null && midi === this.targetMidi
-    this.targetMidi = midi
-    this.previousTargetStrength = 0
-    this.targetStrengthBeforeOnset = 0
+    this.setTargets(midi === null ? [] : [midi])
+  }
+
+  /**
+   * The notes that may be played next, current note first. In play-through mode the next few
+   * notes are included, so a note is still recognised if the student is ahead of the app.
+   */
+  setTargets(midis: readonly number[]) {
+    const previousCurrent = this.targets[0]?.midi ?? null
+    this.targets = midis.map((midi, i) => ({
+      midi,
+      // The current note has the same pitch as the previous one (a repeated note such as "21 21").
+      repeats: i === 0 && midi === previousCurrent,
+      previousStrength: 0,
+      strengthBeforeOnset: 0,
+    }))
     this.targetPluck = null
   }
 
-  /** `time` is in milliseconds. */
-  process(samples: Float32Array, time: number): TrackerResult {
+  /**
+   * `time` is in milliseconds. `afterGap` means frames were skipped just before this one (the
+   * app was playing its error sound). A pluck made during the gap may have lost its sharp attack
+   * by now, so it is recognised by the sound being clearly louder, or clearly a different note,
+   * than before the gap. A wrong note that simply keeps ringing does not count again.
+   */
+  process(samples: Float32Array, time: number, { afterGap = false } = {}): TrackerResult {
     const frame = this.detect(samples)
     this.calibrationStart ??= time
 
@@ -153,14 +172,18 @@ export class PitchTracker {
     // Pluck detection: a sudden rise in attack level compared with the last two readings.
     const attack = attackLevel(samples)
     const quietest = Math.min(...this.recentAttack)
-    const onset =
-      frame.rms >= this.noiseGate * this.config.onsetMinGateMultiple &&
-      attack >= quietest * this.config.onsetRatio &&
-      time - this.lastOnset >= this.config.onsetRefractoryMs
-    this.recentAttack = [...this.recentAttack, attack].slice(-2)
+    const loudEnough = frame.rms >= this.noiseGate * this.config.onsetMinGateMultiple
+    const clearMidi = frame.rms >= this.noiseGate && frame.frequency !== null && frame.clarity >= this.config.minClarity ? frequencyToMidi(frame.frequency) : null
+    const differentNote = clearMidi !== null && this.lastClearMidi !== null && Math.abs(clearMidi - this.lastClearMidi) > 0.5
+    const onset = afterGap
+      ? loudEnough && (frame.rms >= this.lastRms * GAP_ONSET_RATIO || differentNote)
+      : loudEnough && attack >= quietest * this.config.onsetRatio && time - this.lastOnset >= this.config.onsetRefractoryMs
+    if (clearMidi !== null) this.lastClearMidi = clearMidi
+    this.recentAttack = afterGap ? [attack] : [...this.recentAttack, attack].slice(-2)
+    this.lastRms = frame.rms
     if (onset) {
       this.lastOnset = time
-      this.targetStrengthBeforeOnset = this.previousTargetStrength
+      for (const target of this.targets) target.strengthBeforeOnset = target.previousStrength
     }
 
     let reading: PitchReading
@@ -199,26 +222,31 @@ export class PitchTracker {
    * was already ringing at that pitch never counts.
    */
   private matchTarget(rms: number, time: number, blindMidi: number | null) {
-    const target = this.targetMidi
-    const match = target !== null && rms >= this.noiseGate ? this.detect.matchAt(midiToFrequency(target), DEFAULT_MATCH_CONFIG.acceptCents) : null
-    const strength = match?.strength ?? 0
-    this.previousTargetStrength = strength
-    if (!match || target === null) return null
-
     const afterPluck = time - this.lastOnset <= this.config.recognizer.onsetWindowMs
-    const blindDisagrees = blindMidi === null || blindMidi < target - 0.5 // unclear, or a lower "blend" pitch
-    const strongEnough = strength >= this.config.targetMinStrength
-    // For a repeated note the same pitch is still ringing from the previous pluck (usually on the
-    // same string), so it cannot get "stronger"; the new pluck itself is the evidence.
-    // Once this pluck has been shown to bring in the expected note, that holds for the rest of
-    // its window, even as the note settles and its match weakens a little.
-    const newlyPlayed =
-      this.targetRepeats ||
-      this.targetPluck === this.lastOnset ||
-      strength >= this.targetStrengthBeforeOnset + this.config.targetMinRise
-    if (!(afterPluck && blindDisagrees && strongEnough && newlyPlayed)) return null
-    this.targetPluck = this.lastOnset
-    return match
+    let found: PitchMatch | null = null
+    // Every candidate's strength is measured each frame (needed for the "before the pluck" check).
+    for (const target of this.targets) {
+      const match = rms >= this.noiseGate ? this.detect.matchAt(midiToFrequency(target.midi), DEFAULT_MATCH_CONFIG.acceptCents) : null
+      const strength = match?.strength ?? 0
+      target.previousStrength = strength
+      if (found || !match) continue
+
+      const blindDisagrees = blindMidi === null || blindMidi < target.midi - 0.5 // unclear, or a lower "blend" pitch
+      const strongEnough = strength >= this.config.targetMinStrength
+      // For a repeated note the same pitch is still ringing from the previous pluck (usually on the
+      // same string), so it cannot get "stronger"; the new pluck itself is the evidence.
+      // Once this pluck has been shown to bring in the note, that holds for the rest of its
+      // window, even as the note settles and its match weakens a little.
+      const newlyPlayed =
+        target.repeats ||
+        (this.targetPluck?.onset === this.lastOnset && this.targetPluck.midi === target.midi) ||
+        strength >= target.strengthBeforeOnset + this.config.targetMinRise
+      if (afterPluck && blindDisagrees && strongEnough && newlyPlayed) {
+        this.targetPluck = { onset: this.lastOnset, midi: target.midi }
+        found = match
+      }
+    }
+    return found
   }
 
   /** See NoteRecognizer.reset. */
@@ -226,6 +254,9 @@ export class PitchTracker {
     this.recognizer.reset(options)
   }
 }
+
+/** After a gap, the sound must be at least this much louder than before it to count as a pluck. */
+const GAP_ONSET_RATIO = 1.25
 
 /** Newest part of the frame used for the attack level (≈21 ms at 48 kHz). */
 const ATTACK_SAMPLES = 1024

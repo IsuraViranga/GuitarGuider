@@ -6,6 +6,7 @@
      so keyboard and screen-reader users still reach them early. */
   grid-template-areas:
     'header'
+    'mode'
     'target'
     'listening'
     'timeline'
@@ -119,6 +120,7 @@
     grid-template-columns: 3fr 2fr;
     grid-template-areas:
       'header header'
+      'mode mode'
       'target timeline'
       'controls timeline'
       'listening timeline';
@@ -132,4 +134,59 @@
   .timeline :global(ol) {
     max-height: 70vh;
   }
+}
+
+.mode {
+  grid-area: mode;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/* Two-button switch; the radio inputs stay real (keyboard and screen readers) but are hidden. */
+.modeSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.modeOption {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  font-weight: 600;
+  color: var(--color-accent-strong);
+  cursor: pointer;
+}
+
+.modeOption input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.modeOption:has(input:checked) {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.modeOption:has(input:checked) span::before {
+  content: '✓ ';
+}
+
+.modeOption:has(input:focus-visible) {
+  outline: 3px solid var(--color-focus);
+  outline-offset: -3px;
+}
+
+.modeHint {
+  margin: var(--space-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
 }

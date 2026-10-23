@@ -1,10 +1,9 @@
-import { useState } from 'react'
 import { MICROPHONE_ERROR_MESSAGES } from '../../audio/microphone'
 import type { PitchReading } from '../../audio/pitchTracker'
 import type { ListeningState } from '../../audio/useListening'
-import { encodeWav } from '../../audio/wav'
 import { formatFrequency, midiToNoteName } from '../../music/pitch'
 import styles from './ListeningPanel.module.css'
+import { PracticeRecorder } from './PracticeRecorder'
 
 type ListeningPanelProps = {
   /** The listening session, owned by the practice page (which handles the detected notes). */
@@ -23,7 +22,6 @@ const STATUS_TEXT = {
   error: 'The microphone is not available.',
 } as const
 
-const TEST_RECORDING_SECONDS = 6
 
 /** Level meter range in decibels: -80 dB (silence) to -10 dB (very loud). */
 function levelFraction(rms: number): number {
@@ -114,33 +112,14 @@ export function ListeningPanel({ listening, errorSound, onErrorSoundChange, boos
         </>
       )}
 
+      {(active || listening.recording) && <PracticeRecorder listening={listening} />}
       {active && stats && <DetectionDetails listening={listening} />}
     </section>
   )
 }
 
 function DetectionDetails({ listening }: { listening: ListeningState }) {
-  const { reading, stats, recordClip, status } = listening
-  const [recording, setRecording] = useState<'idle' | 'recording' | { saved: string } | { failed: string }>('idle')
-
-  async function saveTestRecording() {
-    setRecording('recording')
-    try {
-      const clip = await recordClip(TEST_RECORDING_SECONDS)
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')
-      const fileName = `guitar-test-${stamp}.wav`
-      const url = URL.createObjectURL(new Blob([encodeWav(clip.samples, clip.sampleRate)], { type: 'audio/wav' }))
-      const link = document.createElement('a')
-      link.href = url
-      link.download = fileName
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-      setRecording({ saved: fileName })
-    } catch (error) {
-      setRecording({ failed: error instanceof Error ? error.message : 'Recording failed.' })
-    }
-  }
-
+  const { reading, stats } = listening
   return (
     <details className={styles.details}>
       <summary>Detection details (for testing)</summary>
@@ -163,25 +142,6 @@ function DetectionDetails({ listening }: { listening: ListeningState }) {
         </dd>
       </dl>
 
-      <div className={styles.recording}>
-        <p>
-          <strong>Test recording:</strong> saves {TEST_RECORDING_SECONDS} seconds of the microphone to a file on this
-          device, so detection can be checked with your real guitar. Nothing is uploaded.
-        </p>
-        <button
-          type="button"
-          className="button"
-          onClick={saveTestRecording}
-          disabled={recording === 'recording' || status !== 'listening'}
-        >
-          {recording === 'recording' ? `Recording… play now` : `Save a ${TEST_RECORDING_SECONDS}-second test recording`}
-        </button>
-        <p role="status" className="muted">
-          {recording === 'recording' && `Recording for ${TEST_RECORDING_SECONDS} seconds. Keep quiet for the first second, then play a few notes with gaps between them.`}
-          {typeof recording === 'object' && 'saved' in recording && `Saved “${recording.saved}” to your Downloads folder.`}
-          {typeof recording === 'object' && 'failed' in recording && recording.failed}
-        </p>
-      </div>
     </details>
   )
 }

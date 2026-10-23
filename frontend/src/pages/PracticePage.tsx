@@ -14,11 +14,12 @@ import { useSong } from '../songs/useSong'
 import { validateSong } from '../songs/validation'
 import {
   createPracticeState,
+  FLOW_LOOKAHEAD,
   isFirstNote,
   isLastNote,
   practiceReducer,
 } from '../practice/practiceReducer'
-import { useErrorSoundSetting, useMicBoostSetting } from '../practice/usePracticeSettings'
+import { useErrorSoundSetting, useMicBoostSetting, usePracticeModeSetting } from '../practice/usePracticeSettings'
 import { midiToNoteName } from '../music/pitch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
@@ -48,7 +49,18 @@ export function PracticePage() {
 const ERROR_SOUND_COOLDOWN_MS = 800
 
 function PracticeView({ song }: { song: Song }) {
-  const [practice, dispatch] = useReducer(practiceReducer, song.notes.map((n) => n.midi), createPracticeState)
+  const [mode, setMode] = usePracticeModeSetting()
+  const [practice, dispatch] = useReducer(practiceReducer, song.notes, (notes) =>
+    createPracticeState(
+      notes.map((n) => n.midi),
+      notes.map((n) => n.position?.stringNumber ?? null),
+      mode,
+    ),
+  )
+  const changeMode = (value: typeof mode) => {
+    setMode(value)
+    dispatch({ type: 'setMode', mode: value })
+  }
   const [errorSound, setErrorSound] = useErrorSoundSetting()
   const [boost, setBoost] = useMicBoostSetting()
 
@@ -56,7 +68,7 @@ function PracticeView({ song }: { song: Song }) {
     for (const event of events) dispatch({ type: 'noteEvent', event })
   }, [])
   const listening = useListening(handleNoteEvents)
-  const { resetNotes, setTarget, playErrorSound } = listening
+  const { resetNotes, setTargets, playErrorSound } = listening
   const isListening = listening.status === 'listening' || listening.status === 'calibrating'
   const micActive = isListening || listening.status === 'starting'
 
@@ -64,10 +76,28 @@ function PracticeView({ song }: { song: Song }) {
   // ringing, so it can't count for the new target, and tell the detector what to listen for.
   // The microphone keeps running.
   const targetMidi = practice.completed ? null : practice.targets[practice.currentIndex]
+  const lookahead = practice.mode === 'flow' ? FLOW_LOOKAHEAD : 0
+  const expected = practice.completed ? '' : practice.targets.slice(practice.currentIndex, practice.currentIndex + 1 + lookahead).join(',')
   useEffect(() => {
     resetNotes({ requireFreshOnset: true })
-    setTarget(targetMidi)
-  }, [practice.positionVersion, targetMidi, resetNotes, setTarget])
+    setTargets(expected ? expected.split(',').map(Number) : [])
+  }, [practice.positionVersion, expected, resetNotes, setTargets])
+
+  // Practice decisions go into a diagnostic practice recording, if one is running.
+  const { logEvent } = listening
+  useEffect(() => {
+    const { feedback } = practice
+    logEvent('practice', {
+      index: practice.currentIndex,
+      target: targetMidi,
+      feedback: feedback.kind,
+      ...(feedback.kind === 'incorrect' ? { heard: Number(feedback.detectedMidi.toFixed(2)), octaveOff: feedback.octaveOff } : {}),
+      ...(feedback.kind === 'correct' ? { cents: Math.round(feedback.cents) } : {}),
+      completed: practice.completed,
+    })
+    // Log once per new decision or position change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practice.feedbackId, practice.positionVersion])
 
   // One short sound per confirmed wrong note. Never a sound for correct notes.
   const lastErrorSound = useRef(-Infinity)
@@ -95,6 +125,23 @@ function PracticeView({ song }: { song: Song }) {
         </p>
       </header>
 
+      <fieldset className={styles.mode}>
+        <legend className="visually-hidden">Practice mode</legend>
+        <div className={styles.modeSwitch}>
+          <label className={styles.modeOption}>
+            <input type="radio" name="mode" checked={practice.mode === 'strict'} onChange={() => changeMode('strict')} />
+            <span>Note by note</span>
+          </label>
+          <label className={styles.modeOption}>
+            <input type="radio" name="mode" checked={practice.mode === 'flow'} onChange={() => changeMode('flow')} />
+            <span>Play through</span>
+          </label>
+        </div>
+        <p className={styles.modeHint}>
+          {practice.mode === 'strict' ? 'Waits on each note until you play it.' : 'Keeps up when you play the song at speed.'}
+        </p>
+      </fieldset>
+
       {/* Announces the new target to screen readers whenever the position changes. */}
       <p role="status" className="visually-hidden" data-testid="position-status">
         {noteAccessibleLabel(note, song.notes.length)}
@@ -102,7 +149,12 @@ function PracticeView({ song }: { song: Song }) {
       </p>
 
       <section className={`card ${styles.target}`} aria-labelledby="target-heading">
-        <FeedbackBanner practice={practice} notes={song.notes} listening={isListening} />
+        <FeedbackBanner
+          practice={practice}
+          notes={song.notes}
+          listening={isListening}
+          onRestart={() => dispatch({ type: 'reset' })}
+        />
         <h2 id="target-heading" className={styles.targetHeading}>
           {practice.completed ? 'Last note' : 'Play next'}
         </h2>
@@ -113,11 +165,15 @@ function PracticeView({ song }: { song: Song }) {
           {practice.completed
             ? ''
             : upcoming.length > 0
-              ? <>Then: <strong>{upcoming.map((n) => describeNote(n).number).join(' · ')}</strong></>
+              ? <>Then: <strong>{upcoming.map((n, i) => describeNote(n).number + (i === 0 && describeNote(n).number === text.number ? ' again' : '')).join(' · ')}</strong></>
               : 'Last note of the song'}
         </p>
         <p className={styles.targetDetails}>
-          <span>{text.position}</span>
+          <span>
+            {text.position}
+            {note.position?.stringNumber === 1 && <strong> · thinnest string</strong>}
+            {note.position?.stringNumber === 6 && <strong> · thickest string</strong>}
+          </span>
           <span>
             Note <strong>{text.noteName}</strong> · {text.frequency}
           </span>
