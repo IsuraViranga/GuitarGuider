@@ -485,6 +485,13 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   0.8 s per chord. **Real strummed recordings still needed.**
 - Practice: chord steps are judged only by chord events; play-through skips work across chords and
   notes; wrong chord → "Not this chord. Expected C, heard G" + error sound.
+- **First recording (owner's playback of the generated demo, play-through):** live run made 3 false
+  "wrong chord" calls and skipped ahead at chord changes. Cause: right after a strum the analysis slice
+  still holds the previous chord, whose ringing notes and overtones can pass for the next chord (C → G).
+  Fixes: decide matches only after 100 ms; the expected chord's notes must get louder (absolute level —
+  relative strength drops after a strum because the attack raises the background); call a chord wrong
+  only after 250 ms. Replay of that recording: 22/22 chords, 0 wrong, 0 skipped in both modes (guarded).
+- Chart parsing: one blank line allowed between chords and words; labels/separators never taken as words.
 - Next: 4.4 Guitar Pro / MusicXML (alphaTab), 4.5 tuning on real strum recordings.
 
 ## 9. Later phases (unchanged from the brief, condensed)

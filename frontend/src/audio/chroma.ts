@@ -156,6 +156,13 @@ export type ChordCheck = {
   salience: Float64Array
   /** Strength of each note name counting only low notes (for spotting foreign notes). */
   lowSalience: Float64Array
+  /**
+   * Absolute loudness of each note name (strongest peak), and of low notes only. Used to tell
+   * whether a strum made a note louder: relative strength drops right after a strum because the
+   * attack briefly raises the background.
+   */
+  level: Float64Array
+  lowLevel: Float64Array
 }
 
 export function createChordChecker(sampleRate: number, size = CHORD_FRAME_SIZE) {
@@ -171,6 +178,8 @@ export function createChordChecker(sampleRate: number, size = CHORD_FRAME_SIZE) 
     const floor = [...scratch].sort((a, b) => a - b)[scratch.length >> 1] || 1e-9
     const salience = new Float64Array(12)
     const lowSalience = new Float64Array(12)
+    const level = new Float64Array(12)
+    const lowLevel = new Float64Array(12)
     // Only real peaks count (local maxima), located between bins by parabolic interpolation, so
     // a strong note's spread into neighbouring bins is not mistaken for the neighbouring note.
     for (let k = bandFirst; k <= bandLast; k++) {
@@ -187,9 +196,13 @@ export function createChordChecker(sampleRate: number, size = CHORD_FRAME_SIZE) 
       const pitchClass = ((nearest % 12) + 12) % 12
       const strength = m / floor
       salience[pitchClass] = Math.max(salience[pitchClass], strength)
-      if (hz <= FOREIGN_BAND_MAX_HZ) lowSalience[pitchClass] = Math.max(lowSalience[pitchClass], strength)
+      level[pitchClass] = Math.max(level[pitchClass], m)
+      if (hz <= FOREIGN_BAND_MAX_HZ) {
+        lowSalience[pitchClass] = Math.max(lowSalience[pitchClass], strength)
+        lowLevel[pitchClass] = Math.max(lowLevel[pitchClass], m)
+      }
     }
-    return { salience, lowSalience }
+    return { salience, lowSalience, level, lowLevel }
   }
 }
 
@@ -202,6 +215,8 @@ export type ChordVerdict = 'match' | 'other' | 'unclear'
 
 /** A foreign note only counts if the strum made it at least this much louder (else it is ringing on). */
 const FOREIGN_RISE = 1.5
+/** The expected chord's notes must get at least this much louder with the strum. */
+const EXPECTED_RISE = 1.3
 
 /**
  * Decides whether a frame sounds like the expected chord, another chord, or nothing clear.
@@ -218,14 +233,18 @@ function judgeClasses(check: ChordCheck, expected: ReadonlySet<number>, before?:
   let foreign = 0
   for (let c = 0; c < 12; c++) {
     if (expected.has(c)) continue
-    if (before && check.lowSalience[c] < before.lowSalience[c] * FOREIGN_RISE) continue // ringing on
+    if (before && check.lowLevel[c] < before.lowLevel[c] * FOREIGN_RISE) continue // ringing on
     foreign = Math.max(foreign, check.lowSalience[c])
   }
   const missing = [...expected].filter((c) => check.salience[c] < PRESENT).length
+  // The strum must bring the chord in: at least half its notes louder than just before the strum.
+  // (Otherwise the previous chord's ringing notes and overtones could pass for a related chord.)
+  const risen = before ? [...expected].filter((c) => check.level[c] >= before.level[c] * EXPECTED_RISE).length : expected.size
+  const broughtIn = risen >= Math.ceil(expected.size / 2)
   const allowedMissing = expected.size >= 4 ? 1 : 0 // e.g. a 7th chord with its 5th not ringing
   const loudest = Math.max(...check.salience)
 
-  if (missing <= allowedMissing && foreign < FOREIGN_RATIO * strongestExpected) return 'match'
+  if (missing <= allowedMissing && broughtIn && foreign < FOREIGN_RATIO * strongestExpected) return 'match'
   if (loudest >= PRESENT * 2 && (missing > allowedMissing || foreign >= 0.5 * strongestExpected)) return 'other'
   return 'unclear'
 }

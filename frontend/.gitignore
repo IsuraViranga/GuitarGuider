@@ -30,3 +30,6 @@ coverage
 
 # Generated test audio
 tests/fixtures/*.wav
+
+# Generated demo audio
+public/test-audio/

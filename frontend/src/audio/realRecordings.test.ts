@@ -161,3 +161,48 @@ describe.skipIf(ODE_RECORDINGS.length === 0)('whole-song practice on real record
     }
   })
 })
+
+// The owner's recording of the generated "Malata Babareku see" chord demo, played through the app's
+// "Test with a recording" mode (2026-10-23, 21:21). It contains the first 22 of the 26 chords.
+const CHORD_RECORDING = 'practice-20261023-212052'
+const MALATA_CHORDS = 'D G A A D  D G C D A D  D G C D G C A  D G C D D G C A'.split(/\s+/)
+
+describe.skipIf(!names.includes(CHORD_RECORDING))('chord song recording', { timeout: 120_000 }, () => {
+  it.each(['strict', 'flow'] as const)('%s mode follows every strummed chord, no wrong chords, no skips', async (mode) => {
+    const { chordShape } = await import('../music/chords')
+    const { positionToMidi } = await import('../music/fretboard')
+    const { CHORD_FRAME_SIZE } = await import('./chroma')
+    const { DEFAULT_TRACKER_CONFIG } = await import('./pitchTracker')
+    const tones = MALATA_CHORDS.map((name) => {
+      const shape = chordShape(name)
+      if (!shape.ok) throw new Error(shape.error)
+      return shape.value.positions.map((p) => positionToMidi(p))
+    })
+    const { samples, sampleRate } = load(CHORD_RECORDING)
+    let state = createPracticeState(
+      tones.map((t) => Math.min(...t)),
+      tones.map(() => null),
+      mode,
+      tones.map((t) => t.map((midi) => ({ midi, string: 0 }))),
+    )
+    // File test mode: no room calibration.
+    const tracker = new PitchTracker(sampleRate, 2048, { ...DEFAULT_TRACKER_CONFIG, calibrationMs: 0 })
+    const setTargets = () =>
+      tracker.setChordTargets(state.completed ? [] : tones.slice(state.currentIndex, state.currentIndex + (mode === 'flow' ? 2 : 1)))
+    setTargets()
+    for (let end = 2048; end <= samples.length; end += 1200) {
+      const result = tracker.process(samples.subarray(Math.max(0, end - CHORD_FRAME_SIZE), end), (end / sampleRate) * 1000)
+      for (const event of result.chordEvents) {
+        const before = state
+        state = practiceReducer(state, { type: 'chordEvent', event })
+        if (state.positionVersion !== before.positionVersion) {
+          tracker.resetNotes({ requireFreshOnset: true })
+          setTargets()
+        }
+      }
+    }
+    expect(state.currentIndex).toBeGreaterThanOrEqual(22)
+    expect(state.wrongCount).toBe(0)
+    expect(state.skippedCount).toBe(0)
+  })
+})
