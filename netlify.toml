@@ -1,0 +1,14 @@
+# Netlify build settings. The app is the static site in frontend/ (no server needed yet).
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Single-page app: every address (e.g. /songs/abc/practice) loads index.html and React shows the page.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
