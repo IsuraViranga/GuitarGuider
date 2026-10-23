@@ -111,7 +111,7 @@ export function Fretboard({ positions, tuning, chord }: FretboardProps) {
                 {stringNumber}
               </text>
               <line
-                className={isTarget ? styles.targetString : styles.string}
+                className={`${isTarget ? styles.targetString : styles.string} ${stringNumber >= 4 ? styles.wound : ''}`}
                 x1={showsNut ? OPEN_X - 14 : NUT_X}
                 x2={boardRight}
                 y1={y}

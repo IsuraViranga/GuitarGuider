@@ -7,7 +7,7 @@ async function expectNoHorizontalScroll(page: Page) {
 
 test('student picks a sample song and navigates through it', async ({ page }) => {
   await page.goto('/')
-  await page.getByRole('link', { name: 'Browse songs' }).click()
+  await page.getByRole('link', { name: /Start playing/ }).click()
   await page.getByLabel('Search songs by title').fill('first frets')
   await page.getByRole('link', { name: 'Practise First Frets on String 1' }).click()
 

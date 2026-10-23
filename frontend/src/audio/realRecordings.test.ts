@@ -162,13 +162,17 @@ describe.skipIf(ODE_RECORDINGS.length === 0)('whole-song practice on real record
   })
 })
 
-// The owner's recording of the generated "Malata Babareku see" chord demo, played through the app's
-// "Test with a recording" mode (2026-10-23, 21:21). It contains the first 22 of the 26 chords.
-const CHORD_RECORDING = 'practice-20261023-212052'
+// The owner's recordings of the generated "Malata Babareku see" chord demo, played through the app's
+// "Test with a recording" mode (2026-10-23): 21:21 holds the first 22 chords (it exposed the chord-change
+// problem), 21:35 the first 25 (made after the fix).
+const CHORD_RECORDINGS: Array<[string, number]> = [
+  ['practice-20261023-212052', 22],
+  ['practice-20261023-213507', 25],
+]
 const MALATA_CHORDS = 'D G A A D  D G C D A D  D G C D G C A  D G C D D G C A'.split(/\s+/)
 
-describe.skipIf(!names.includes(CHORD_RECORDING))('chord song recording', { timeout: 120_000 }, () => {
-  it.each(['strict', 'flow'] as const)('%s mode follows every strummed chord, no wrong chords, no skips', async (mode) => {
+describe.each(CHORD_RECORDINGS.filter(([name]) => names.includes(name)))('chord song recording %s', (CHORD_RECORDING, chordsInRecording) => {
+  it.each(['strict', 'flow'] as const)('%s mode follows every strummed chord, no wrong chords, no skips', { timeout: 120_000 }, async (mode) => {
     const { chordShape } = await import('../music/chords')
     const { positionToMidi } = await import('../music/fretboard')
     const { CHORD_FRAME_SIZE } = await import('./chroma')
@@ -201,7 +205,7 @@ describe.skipIf(!names.includes(CHORD_RECORDING))('chord song recording', { time
         }
       }
     }
-    expect(state.currentIndex).toBeGreaterThanOrEqual(22)
+    expect(state.currentIndex).toBeGreaterThanOrEqual(chordsInRecording)
     expect(state.wrongCount).toBe(0)
     expect(state.skippedCount).toBe(0)
   })

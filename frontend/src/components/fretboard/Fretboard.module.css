@@ -12,6 +12,8 @@
 
 .wood {
   fill: var(--fb-wood);
+  stroke: var(--fb-wood-edge);
+  stroke-width: 2;
 }
 
 .inlay {
@@ -30,6 +32,11 @@
 
 .string {
   stroke: var(--fb-string);
+}
+
+/* Strings 4-6 are wound (bronze); the expected string is still drawn in the highlight colour. */
+.string.wound {
+  stroke: var(--fb-string-wound);
 }
 
 .targetString {

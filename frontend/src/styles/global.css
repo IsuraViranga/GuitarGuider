@@ -1,31 +1,43 @@
-/* Design tokens. Colours are checked for at least 4.5:1 contrast against their backgrounds. */
+/*
+ * Melantha Guitar theme: a dark concert stage. Night-black background with blue/purple stage light,
+ * warm amber "spotlight / guitar wood" highlights, and a rosewood fretboard with brass frets.
+ * Colours are checked for at least 4.5:1 contrast against the surfaces they are used on.
+ */
 :root {
-  --color-bg: #f6f5f1;
-  --color-surface: #ffffff;
-  --color-surface-alt: #eef0f4;
-  --color-text: #17191d;
-  --color-muted: #4a505c;
-  --color-border: #c9ced8;
-  --color-accent: #1d58b8;
-  --color-accent-strong: #143f86;
-  --color-on-accent: #ffffff;
-  --color-accent-soft: #e2ebfa;
-  --color-correct: #146c43;
-  --color-incorrect: #b3261e;
-  --color-warning-bg: #fff4d6;
-  --color-warning: #8a5a00;
-  --color-correct-soft: #e3f4ea;
-  --color-incorrect-soft: #fbe6e4;
-  --color-on-feedback: #ffffff;
-  --color-focus: #0a4fd6;
+  --color-bg: #0d0b12;
+  --color-surface: #17131f;
+  --color-surface-alt: #221c2c;
+  --color-raised: #2a2235;
+  --color-text: #f4efe6;
+  --color-muted: #bdb3c9;
+  --color-border: #3b3247;
+  --color-accent: #f5a524;
+  --color-accent-strong: #ffc35c;
+  --color-on-accent: #1a1006;
+  --color-accent-soft: #3a2a12;
+  --color-stage: #7c5cff;
+  --color-stage-blue: #3b82f6;
+  --color-correct: #4ade80;
+  --color-incorrect: #ff7a7a;
+  --color-warning-bg: #3a3014;
+  --color-warning: #f2c14e;
+  --color-correct-soft: #10301c;
+  --color-incorrect-soft: #3d1717;
+  --color-on-feedback: #0d0b12;
+  --color-focus: #ffd166;
 
-  --fb-wood: #efe2cc;
-  --fb-fret: #8f8170;
-  --fb-nut: #3a332c;
-  --fb-string: #4f4943;
-  --fb-inlay: #d5c2a2;
+  /* Fretboard: rosewood, brass frets, bone nut, pearl dots, nickel and bronze strings. */
+  --fb-wood: #3a2216;
+  --fb-wood-edge: #24140c;
+  --fb-fret: #c9a86a;
+  --fb-nut: #efe6d2;
+  --fb-string: #d9d4cc;
+  --fb-string-wound: #c8955a;
+  --fb-inlay: #e9dfcc;
 
-  --radius: 10px;
+  --font-display: 'Oswald', 'Bebas Neue', 'Arial Narrow', system-ui, sans-serif;
+  --glow-accent: 0 0 24px rgb(245 165 36 / 0.35);
+  --radius: 12px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -35,36 +47,7 @@
   --touch-target: 44px;
   --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
 
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #121418;
-    --color-surface: #1b1e24;
-    --color-surface-alt: #252932;
-    --color-text: #eceef2;
-    --color-muted: #b2b8c4;
-    --color-border: #3a404c;
-    --color-accent: #8ab4ff;
-    --color-accent-strong: #b6d0ff;
-    --color-on-accent: #0b1730;
-    --color-accent-soft: #1f2f4d;
-    --color-correct: #5fd39a;
-    --color-incorrect: #ff8a80;
-    --color-warning-bg: #3a3014;
-    --color-warning: #f2c14e;
-    --color-correct-soft: #14301f;
-    --color-incorrect-soft: #3a1a18;
-    --color-on-feedback: #10131a;
-    --color-focus: #ffd166;
-
-    --fb-wood: #3b3127;
-    --fb-fret: #a59682;
-    --fb-nut: #e6dccd;
-    --fb-string: #d9d1c6;
-    --fb-inlay: #5a4c3d;
-  }
+  color-scheme: dark;
 }
 
 *,
@@ -75,30 +58,41 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  background: var(--color-bg);
 }
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  min-height: 100vh;
   color: var(--color-text);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Sinhala', 'Nirmala UI', 'Iskoola Pota', sans-serif;
   font-size: 1.0625rem;
   line-height: 1.5;
+  /* Stage lights: blue from the left, purple from the right, a warm glow low in the middle. */
+  background:
+    radial-gradient(60rem 40rem at 10% -10%, rgb(59 130 246 / 0.22), transparent 60%),
+    radial-gradient(50rem 40rem at 100% 0%, rgb(124 92 255 / 0.2), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 110%, rgb(245 165 36 / 0.08), transparent 60%),
+    var(--color-bg);
+  background-attachment: fixed;
 }
 
 h1,
 h2,
 h3 {
-  line-height: 1.2;
+  line-height: 1.15;
   margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 h1 {
-  font-size: 1.75rem;
+  font-size: 2rem;
 }
 
 h2 {
-  font-size: 1.3rem;
+  font-size: 1.35rem;
 }
 
 p {
@@ -106,7 +100,7 @@ p {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
 }
 
 :focus-visible {
@@ -140,8 +134,14 @@ textarea.mono {
 }
 
 .site-header {
-  background: var(--color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgb(13 11 18 / 0.85);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--color-border);
+  /* A thin amber "spotlight" line under the header. */
+  box-shadow: 0 1px 0 rgb(245 165 36 / 0.25);
 }
 
 .site-header-inner {
@@ -156,13 +156,43 @@ textarea.mono {
 }
 
 .site-title {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--color-text);
-  text-decoration: none;
-  min-height: var(--touch-target);
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.brand-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.brand-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  font-family: var(--font-display);
+}
+
+.brand-name strong {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.brand-name span {
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
 }
 
 .site-nav ul {
@@ -184,11 +214,15 @@ textarea.mono {
   font-weight: 600;
 }
 
+.site-nav a:hover {
+  color: var(--color-accent-strong);
+}
+
 .site-nav a[aria-current='page'] {
-  background: var(--color-accent-soft);
   color: var(--color-accent-strong);
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
 }
 
 .page {
@@ -202,10 +236,11 @@ textarea.mono {
 }
 
 .card {
-  background: var(--color-surface);
+  background: linear-gradient(180deg, rgb(34 28 44 / 0.92), rgb(23 19 31 / 0.92));
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-4);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
 }
 
 .muted {
@@ -236,8 +271,9 @@ textarea.mono {
   padding: 0 var(--space-4);
   border: 2px solid var(--color-accent);
   border-radius: var(--radius);
-  background: var(--color-surface);
+  background: rgb(23 19 31 / 0.9);
   color: var(--color-accent-strong);
+  transition: background-color 0.15s, box-shadow 0.15s;
   font: inherit;
   font-weight: 600;
   text-decoration: none;
@@ -249,8 +285,9 @@ textarea.mono {
 }
 
 .button-primary {
-  background: var(--color-accent);
+  background: linear-gradient(180deg, var(--color-accent-strong), var(--color-accent));
   color: var(--color-on-accent);
+  box-shadow: var(--glow-accent);
 }
 
 .button-primary:hover {

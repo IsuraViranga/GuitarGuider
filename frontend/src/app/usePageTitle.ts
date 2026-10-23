@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-export const APP_NAME = 'Guitar Practice'
+export const APP_NAME = 'Melantha Guitar Academy'
 
 export function usePageTitle(title: string) {
   useEffect(() => {

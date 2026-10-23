@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import avatar from '../assets/brand/melantha-avatar.jpg'
 import { APP_NAME } from './usePageTitle'
 
 export function Layout() {
@@ -28,8 +29,12 @@ export function Layout() {
       </a>
       <header className="site-header">
         <div className="site-header-inner">
-          <Link to="/" className="site-title">
-            🎸 {APP_NAME}
+          <Link to="/" className="site-title" aria-label={`${APP_NAME}, home`}>
+            <img className="brand-avatar" src={avatar} alt="" width={40} height={40} />
+            <span className="brand-name" aria-hidden="true">
+              <strong>Melantha</strong>
+              <span>Guitar Academy</span>
+            </span>
           </Link>
           <nav className="site-nav" aria-label="Main">
             <ul>
