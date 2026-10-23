@@ -12,6 +12,11 @@
 export type RecognizerConfig = {
   /** Steady readings needed before "noteStart". */
   stableFrames: number
+  /**
+   * Fewer readings are enough when the expected note is very clearly present (short, soft
+   * notes a beginner lifts quickly may only be clear for ~50 ms).
+   */
+  strongFrames: number
   /** Steady readings needed before "noteConfirmed". */
   confirmFrames: number
   /** Readings within this many cents of the note's centre count as the same note. */
@@ -24,6 +29,7 @@ export type RecognizerConfig = {
 
 export const DEFAULT_RECOGNIZER_CONFIG: RecognizerConfig = {
   stableFrames: 3,
+  strongFrames: 2,
   confirmFrames: 5,
   stabilityCents: 35,
   releaseFrames: 3,
@@ -34,7 +40,14 @@ export const DEFAULT_RECOGNIZER_CONFIG: RecognizerConfig = {
  * One reading. `midi` is a fractional MIDI pitch, or null when the reading was unreliable.
  * `onset` is true when this reading is the start of a pluck (a sudden rise in loudness).
  */
-export type RecognizerInput = { time: number; midi: number | null; rms: number; onset?: boolean }
+export type RecognizerInput = {
+  time: number
+  midi: number | null
+  rms: number
+  onset?: boolean
+  /** The reading is an expected note, very clearly present. */
+  strong?: boolean
+}
 
 export type NoteEvent = {
   type: 'noteStart' | 'noteConfirmed'
@@ -50,6 +63,8 @@ type Run = {
   pitches: number[]
   center: number
   count: number
+  /** Readings in this run that were the expected note, very clearly present. */
+  strongCount: number
   /** The pluck this run belongs to, or null if it began without one (it can never be reported). */
   onsetTime: number | null
   startEmitted: boolean
@@ -99,7 +114,7 @@ export class NoteRecognizer {
     } else {
       const distance = input.midi - run.center
       if (Math.abs(distance) * 100 <= this.config.stabilityCents) {
-        this.extendRun(run, input.midi)
+        this.extendRun(run, input.midi, input.strong ?? false)
       } else if (run.count >= this.config.stableFrames && this.isHarmonicJump(distance)) {
         // An overtone of a string that is already ringing: ignore this reading.
         return []
@@ -135,6 +150,7 @@ export class NoteRecognizer {
       pitches: [input.midi!],
       center: input.midi!,
       count: 1,
+      strongCount: input.strong ? 1 : 0,
       onsetTime: this.isRecentOnset(input.time) ? this.lastOnset : null,
       startEmitted: false,
       confirmEmitted: false,
@@ -142,11 +158,12 @@ export class NoteRecognizer {
     }
   }
 
-  private extendRun(run: Run, midi: number) {
+  private extendRun(run: Run, midi: number, strong: boolean) {
     run.pitches.push(midi)
     if (run.pitches.length > MAX_PITCHES) run.pitches.shift()
     run.center = median(run.pitches)
     run.count++
+    if (strong) run.strongCount++
   }
 
   private isHarmonicJump(distance: number): boolean {
@@ -162,7 +179,7 @@ export class NoteRecognizer {
 
     const events: NoteEvent[] = []
     const event = (type: NoteEvent['type']): NoteEvent => ({ type, noteId: run.id, midi: run.center, time })
-    if (!run.startEmitted && run.count >= this.config.stableFrames) {
+    if (!run.startEmitted && (run.count >= this.config.stableFrames || run.strongCount >= this.config.strongFrames)) {
       run.startEmitted = true
       this.usedOnset = run.onsetTime
       events.push(event('noteStart'))

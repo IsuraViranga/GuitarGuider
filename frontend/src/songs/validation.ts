@@ -6,17 +6,39 @@ import type { Song, SongIssue, SongNote } from './types'
 
 export const MAX_NOTES_PER_SONG = 2000
 
-/** Builds song notes from intended positions; the pitch is derived from the tuning. */
+/** Builds song steps from intended positions (or chords); pitches are derived from the tuning. */
 export function notesFromPositions(
-  items: ReadonlyArray<{ position: GuitarPosition; measure?: number }>,
+  items: ReadonlyArray<{
+    position: GuitarPosition
+    chord?: { name?: string; positions: GuitarPosition[]; simplifiedFrom?: string }
+    lyric?: string
+    measure?: number
+  }>,
   tuning: Tuning,
 ): SongNote[] {
-  return items.map(({ position, measure }, index) => ({
-    index,
-    midi: positionToMidi(position, tuning),
-    position,
-    ...(measure === undefined ? {} : { measure }),
-  }))
+  return items.map(({ position, chord, lyric, measure }, index) => {
+    if (chord) {
+      const tones = [...chord.positions]
+        .sort((a, b) => b.stringNumber - a.stringNumber)
+        .map((p) => ({ midi: positionToMidi(p, tuning), position: p }))
+      const lowest = tones.reduce((a, b) => (b.midi < a.midi ? b : a))
+      return {
+        index,
+        midi: lowest.midi,
+        position: lowest.position,
+        chord: { tones, ...(chord.name ? { name: chord.name } : {}), ...(chord.simplifiedFrom ? { simplifiedFrom: chord.simplifiedFrom } : {}) },
+        ...(lyric ? { lyric } : {}),
+        ...(measure === undefined ? {} : { measure }),
+      }
+    }
+    return {
+      index,
+      midi: positionToMidi(position, tuning),
+      position,
+      ...(lyric ? { lyric } : {}),
+      ...(measure === undefined ? {} : { measure }),
+    }
+  })
 }
 
 /** Checks a song is ready to practise. An empty list means it is valid. */
@@ -51,6 +73,25 @@ export function validateSong(song: Song): SongIssue[] {
     const positionError = validatePosition(note.position, tuning)
     if (positionError) {
       issues.push({ noteIndex: i, message: `${label}: ${positionError}` })
+      return
+    }
+    if (note.chord) {
+      const strings = new Set(note.chord.tones.map((t) => t.position.stringNumber))
+      if (note.chord.tones.length < 2 || strings.size !== note.chord.tones.length) {
+        issues.push({ noteIndex: i, message: `${label}: a chord needs at least two notes, each on a different string.` })
+        return
+      }
+      for (const tone of note.chord.tones) {
+        const error = validatePosition(tone.position, tuning)
+        if (error) {
+          issues.push({ noteIndex: i, message: `${label}: ${error}` })
+          return
+        }
+        if (positionToMidi(tone.position, tuning) !== tone.midi) {
+          issues.push({ noteIndex: i, message: `${label}: ${formatGuitarNumber(tone.position)} does not match its pitch in the chord.` })
+          return
+        }
+      }
       return
     }
     const positionMidi = positionToMidi(note.position, tuning)

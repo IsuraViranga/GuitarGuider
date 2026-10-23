@@ -83,6 +83,27 @@ export function ListeningPanel({ listening, errorSound, onErrorSoundChange, boos
         <input type="checkbox" checked={errorSound} onChange={(event) => onErrorSoundChange(event.target.checked)} />
         <span>Play a short sound when a wrong note is played</span>
       </label>
+      {!active && (
+        <div className={styles.fileTest}>
+          <label htmlFor="test-recording-file" className={styles.fileTestLabel}>
+            Test with a recording
+          </label>
+          <p className="muted">
+            Choose an audio file of this song played on guitar (for example by your teacher). It plays out loud and the
+            app follows it as if it were being played live.
+          </p>
+          <input
+            id="test-recording-file"
+            type="file"
+            accept="audio/*,.mp3,.m4a,.wav,.ogg"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              if (file) listening.startFromFile(file)
+            }}
+          />
+        </div>
+      )}
       {autoStopped && status === 'idle' && (
         <p className="notice">Listening stopped because the app went to the background. Tap “Start listening” to continue.</p>
       )}

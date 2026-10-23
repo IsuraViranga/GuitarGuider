@@ -9,9 +9,10 @@
 //   E|-------------|
 //
 // Each block has 6 lines, thinnest string (1) at the top. Notes are read left to right;
-// numbers are frets. Two strings in the same column would be a chord, which is rejected.
+// numbers are frets. Numbers on several strings in the same column are a chord (played together).
 // See docs/song-formats.md.
 
+import { identifyChord } from '../../music/chords'
 import { STRING_NUMBERS, type StringNumber, type Tuning } from '../../music/tuning'
 import type { SongIssue } from '../types'
 import {
@@ -88,8 +89,19 @@ export function parseAsciiTab(text: string, tuning: Tuning): SongFileParseResult
       })
       continue
     }
+    // Group notes that start in the same column: those strings are played together (a chord).
     const notes = readBlock(block, tuning, issues)
-    result.notes.push(...notes.map(({ stringNumber, fret }) => ({ position: { stringNumber, fret } })))
+    for (let k = 0; k < notes.length; ) {
+      const column = notes.filter((n) => n.offset === notes[k].offset)
+      const positions = column.map(({ stringNumber, fret }) => ({ stringNumber, fret }))
+      if (positions.length === 1) {
+        result.notes.push({ position: positions[0] })
+      } else {
+        const name = identifyChord(positions)
+        result.notes.push({ position: positions[positions.length - 1], chord: { positions, ...(name ? { name } : {}) } })
+      }
+      k += column.length
+    }
   }
 
   if (issues.length > 0) return { ok: false, issues: issues.slice(0, MAX_REPORTED_ISSUES) }
@@ -154,16 +166,7 @@ function readBlock(block: TabLine[], tuning: Tuning, issues: SongIssue[]): TabNo
     flush()
   })
 
-  // Order left to right; two strings starting in the same column would be played together.
-  notes.sort((a, b) => a.offset - b.offset || a.stringNumber - b.stringNumber)
-  for (let k = 1; k < notes.length; k++) {
-    if (notes[k].offset === notes[k - 1].offset) {
-      issues.push({
-        line: notes[k].line,
-        column: notes[k].column,
-        message: `Strings ${notes[k - 1].stringNumber} and ${notes[k].stringNumber} are played at the same time (a chord). Chords are not supported yet; put each note in its own column.`,
-      })
-    }
-  }
+  // Order left to right (and thickest string first within a column).
+  notes.sort((a, b) => a.offset - b.offset || b.stringNumber - a.stringNumber)
   return notes
 }

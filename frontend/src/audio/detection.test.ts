@@ -116,6 +116,15 @@ describe('NoteRecognizer rules', () => {
     expect(starts(events)).toHaveLength(2)
   })
 
+  it('a short note that is very clearly the expected one needs only two readings', () => {
+    const r = new NoteRecognizer()
+    const strong = (midi: number, onset = false) => r.push({ time: (clocks.get(r) ?? 0) + 25, midi, rms: 0.1, onset, strong: true })
+    clocks.set(r, 0)
+    expect(strong(65, true)).toEqual([])
+    clocks.set(r, 25)
+    expect(strong(65).map((e) => e.type)).toEqual(['noteStart'])
+  })
+
   it('ignores a single wobbly reading', () => {
     const r = new NoteRecognizer()
     const events = feed(r, [[64, PLUCK], [66], [64], [64], [64]])

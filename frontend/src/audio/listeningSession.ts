@@ -3,8 +3,8 @@
 // student explicitly starts a diagnostic practice recording.
 
 import { MicrophoneError, requestMicrophone, type MicrophoneErrorKind } from './microphone'
-import type { NoteEvent } from './noteRecognizer'
-import { PitchTracker, type PitchReading } from './pitchTracker'
+import { CHORD_FRAME_SIZE } from './chroma'
+import { DEFAULT_TRACKER_CONFIG, PitchTracker, type DetectedEvent, type PitchReading } from './pitchTracker'
 
 export const FRAME_SIZE = 2048
 export const ANALYSIS_INTERVAL_MS = 25
@@ -70,7 +70,7 @@ type ActiveRecording = {
 export type ListeningCallbacks = {
   onStatus: (status: ListeningStatus, error?: MicrophoneErrorKind) => void
   onReading: (reading: PitchReading, stats: ListeningStats) => void
-  onNoteEvents: (events: NoteEvent[]) => void
+  onNoteEvents: (events: DetectedEvent[]) => void
   /** Called when listening stopped by itself, e.g. the app went to the background. */
   onAutoStop?: (reason: 'hidden') => void
 }
@@ -82,7 +82,10 @@ export class ListeningSession {
   private timer: ReturnType<typeof setInterval> | null = null
   private tracker: PitchTracker | null = null
   private targets: readonly number[] = []
-  private source: MediaStreamAudioSourceNode | null = null
+  private chordTargets: readonly (readonly number[] | null)[] = []
+  /** Where the sound comes from: the microphone, or an audio file being played (test mode). */
+  private source: AudioNode | null = null
+  private fileSource: AudioBufferSourceNode | null = null
   private recording: ActiveRecording | null = null
   /** A recording that was still running when listening stopped, kept so it can be saved. */
   private interruptedRecording: PracticeRecording | null = null
@@ -130,24 +133,71 @@ export class ListeningSession {
       stream.getAudioTracks()[0]?.addEventListener('ended', () => this.fail(new MicrophoneError('device-lost')))
       await context.resume()
 
-      const analyser = context.createAnalyser()
-      analyser.fftSize = FRAME_SIZE
-      analyser.smoothingTimeConstant = 0
-      this.source = context.createMediaStreamSource(stream)
-      this.source.connect(analyser)
       // The analyser is not connected to the speakers: the student never hears the microphone.
-
-      this.tracker = new PitchTracker(context.sampleRate, FRAME_SIZE)
-      this.tracker.setTargets(this.targets)
-      const buffer = new Float32Array(FRAME_SIZE)
-      this.lastAudioTime = -1
-      this.timer = setInterval(() => this.analyse(analyser, buffer), ANALYSIS_INTERVAL_MS)
-      document.addEventListener('visibilitychange', this.handleVisibility)
+      this.beginAnalysis(context, context.createMediaStreamSource(stream), new PitchTracker(context.sampleRate, FRAME_SIZE))
       this.setStatus('calibrating')
-      void this.requestWakeLock()
     } catch (error) {
       this.fail(error instanceof MicrophoneError ? error : new MicrophoneError('unknown', error))
     }
+  }
+
+  /**
+   * Test mode: plays an audio file (e.g. an expert's recording of the song) out loud and analyses
+   * the file's sound directly instead of the microphone, exactly as if it were being played live.
+   * Must be called from a user action. Stops by itself when the file ends.
+   */
+  async startFromFile(file: Blob): Promise<void> {
+    if (this.isActive) return
+    this.setStatus('starting')
+    let context: AudioContext
+    try {
+      context = new AudioContext()
+    } catch (error) {
+      this.fail(new MicrophoneError('unsupported', error))
+      return
+    }
+    this.context = context
+    try {
+      const audio = await context.decodeAudioData(await file.arrayBuffer())
+      if (this.context !== context) return
+      await context.resume()
+      const player = context.createBufferSource()
+      player.buffer = audio
+      player.connect(context.destination) // so the student hears the recording
+      player.onended = () => {
+        if (this.fileSource === player) this.stop()
+      }
+      this.fileSource = player
+      // A recording has no quiet start to measure the room, so the lowest noise gate is used.
+      const tracker = new PitchTracker(context.sampleRate, FRAME_SIZE, { ...DEFAULT_TRACKER_CONFIG, calibrationMs: 0 })
+      this.beginAnalysis(context, player, tracker)
+      player.start()
+      this.setStatus('listening')
+    } catch (error) {
+      this.fail(new MicrophoneError('unreadable-file', error))
+    }
+  }
+
+  /** True while an audio file is being analysed instead of the microphone. */
+  get isFileTest(): boolean {
+    return this.fileSource !== null
+  }
+
+  private beginAnalysis(context: AudioContext, source: AudioNode, tracker: PitchTracker) {
+    const analyser = context.createAnalyser()
+    // The longer chord slice; single-note detection uses its newest FRAME_SIZE samples.
+    analyser.fftSize = CHORD_FRAME_SIZE
+    analyser.smoothingTimeConstant = 0
+    this.source = source
+    source.connect(analyser)
+    this.tracker = tracker
+    tracker.setTargets(this.targets)
+    tracker.setChordTargets(this.chordTargets)
+    const buffer = new Float32Array(CHORD_FRAME_SIZE)
+    this.lastAudioTime = -1
+    this.timer = setInterval(() => this.analyse(analyser, buffer), ANALYSIS_INTERVAL_MS)
+    document.addEventListener('visibilitychange', this.handleVisibility)
+    void this.requestWakeLock()
   }
 
   stop(): void {
@@ -255,6 +305,8 @@ export class ListeningSession {
     const context = this.context
     if (!context || context.state !== 'running') return false
     const now = context.currentTime
+    // In file test mode the app listens to the file, not the room, so it cannot hear itself.
+    const listeningToRoom = this.fileSource === null
     const end = now + ERROR_SOUND_SECONDS
     const volume = context.createGain()
     volume.gain.setValueAtTime(0, now)
@@ -271,7 +323,7 @@ export class ListeningSession {
       tone.onended = () => tone.disconnect()
     }
     setTimeout(() => volume.disconnect(), (ERROR_SOUND_SECONDS + 0.1) * 1000)
-    this.mutedUntil = end * 1000 + ERROR_SOUND_ECHO_MS
+    if (listeningToRoom) this.mutedUntil = end * 1000 + ERROR_SOUND_ECHO_MS
     return true
   }
 
@@ -282,6 +334,12 @@ export class ListeningSession {
   setTargets(midis: readonly number[]): void {
     this.targets = midis
     this.tracker?.setTargets(midis)
+  }
+
+  /** The chords that may be strummed next (index 0 = current step; null for single-note steps). */
+  setChordTargets(chords: readonly (readonly number[] | null)[]): void {
+    this.chordTargets = chords
+    this.tracker?.setChordTargets(chords)
   }
 
   /** Forget pending note detection, e.g. after the student jumps to another note. */
@@ -322,6 +380,7 @@ export class ListeningSession {
         target: this.targets[0] ?? null,
       })
       for (const event of result.events) this.logEventAt(r.time, event.type, { noteId: event.noteId, midi: round(event.midi, 2) })
+      for (const event of result.chordEvents) this.logEventAt(r.time, event.type, { ...event })
     }
 
     if (!result.calibrating && this.status === 'calibrating') this.setStatus('listening')
@@ -331,7 +390,8 @@ export class ListeningSession {
       analysisMs: average(this.analysisTimes),
       framesPerSecond: this.frameTimes.length > 1 ? (1000 * (this.frameTimes.length - 1)) / (this.frameTimes.at(-1)! - this.frameTimes[0]) : 0,
     })
-    if (result.events.length > 0) this.callbacks.onNoteEvents(result.events)
+    const detected: DetectedEvent[] = [...result.events, ...result.chordEvents]
+    if (detected.length > 0) this.callbacks.onNoteEvents(detected)
   }
 
   private logEventAt(t: number, kind: string, data: Record<string, unknown>) {
@@ -376,6 +436,13 @@ export class ListeningSession {
     document.removeEventListener('visibilitychange', this.handleVisibility)
     this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
+    const player = this.fileSource
+    this.fileSource = null
+    try {
+      player?.stop()
+    } catch {
+      // Already stopped.
+    }
     void this.context?.close().catch(() => {})
     this.context = null
     this.tracker = null

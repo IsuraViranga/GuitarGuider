@@ -2,13 +2,30 @@ import type { GuitarPosition } from '../music/guitarNumber'
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
+/** One string played as part of a chord. */
+export type ChordTone = { midi: number; position: GuitarPosition }
+
+export type Chord = {
+  /** e.g. "Am", "C/G"; absent when the numbers are not a common chord */
+  name?: string
+  /** Strings played together, thickest string first. */
+  tones: ChordTone[]
+  /** Set when a chart's chord was simplified to a playable shape, e.g. "C9 is played as C7". */
+  simplifiedFrom?: string
+}
+
+/** One step of a song: a single note, or a chord (several strings played together). */
 export type SongNote = {
   /** 0-based order in the song */
   index: number
-  /** Expected pitch as a MIDI note number. This is what playing is compared against. */
+  /** Expected pitch as a MIDI note number (for a chord: its lowest note). */
   midi: number
-  /** Intended string/fret. null means an import still needs the position confirmed. */
+  /** Intended string/fret (for a chord: its lowest string). null = position still to confirm. */
   position: GuitarPosition | null
+  /** Present when this step is a chord. */
+  chord?: Chord
+  /** Words sung at this step (from an imported chord chart). */
+  lyric?: string
   durationBeats?: number
   measure?: number
 }

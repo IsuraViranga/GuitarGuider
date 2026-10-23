@@ -1,0 +1,68 @@
+.bigLabel {
+  font-size: 1.15rem;
+}
+
+.paste {
+  min-height: 12rem;
+}
+
+.detected {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.override {
+  font-size: 0.95rem;
+}
+
+.override summary {
+  cursor: pointer;
+  min-height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  color: var(--color-muted);
+}
+
+.override select {
+  display: block;
+  margin-top: var(--space-1);
+  min-height: var(--touch-target);
+  font: inherit;
+  max-width: 100%;
+}
+
+.preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.stepName {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.stepNumbers {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.stepLyric {
+  font-size: 0.95rem;
+}

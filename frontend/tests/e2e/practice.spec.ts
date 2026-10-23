@@ -61,22 +61,21 @@ test('keyboard users can reach and use the controls', async ({ page }) => {
 
 test('an imported song can be practised', async ({ page }) => {
   await page.goto('/import')
-  await page.getByLabel('Song notes').fill('title: Typed Tune\n21 23 | 10')
+  await page.getByLabel('Paste the song here').fill('title: Typed Tune\n21 23 | 10')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save to my songs' }).click()
+  await page.getByRole('button', { name: 'Save and practise' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Typed Tune' })).toBeVisible()
-  await page.getByRole('link', { name: 'Start practice' }).click()
   await expect(page.getByTestId('expected-number')).toHaveText('21')
 })
 
 test('a song with a Sinhala title can be imported, found and practised', async ({ page }) => {
   await page.goto('/import')
   const file = { name: 'sinhala.txt', mimeType: 'text/plain', buffer: Buffer.from('title: මගේ පළමු ගීතය\n10 11 | 13', 'utf-8') }
-  await page.getByLabel(/Choose a text file/).setInputFiles(file)
+  await page.getByLabel(/Or choose a text file/).setInputFiles(file)
   await expect(page.getByLabel('Song title')).toHaveValue('sinhala')
   await page.getByLabel('Song title').fill('')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save to my songs' }).click()
+  await page.getByRole('button', { name: 'Save and practise' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'මගේ පළමු ගීතය' })).toBeVisible()
 
   await page.goto('/songs')

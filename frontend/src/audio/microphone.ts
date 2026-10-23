@@ -7,6 +7,7 @@ export type MicrophoneErrorKind =
   | 'no-device'
   | 'in-use'
   | 'device-lost'
+  | 'unreadable-file'
   | 'unknown'
 
 export class MicrophoneError extends Error {
@@ -27,6 +28,7 @@ export const MICROPHONE_ERROR_MESSAGES: Record<MicrophoneErrorKind, string> = {
   'no-device': 'No microphone was found on this device.',
   'in-use': 'The microphone is being used by another app (for example a call or a recorder). Close it and try again.',
   'device-lost': 'The microphone stopped working. Tap "Start listening" to try again.',
+  'unreadable-file': 'That audio file could not be played. Try an MP3, M4A or WAV file.',
   unknown: 'The microphone could not be started. Please try again.',
 }
 

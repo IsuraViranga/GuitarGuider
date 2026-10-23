@@ -7,6 +7,8 @@
 
 import { frequencyToMidi, midiToFrequency } from '../music/pitch'
 import { DEFAULT_MATCH_CONFIG } from '../practice/matching'
+import { ChordRecognizer, type ChordEvent } from './chordRecognizer'
+import { CHORD_FRAME_SIZE, createChordChecker, heardChordName, verifyChord, type ChordVerdict } from './chroma'
 import { DEFAULT_RECOGNIZER_CONFIG, NoteRecognizer, type NoteEvent, type RecognizerConfig } from './noteRecognizer'
 import { createPitchDetector, DEFAULT_YIN_OPTIONS, type PitchDetector, type PitchMatch, type YinOptions } from './pitchDetector'
 
@@ -52,7 +54,8 @@ export const DEFAULT_TRACKER_CONFIG: TrackerConfig = {
   maxGate: 0.01,
   onsetRatio: 1.6,
   onsetMinGateMultiple: 1,
-  onsetRefractoryMs: 60,
+  // One pluck's attack can rise over two readings; measured on real recordings (8.60 s and 8.66 s).
+  onsetRefractoryMs: 100,
   // Blends of loud low strings measured 0.6–0.9 for the note just played (clean notes: >0.95).
   targetMinStrength: 0.6,
   targetMinRise: 0.05,
@@ -78,9 +81,15 @@ export type PitchReading = {
 
 type ExpectedNote = { midi: number; repeats: boolean; previousStrength: number; strengthBeforeOnset: number }
 
+/** What the detector reports: single notes, and (while chords are expected) strummed chords. */
+export type DetectedEvent = NoteEvent | ChordEvent
+
 export type TrackerResult = {
   reading: PitchReading
+  /** Single notes. */
   events: NoteEvent[]
+  /** Strummed chords (only while chords are expected). */
+  chordEvents: ChordEvent[]
   calibrating: boolean
 }
 
@@ -90,6 +99,13 @@ export class PitchTracker {
   private readonly config: TrackerConfig
   private readonly detect: PitchDetector
   private readonly recognizer: NoteRecognizer
+  private readonly chordRecognizer = new ChordRecognizer()
+  private checkChord: ReturnType<typeof createChordChecker> | null = null
+  /** Expected chords for the current step (index 0) and following steps; null = not a chord. */
+  private chordTargets: readonly (readonly number[] | null)[] = []
+  private lastChordCheck: ReturnType<ReturnType<typeof createChordChecker>> | null = null
+  /** The chord check from just before the latest strum (what was already ringing). */
+  private chordBefore: ReturnType<ReturnType<typeof createChordChecker>> | null = null
   private calibrationStart: number | null = null
   private calibrationLevels: number[] = []
   private noiseGate: number
@@ -126,6 +142,15 @@ export class PitchTracker {
   }
 
   /**
+   * The chords that may be strummed next (index 0 = current step), as MIDI notes; null for steps
+   * that are single notes. While any chord is expected, each frame is also checked as a chord.
+   */
+  setChordTargets(chords: readonly (readonly number[] | null)[]) {
+    this.chordTargets = chords
+    this.chordRecognizer.reset()
+  }
+
+  /**
    * The notes that may be played next, current note first. In play-through mode the next few
    * notes are included, so a note is still recognised if the student is ahead of the app.
    */
@@ -147,7 +172,9 @@ export class PitchTracker {
    * by now, so it is recognised by the sound being clearly louder, or clearly a different note,
    * than before the gap. A wrong note that simply keeps ringing does not count again.
    */
-  process(samples: Float32Array, time: number, { afterGap = false } = {}): TrackerResult {
+  process(input: Float32Array, time: number, { afterGap = false } = {}): TrackerResult {
+    // Single notes use the newest `frameSize` samples; chords use a longer slice when available.
+    const samples = input.length > this.frameSize ? input.subarray(input.length - this.frameSize) : input
     const frame = this.detect(samples)
     this.calibrationStart ??= time
 
@@ -157,6 +184,7 @@ export class PitchTracker {
       return {
         reading: { ...frame, time, reliable: false, rejectReason: null, midi: null, onset: false, matchedTarget: false },
         events: [],
+        chordEvents: [],
         calibrating: true,
       }
     }
@@ -211,8 +239,25 @@ export class PitchTracker {
       reading = { ...frame, time, reliable: blindReject === null, rejectReason: blindReject, midi: blindMidi, onset, matchedTarget: false }
     }
 
-    const events = this.recognizer.push({ time, midi: reading.midi, rms: frame.rms, onset })
-    return { reading, events, calibrating: false }
+    // "Strong": a clear reading of one of the expected notes, however it was found.
+    const strong =
+      reading.midi !== null &&
+      reading.clarity >= STRONG_MATCH &&
+      this.targets.some((target) => Math.abs(reading.midi! - target.midi) * 100 <= DEFAULT_MATCH_CONFIG.acceptCents)
+    const events = this.recognizer.push({ time, midi: reading.midi, rms: frame.rms, onset, strong })
+    const chordEvents: ChordEvent[] = []
+    if (this.chordTargets.some(Boolean) && input.length >= CHORD_FRAME_SIZE) {
+      this.checkChord ??= createChordChecker(this.sampleRate)
+      const check = this.checkChord(input)
+      if (onset) this.chordBefore = this.lastChordCheck
+      this.lastChordCheck = check
+      const loudEnough = frame.rms >= this.noiseGate
+      const verdicts = this.chordTargets.map((chord): ChordVerdict | null =>
+        chord ? (loudEnough ? verifyChord(check, chord, this.chordBefore) : 'unclear') : null,
+      )
+      chordEvents.push(...this.chordRecognizer.push({ time, onset, verdicts, heard: heardChordName(check, this.chordBefore) }))
+    }
+    return { reading, events, chordEvents, calibrating: false }
   }
 
   /**
@@ -252,8 +297,12 @@ export class PitchTracker {
   /** See NoteRecognizer.reset. */
   resetNotes(options?: { requireFreshOnset?: boolean }) {
     this.recognizer.reset(options)
+    this.chordRecognizer.reset()
   }
 }
+
+/** A reading of an expected note at least this clear counts as "very clearly present". */
+const STRONG_MATCH = 0.78
 
 /** After a gap, the sound must be at least this much louder than before it to count as a pluck. */
 const GAP_ONSET_RATIO = 1.25
@@ -283,17 +332,21 @@ export function analyseSignal(
   signal: Float32Array,
   sampleRate: number,
   { frameSize = 2048, hopMs = 25, config = DEFAULT_TRACKER_CONFIG, targetMidi = null as number | null } = {},
-): { readings: PitchReading[]; events: NoteEvent[]; tracker: PitchTracker } {
+): { readings: PitchReading[]; events: NoteEvent[]; chordEvents: ChordEvent[]; tracker: PitchTracker } {
   const tracker = new PitchTracker(sampleRate, frameSize, config)
   tracker.setTarget(targetMidi)
   const hop = Math.round((hopMs / 1000) * sampleRate)
   const readings: PitchReading[] = []
   const events: NoteEvent[] = []
+  const chordEvents: ChordEvent[] = []
   for (let end = frameSize; end <= signal.length; end += hop) {
     const time = (end / sampleRate) * 1000
-    const result = tracker.process(signal.subarray(end - frameSize, end), time)
+    // Give the tracker the longer chord slice once there is enough signal, as the live app does.
+    const start = end >= CHORD_FRAME_SIZE ? end - CHORD_FRAME_SIZE : end - frameSize
+    const result = tracker.process(signal.subarray(start, end), time)
     readings.push(result.reading)
     events.push(...result.events)
+    chordEvents.push(...result.chordEvents)
   }
-  return { readings, events, tracker }
+  return { readings, events, chordEvents, tracker }
 }

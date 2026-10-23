@@ -1,7 +1,13 @@
 import type { GuitarPosition } from '../../music/guitarNumber'
 import type { Difficulty, SongIssue } from '../types'
 
-export type ParsedNote = { position: GuitarPosition; measure?: number }
+/** A parsed step: one position, or a chord (several positions); lyric from chord charts. */
+export type ParsedNote = {
+  position: GuitarPosition
+  chord?: { name?: string; positions: GuitarPosition[]; simplifiedFrom?: string }
+  lyric?: string
+  measure?: number
+}
 
 export type ParsedSongFile = {
   title?: string

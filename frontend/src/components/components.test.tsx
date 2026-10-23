@@ -11,7 +11,7 @@ import { createPracticeState, practiceReducer } from '../practice/practiceReduce
 
 describe('Fretboard', () => {
   it('describes a fretted position in text, not just colour', () => {
-    render(<Fretboard position={{ stringNumber: 1, fret: 3 }} tuning={STANDARD_TUNING} />)
+    render(<Fretboard positions={[{ stringNumber: 1, fret: 3 }]} tuning={STANDARD_TUNING} />)
     expect(screen.getByRole('img', { name: 'Play string 1, fret 3.' })).toBeInTheDocument()
     const marker = screen.getByTestId('fretboard-marker')
     expect(marker).toHaveAttribute('data-kind', 'fretted')
@@ -19,19 +19,37 @@ describe('Fretboard', () => {
   })
 
   it('shows open strings with a distinct marker', () => {
-    render(<Fretboard position={{ stringNumber: 6, fret: 0 }} tuning={STANDARD_TUNING} />)
+    render(<Fretboard positions={[{ stringNumber: 6, fret: 0 }]} tuning={STANDARD_TUNING} />)
     expect(screen.getByRole('img', { name: /string 6, open \(no finger/ })).toBeInTheDocument()
     expect(screen.getByTestId('fretboard-marker')).toHaveAttribute('data-kind', 'open')
   })
 
   it('labels all six strings', () => {
-    const { container } = render(<Fretboard position={{ stringNumber: 2, fret: 1 }} tuning={STANDARD_TUNING} />)
+    const { container } = render(<Fretboard positions={[{ stringNumber: 2, fret: 1 }]} tuning={STANDARD_TUNING} />)
     const labels = [...container.querySelectorAll('text')].map((t) => t.textContent)
     for (const n of ['1', '2', '3', '4', '5', '6']) expect(labels).toContain(n)
   })
 
+  it('shows every finger of a chord and marks strings not to play', () => {
+    const C = [
+      { stringNumber: 5, fret: 3 },
+      { stringNumber: 4, fret: 2 },
+      { stringNumber: 3, fret: 0 },
+      { stringNumber: 2, fret: 1 },
+      { stringNumber: 1, fret: 0 },
+    ] as const
+    render(<Fretboard positions={C} tuning={STANDARD_TUNING} chord={{ name: 'C' }} />)
+    expect(screen.getAllByTestId('fretboard-marker')).toHaveLength(5)
+    expect(screen.getAllByTestId('fretboard-muted')).toHaveLength(1)
+    expect(
+      screen.getByRole('img', {
+        name: 'Strum C: string 5 fret 3, string 4 fret 2, string 3 open, string 2 fret 1, string 1 open. Do not play string 6.',
+      }),
+    ).toBeInTheDocument()
+  })
+
   it('moves the visible fret window for high frets', () => {
-    render(<Fretboard position={{ stringNumber: 1, fret: 12 }} tuning={STANDARD_TUNING} />)
+    render(<Fretboard positions={[{ stringNumber: 1, fret: 12 }]} tuning={STANDARD_TUNING} />)
     expect(screen.getByText(/Showing frets 9–15/)).toBeInTheDocument()
     expect(screen.getByTestId('fretboard-marker')).toHaveTextContent('12')
     expect(firstVisibleFret(0, 24)).toBe(1)

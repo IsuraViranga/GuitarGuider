@@ -454,6 +454,39 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - **Tried and rejected:** "shortest nearly-best period" (McLeod key maximum) rule: no measurable
   gain on real recordings (85.7% vs 85.9% agreement), so the simpler detector was kept.
 
+## 8f. Second recording round (3 new runs, play-through)
+
+- Whole-song replay is the main yardstick (per-pluck labels miss short notes and count re-plucks).
+- Fixes from the newest runs: one pluck no longer counts twice (onset refractory 100 ms); a short,
+  soft note counts after 2 readings when it is clearly an expected note (≥ 0.78). Result: run 3 now
+  plays through with no skipped notes; correct plucks 78% → 85%; typical response 102 → 85 ms.
+- Remaining skips/wrong notes in the newest runs were played that way (wrong string, badly fretted
+  note), checked one by one.
+- **Test with a recording:** `ListeningSession.startFromFile` plays an audio file aloud and analyses
+  the file directly (no microphone, no room-noise calibration, no self-hearing pause), so an expert's
+  recording can be checked against a song in the library.
+
+## 8g. Phase 4 (in progress): chords and common song formats
+
+- **4.1 Chord steps:** `SongNote.chord` (tones with positions, optional name, simplification note)
+  and `SongNote.lyric`. Notation `[53 42 30 21 10]` (thickest string first). `music/chords.ts`:
+  chord name → shape (open shapes, E/A movable barre shapes, slash-chord bass, simplification),
+  numbers ↔ positions, chord naming from numbers.
+- **4.2 Import:** one paste box with automatic format detection (`detectFormat`); chord charts over
+  lyrics, ChordPro and UG markup (`parsers/chordChart.ts`); tab columns with several strings and
+  bracketed numbers become chords; preview with chord names, numbers and words.
+- **4.3 Chord checking:** single-note periodicity cannot see notes in a 5–6 string strum (measured
+  0.2–0.4), so chords use the spectrum: 8192-sample FFT, peak picking with interpolation (no
+  leakage into neighbouring semitones), per-note-name salience in 75–700 Hz. Verdict "match" when
+  every expected note name sounds and no foreign low note got louder with the strum (strings still
+  ringing from the previous chord are ignored); "other" when a note is clearly missing or a foreign
+  note is strong (the heard chord is named). `ChordRecognizer`: one decision per strum.
+  Synthetic results: 12 chords recognised, 9 typical mix-ups rejected, chord songs followed at 1.2 and
+  0.8 s per chord. **Real strummed recordings still needed.**
+- Practice: chord steps are judged only by chord events; play-through skips work across chords and
+  notes; wrong chord → "Not this chord. Expected C, heard G" + error sound.
+- Next: 4.4 Guitar Pro / MusicXML (alphaTab), 4.5 tuning on real strum recordings.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

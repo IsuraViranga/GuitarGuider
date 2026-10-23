@@ -13,6 +13,7 @@
 // - Any position change (automatic or manual) clears feedback and bumps positionVersion,
 //   which tells the listener to ignore notes still ringing from before.
 
+import type { ChordEvent } from '../audio/chordRecognizer'
 import type { NoteEvent } from '../audio/noteRecognizer'
 import { compareToTarget } from './matching'
 
@@ -20,6 +21,7 @@ export type Feedback =
   | { kind: 'none' }
   | { kind: 'correct'; noteIndex: number; heardMidi: number; cents: number; inTune: boolean; skipped: number }
   | { kind: 'incorrect'; noteIndex: number; targetMidi: number; detectedMidi: number; heardMidi: number; octaveOff: boolean }
+  | { kind: 'wrong-chord'; noteIndex: number; heard: string | null }
 
 /**
  * strict = note by note: stays on a note until it is played (the brief's rule).
@@ -27,6 +29,8 @@ export type Feedback =
  *        fast playing is followed even when a note was missed.
  */
 export type PracticeMode = 'strict' | 'flow'
+
+export type ChordTarget = { midi: number; string: number }
 
 /** In play-through mode, how many notes ahead of the current one are recognised. */
 export const FLOW_LOOKAHEAD = 1
@@ -39,6 +43,11 @@ export type PracticeState = {
   targets: readonly number[]
   /** Intended string of every note (null when unknown), used to learn per-string tuning. */
   targetStrings: readonly (number | null)[]
+  /**
+   * For chord steps, the chord's notes (pitch + string). Chord steps are judged by chord events
+   * (the whole strum), not by single notes.
+   */
+  targetChords: readonly (readonly ChordTarget[] | null)[]
   /** Learned tuning error per string, in cents (positive = sharp). */
   tuningOffsets: Readonly<Record<number, number>>
   currentIndex: number
@@ -59,14 +68,17 @@ export type PracticeAction =
   | { type: 'jumpTo'; index: number }
   | { type: 'reset' }
   | { type: 'noteEvent'; event: NoteEvent }
+  | { type: 'chordEvent'; event: ChordEvent }
   | { type: 'setMode'; mode: PracticeMode }
 
 export function createPracticeState(
   targets: readonly number[],
   targetStrings: readonly (number | null)[] = targets.map(() => null),
   mode: PracticeMode = 'strict',
+  targetChords: readonly (readonly ChordTarget[] | null)[] = targets.map(() => null),
 ): PracticeState {
   return {
+    targetChords,
     mode,
     skippedCount: 0,
     targets,
@@ -107,13 +119,17 @@ function moveTo(state: PracticeState, index: number): PracticeState {
   }
 }
 
-/** Compares a played note with song note `index`, allowing for that string's known tuning error. */
-function judge(state: PracticeState, index: number, midi: number) {
-  const string = state.targetStrings[index]
+/** Compares a played note with one expected pitch, allowing for that string's known tuning error. */
+function judgeTone(state: PracticeState, targetMidi: number, string: number | null, midi: number) {
   const offset = string === null ? 0 : (state.tuningOffsets[string] ?? 0)
-  const compensated = compareToTarget(midi - offset / 100, state.targets[index])
-  const raw = compareToTarget(midi, state.targets[index])
+  const compensated = compareToTarget(midi - offset / 100, targetMidi)
+  const raw = compareToTarget(midi, targetMidi)
   return { ...compensated, cents: raw.cents, inTune: raw.inTune, string, offset }
+}
+
+/** Compares a played note with single-note step `index`. */
+function judge(state: PracticeState, index: number, midi: number) {
+  return judgeTone(state, state.targets[index], state.targetStrings[index], midi)
 }
 
 function accept(state: PracticeState, index: number, event: NoteEvent, skipped: number): PracticeState {
@@ -136,8 +152,45 @@ function accept(state: PracticeState, index: number, event: NoteEvent, skipped: 
   }
 }
 
+/** A strummed chord was recognised (for the current step, or the next one in play-through mode). */
+function handleChord(state: PracticeState, event: ChordEvent): PracticeState {
+  if (state.completed) return state
+  const index = state.currentIndex
+  if (event.type === 'chordStart') {
+    const target = index + event.step
+    if (!state.targetChords[target]) return state
+    if (event.step === 0) return acceptStep(state, index, 0)
+    if (state.mode === 'flow' && event.step <= FLOW_LOOKAHEAD) return acceptStep(state, target, event.step)
+    return state
+  }
+  if (!state.targetChords[index]) return state
+  return {
+    ...state,
+    feedback: { kind: 'wrong-chord', noteIndex: index, heard: event.heard },
+    feedbackId: state.feedbackId + 1,
+    wrongCount: state.wrongCount + 1,
+  }
+}
+
+/** Accepts a step without a single detected note (chords). */
+function acceptStep(state: PracticeState, index: number, skipped: number): PracticeState {
+  const isLast = index >= state.targets.length - 1
+  return {
+    ...state,
+    currentIndex: isLast ? index : index + 1,
+    completed: isLast,
+    feedback: { kind: 'correct', noteIndex: index, heardMidi: state.targets[index], cents: 0, inTune: true, skipped },
+    feedbackId: state.feedbackId + 1,
+    positionVersion: state.positionVersion + 1,
+    handledNoteId: null,
+    skippedCount: state.skippedCount + skipped,
+  }
+}
+
 function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
   if (state.completed || event.noteId === state.handledNoteId) return state
+  // Chord steps are judged by the whole strum (chord events), not by single notes.
+  if (state.targetChords[state.currentIndex]) return state
 
   const noteIndex = state.currentIndex
   const current = judge(state, noteIndex, event.midi)
@@ -147,6 +200,7 @@ function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
   // note while they played on). Catch up instead of holding everything back.
   if (state.mode === 'flow') {
     for (let ahead = 1; ahead <= FLOW_LOOKAHEAD && noteIndex + ahead < state.targets.length; ahead++) {
+      if (state.targetChords[noteIndex + ahead]) continue
       if (judge(state, noteIndex + ahead, event.midi).result === 'correct') return accept(state, noteIndex + ahead, event, ahead)
     }
   }
@@ -183,6 +237,8 @@ export function practiceReducer(state: PracticeState, action: PracticeAction): P
       return { ...state, mode: action.mode }
     case 'noteEvent':
       return handleNote(state, action.event)
+    case 'chordEvent':
+      return handleChord(state, action.event)
   }
 }
 

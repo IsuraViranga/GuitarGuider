@@ -190,3 +190,16 @@
   font-size: 0.9rem;
   color: var(--color-muted);
 }
+
+.chordNumbers {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.lyric {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: 1.2rem;
+  font-style: italic;
+}

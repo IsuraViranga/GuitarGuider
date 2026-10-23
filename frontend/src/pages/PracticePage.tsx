@@ -2,13 +2,13 @@ import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { Fretboard } from '../components/fretboard/Fretboard'
-import type { NoteEvent } from '../audio/noteRecognizer'
+import type { DetectedEvent } from '../audio/pitchTracker'
 import { useListening } from '../audio/useListening'
 import { ListeningPanel } from '../components/listening/ListeningPanel'
 import { FeedbackBanner } from '../components/practice/FeedbackBanner'
 import { NoteTimeline } from '../components/timeline/NoteTimeline'
 import { STANDARD_TUNING, getTuning } from '../music/tuning'
-import { describeNote, noteAccessibleLabel } from '../songs/describeNote'
+import { describeNote, noteAccessibleLabel, shortLabel } from '../songs/describeNote'
 import type { Song } from '../songs/types'
 import { useSong } from '../songs/useSong'
 import { validateSong } from '../songs/validation'
@@ -55,6 +55,7 @@ function PracticeView({ song }: { song: Song }) {
       notes.map((n) => n.midi),
       notes.map((n) => n.position?.stringNumber ?? null),
       mode,
+      notes.map((n) => n.chord?.tones.map((t) => ({ midi: t.midi, string: t.position.stringNumber })) ?? null),
     ),
   )
   const changeMode = (value: typeof mode) => {
@@ -64,11 +65,14 @@ function PracticeView({ song }: { song: Song }) {
   const [errorSound, setErrorSound] = useErrorSoundSetting()
   const [boost, setBoost] = useMicBoostSetting()
 
-  const handleNoteEvents = useCallback((events: NoteEvent[]) => {
-    for (const event of events) dispatch({ type: 'noteEvent', event })
+  const handleNoteEvents = useCallback((events: DetectedEvent[]) => {
+    for (const event of events) {
+      if (event.type === 'chordStart' || event.type === 'chordWrong') dispatch({ type: 'chordEvent', event })
+      else dispatch({ type: 'noteEvent', event })
+    }
   }, [])
   const listening = useListening(handleNoteEvents)
-  const { resetNotes, setTargets, playErrorSound } = listening
+  const { resetNotes, setTargets, setChordTargets, playErrorSound } = listening
   const isListening = listening.status === 'listening' || listening.status === 'calibrating'
   const micActive = isListening || listening.status === 'starting'
 
@@ -77,11 +81,16 @@ function PracticeView({ song }: { song: Song }) {
   // The microphone keeps running.
   const targetMidi = practice.completed ? null : practice.targets[practice.currentIndex]
   const lookahead = practice.mode === 'flow' ? FLOW_LOOKAHEAD : 0
-  const expected = practice.completed ? '' : practice.targets.slice(practice.currentIndex, practice.currentIndex + 1 + lookahead).join(',')
+  // Notes the detector should listen for: the current step (all notes of a chord) and, in
+  // play-through mode, the next step(s).
+  const coming = practice.completed ? [] : song.notes.slice(practice.currentIndex, practice.currentIndex + 1 + lookahead)
+  const expected = coming.filter((n) => !n.chord).map((n) => n.midi).join(',')
+  const expectedChords = JSON.stringify(coming.map((n) => n.chord?.tones.map((t) => t.midi) ?? null))
   useEffect(() => {
     resetNotes({ requireFreshOnset: true })
     setTargets(expected ? expected.split(',').map(Number) : [])
-  }, [practice.positionVersion, expected, resetNotes, setTargets])
+    setChordTargets(JSON.parse(expectedChords) as (number[] | null)[])
+  }, [practice.positionVersion, expected, expectedChords, resetNotes, setTargets, setChordTargets])
 
   // Practice decisions go into a diagnostic practice recording, if one is running.
   const { logEvent } = listening
@@ -102,7 +111,7 @@ function PracticeView({ song }: { song: Song }) {
   // One short sound per confirmed wrong note. Never a sound for correct notes.
   const lastErrorSound = useRef(-Infinity)
   useEffect(() => {
-    if (practice.feedback.kind !== 'incorrect' || !errorSound) return
+    if ((practice.feedback.kind !== 'incorrect' && practice.feedback.kind !== 'wrong-chord') || !errorSound) return
     const now = performance.now()
     if (now - lastErrorSound.current < ERROR_SOUND_COOLDOWN_MS) return
     if (playErrorSound()) lastErrorSound.current = now
@@ -158,26 +167,50 @@ function PracticeView({ song }: { song: Song }) {
         <h2 id="target-heading" className={styles.targetHeading}>
           {practice.completed ? 'Last note' : 'Play next'}
         </h2>
-        <p className={styles.number} data-testid="expected-number">
-          {text.number}
-        </p>
+        {note.chord ? (
+          <>
+            <p className={styles.number} data-testid="expected-number">
+              {note.chord.name ?? 'Chord'}
+            </p>
+            <p className={styles.chordNumbers} data-testid="expected-chord-numbers">
+              {text.number}
+            </p>
+          </>
+        ) : (
+          <p className={styles.number} data-testid="expected-number">
+            {text.number}
+          </p>
+        )}
+        {note.lyric && (
+          <p className={styles.lyric} data-testid="lyric">
+            <span aria-hidden="true">♪ </span>
+            {note.lyric}
+          </p>
+        )}
         <p className={styles.upcoming} data-testid="upcoming">
           {practice.completed
             ? ''
             : upcoming.length > 0
-              ? <>Then: <strong>{upcoming.map((n, i) => describeNote(n).number + (i === 0 && describeNote(n).number === text.number ? ' again' : '')).join(' · ')}</strong></>
+              ? <>Then: <strong>{upcoming.map((n, i) => shortLabel(n) + (i === 0 && shortLabel(n) === shortLabel(note) ? ' again' : '')).join(' · ')}</strong></>
               : 'Last note of the song'}
         </p>
-        <p className={styles.targetDetails}>
-          <span>
-            {text.position}
-            {note.position?.stringNumber === 1 && <strong> · thinnest string</strong>}
-            {note.position?.stringNumber === 6 && <strong> · thickest string</strong>}
-          </span>
-          <span>
-            Note <strong>{text.noteName}</strong> · {text.frequency}
-          </span>
-        </p>
+        {note.chord ? (
+          <p className={styles.targetDetails}>
+            <span>Strum these {note.chord.tones.length} strings together</span>
+            {note.chord.simplifiedFrom && <span className="muted">{note.chord.simplifiedFrom} (easier shape)</span>}
+          </p>
+        ) : (
+          <p className={styles.targetDetails}>
+            <span>
+              {text.position}
+              {note.position?.stringNumber === 1 && <strong> · thinnest string</strong>}
+              {note.position?.stringNumber === 6 && <strong> · thickest string</strong>}
+            </span>
+            <span>
+              Note <strong>{text.noteName}</strong> · {text.frequency}
+            </span>
+          </p>
+        )}
         <p className={styles.micLine} data-testid="mic-line">
           <span aria-hidden="true">🎤 </span>
           {listening.status === 'listening' && <>Listening{heard !== null && <> · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong></>}</>}
@@ -186,7 +219,11 @@ function PracticeView({ song }: { song: Song }) {
           {listening.status === 'idle' && 'Microphone off. Tap “Listen” to start.'}
           {listening.status === 'error' && 'Microphone not available. See “Listening” below.'}
         </p>
-        <Fretboard position={note.position} tuning={tuning} />
+        <Fretboard
+          positions={note.chord ? note.chord.tones.map((t) => t.position) : note.position ? [note.position] : []}
+          tuning={tuning}
+          chord={note.chord ? { name: note.chord.name } : undefined}
+        />
       </section>
 
       <div className={styles.controls} role="group" aria-label="Practice controls">

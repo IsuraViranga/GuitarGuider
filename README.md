@@ -16,7 +16,8 @@ phone's microphone.
 | 2 – Microphone pitch detection | Done (confirmed on a real guitar) |
 | 3 – Guided practice (auto-advance, error sound) | Done; needs real-guitar check |
 | 3.5 – Detection quality on real recordings | Done; needs another real-guitar check |
-| 4–6 | Not started |
+| 4 – Chords and common song formats | 4.1–4.3 done (chord charts, chord checking); 4.4–4.5 next |
+| 5–7 | Not started |
 
 ## Requirements
 

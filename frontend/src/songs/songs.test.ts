@@ -68,6 +68,19 @@ describe('guitar number text format', () => {
     expect(result.value.notes.map((n) => n.measure)).toEqual([1, 1, 1, 2, 2])
   })
 
+  it('reads chords written in square brackets', () => {
+    const result = parseGuitarNumberText('10 [53 42 30 21 10] 11 [32 21 10]', STANDARD_TUNING)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.notes.map((n) => n.chord?.name ?? formatGuitarNumber(n.position))).toEqual(['10', 'C', '11', 'Am'])
+  })
+
+  it('explains bracket mistakes', () => {
+    const issues = issuesOf(parseGuitarNumberText('[53 42 30', STANDARD_TUNING))
+    expect(issues[0].message).toMatch(/closing/)
+    expect(issuesOf(parseGuitarNumberText('[21 23]', STANDARD_TUNING))[0].message).toMatch(/String 2 appears twice/)
+  })
+
   it('omits measures when there are no barlines', () => {
     const result = parseGuitarNumberText('10 11', STANDARD_TUNING)
     expect(result.ok && result.value.notes.every((n) => n.measure === undefined)).toBe(true)
@@ -138,12 +151,17 @@ describe('ASCII tab format', () => {
     expect(numbersOf(result)).toEqual(['21', '10'])
   })
 
-  it('rejects chords', () => {
-    const issues = issuesOf(
-      parseAsciiTab(tab('e|-0-|', 'B|-1-|', 'G|---|', 'D|---|', 'A|---|', 'E|---|'), STANDARD_TUNING),
+  it('reads numbers in the same column as a chord', () => {
+    const result = parseAsciiTab(
+      tab('e|-0---3-|', 'B|-1-----|', 'G|-0-----|', 'D|-2-----|', 'A|-3-----|', 'E|-------|'),
+      STANDARD_TUNING,
     )
-    expect(issues[0].message).toMatch(/chord/)
-    expect(issues[0].line).toBe(2)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.notes).toHaveLength(2)
+    expect(result.value.notes[0].chord?.name).toBe('C')
+    expect(result.value.notes[0].chord?.positions.map(formatGuitarNumber)).toEqual(['53', '42', '30', '21', '10'])
+    expect(formatGuitarNumber(result.value.notes[1].position)).toBe('13')
   })
 
   it('rejects incomplete blocks, wrong labels, techniques and high frets', () => {

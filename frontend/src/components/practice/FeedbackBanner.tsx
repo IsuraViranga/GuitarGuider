@@ -65,7 +65,7 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
     const stringName = playedNote.position ? `String ${playedNote.position.stringNumber}` : 'Your guitar'
     message = (
       <>
-        <strong>Correct!</strong> {played.number} ({played.noteName}).
+        <strong>Correct!</strong> {playedNote.chord ? (playedNote.chord.name ?? played.number) : `${played.number} (${played.noteName})`}.
         {feedback.skipped > 0 && ` (Caught up: ${feedback.skipped} note${feedback.skipped === 1 ? '' : 's'} skipped.)`}
         {feedback.inTune
           ? notes[feedback.noteIndex + 1] && describeNote(notes[feedback.noteIndex + 1]).number === played.number
@@ -74,13 +74,24 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
           : ` ${stringName} sounds ${describeCents(feedback.cents)}: tune it ${feedback.cents > 0 ? 'down' : 'up'} a little.`}
       </>
     )
+  } else if (feedback.kind === 'wrong-chord') {
+    kind = 'incorrect'
+    symbol = '✗'
+    const expected = notes[feedback.noteIndex]
+    message = (
+      <>
+        <strong>Not this chord.</strong> Expected {expected.chord?.name ?? describeNote(expected).number}
+        {feedback.heard ? `, heard ${feedback.heard}` : ''}. Check your fingers and strum again.
+      </>
+    )
   } else if (feedback.kind === 'incorrect') {
     kind = 'incorrect'
     symbol = '✗'
     const expected = describeNote(notes[feedback.noteIndex])
     message = (
       <>
-        <strong>Not this note.</strong> Expected {expected.number} ({expected.noteName}), heard{' '}
+        <strong>Not this {notes[feedback.noteIndex].chord ? 'chord' : 'note'}.</strong> Expected{' '}
+        {notes[feedback.noteIndex].chord ? (notes[feedback.noteIndex].chord!.name ?? expected.number) : `${expected.number} (${expected.noteName})`}, heard{' '}
         {midiToNoteName(feedback.heardMidi).label} ({formatFrequency(midiToFrequency(feedback.detectedMidi))}).
         {' '}
         {wrongStringHint(notes[feedback.noteIndex], feedback.heardMidi) ??
@@ -89,7 +100,8 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
       </>
     )
   } else {
-    message = listening ? 'Play the note shown below.' : 'Start listening, then play the note shown below.'
+    const what = notes[practice.currentIndex]?.chord ? 'strum the chord' : 'play the note'
+    message = listening ? `${what[0].toUpperCase()}${what.slice(1)} shown below.` : `Start listening, then ${what} shown below.`
   }
 
   return (

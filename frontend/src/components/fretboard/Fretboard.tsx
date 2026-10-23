@@ -18,21 +18,40 @@ const SINGLE_INLAYS = new Set([3, 5, 7, 9, 15, 17, 19, 21])
 const DOUBLE_INLAYS = new Set([12, 24])
 
 type FretboardProps = {
-  /** The intended position to highlight; null when unknown. */
-  position: GuitarPosition | null
+  /** Where to play: one position for a note, several for a chord. Empty when unknown. */
+  positions: readonly GuitarPosition[]
   tuning: Tuning
+  /** Set for chords: strings that are not part of the chord are marked "do not play". */
+  chord?: { name?: string }
+}
+
+/** Plain-language description for the caption and screen readers. */
+function describe(positions: readonly GuitarPosition[], chord: FretboardProps['chord']): string {
+  if (positions.length === 0) return 'No position set for this note.'
+  if (!chord) {
+    const [position] = positions
+    return `Play ${describePosition(position)}${position.fret === 0 ? ' (no finger on the string)' : ''}.`
+  }
+  const played = [...positions].sort((a, b) => b.stringNumber - a.stringNumber)
+  const parts = played.map((p) => (p.fret === 0 ? `string ${p.stringNumber} open` : `string ${p.stringNumber} fret ${p.fret}`))
+  const muted = STRING_NUMBERS.filter((s) => !positions.some((p) => p.stringNumber === s))
+  const skip = muted.length ? ` Do not play string${muted.length > 1 ? 's' : ''} ${muted.join(' and ')}.` : ''
+  return `Strum ${chord.name ?? 'this chord'}: ${parts.join(', ')}.${skip}`
 }
 
 /**
- * Simplified fretboard showing where the song intends the note to be played.
+ * Simplified fretboard showing where the song intends the note or chord to be played.
  * String 1 (thinnest) is drawn at the top, matching tab notation.
  * It shows the intended position only; it does not know where the player's fingers are.
  */
-export function Fretboard({ position, tuning }: FretboardProps) {
+export function Fretboard({ positions, tuning, chord }: FretboardProps) {
   const captionId = useId()
-  const firstFret = firstVisibleFret(position?.fret ?? 0, tuning.maxFret)
+  const highestFret = positions.reduce((max, p) => Math.max(max, p.fret), 0)
+  const firstFret = firstVisibleFret(highestFret, tuning.maxFret)
   const showsNut = firstFret === 1
   const lastFret = firstFret + FRETS_SHOWN - 1
+  const targetStrings = new Set(positions.map((p) => p.stringNumber))
+  const targetFrets = new Set(positions.map((p) => p.fret))
 
   const stringY = (stringNumber: number) => TOP + (stringNumber - 1) * STRING_GAP
   const fretCenterX = (fret: number) => NUT_X + (fret - firstFret + 0.5) * FRET_WIDTH
@@ -40,10 +59,7 @@ export function Fretboard({ position, tuning }: FretboardProps) {
   const width = boardRight + NOTE_LABEL_GAP + 12
   const bottom = stringY(6)
   const height = bottom + 44
-
-  const caption = position
-    ? `Play ${describePosition(position)}${position.fret === 0 ? ' (no finger on the string)' : ''}.`
-    : 'No position set for this note.'
+  const markerX = showsNut ? OPEN_X : NUT_X - 26
 
   return (
     <figure className={styles.figure}>
@@ -68,11 +84,7 @@ export function Fretboard({ position, tuning }: FretboardProps) {
                   <circle className={styles.inlay} cx={x} cy={(stringY(4) + stringY(5)) / 2} r={6} />
                 </>
               )}
-              <text
-                className={`${styles.fretNumber} ${position?.fret === fret ? styles.targetText : ''}`}
-                x={x}
-                y={bottom + 34}
-              >
+              <text className={`${styles.fretNumber} ${targetFrets.has(fret) ? styles.targetText : ''}`} x={x} y={bottom + 34}>
                 {fret}
               </text>
             </g>
@@ -92,14 +104,10 @@ export function Fretboard({ position, tuning }: FretboardProps) {
 
         {STRING_NUMBERS.map((stringNumber) => {
           const y = stringY(stringNumber)
-          const isTarget = position?.stringNumber === stringNumber
+          const isTarget = targetStrings.has(stringNumber)
           return (
             <g key={stringNumber}>
-              <text
-                className={`${styles.stringLabel} ${isTarget ? styles.targetText : ''}`}
-                x={STRING_LABEL_X}
-                y={y}
-              >
+              <text className={`${styles.stringLabel} ${isTarget ? styles.targetText : ''}`} x={STRING_LABEL_X} y={y}>
                 {stringNumber}
               </text>
               <line
@@ -113,6 +121,11 @@ export function Fretboard({ position, tuning }: FretboardProps) {
               <text className={styles.openNote} x={boardRight + NOTE_LABEL_GAP} y={y}>
                 {midiToNoteName(tuning.openStringMidi[stringNumber]).pitchClass}
               </text>
+              {chord && !isTarget && (
+                <text className={styles.mutedMark} x={markerX} y={y} data-testid="fretboard-muted">
+                  ✕
+                </text>
+              )}
             </g>
           )
         })}
@@ -123,30 +136,30 @@ export function Fretboard({ position, tuning }: FretboardProps) {
           </text>
         )}
 
-        {position && position.fret === 0 && (
-          <g data-testid="fretboard-marker" data-kind="open">
-            <circle className={styles.openMarker} cx={OPEN_X} cy={stringY(position.stringNumber)} r={MARKER_RADIUS} />
-            <text className={styles.openMarkerText} x={OPEN_X} y={stringY(position.stringNumber)}>
-              0
-            </text>
-          </g>
-        )}
-        {position && position.fret > 0 && position.fret <= lastFret && (
-          <g data-testid="fretboard-marker" data-kind="fretted">
-            <circle
-              className={styles.marker}
-              cx={fretCenterX(position.fret)}
-              cy={stringY(position.stringNumber)}
-              r={MARKER_RADIUS}
-            />
-            <text className={styles.markerText} x={fretCenterX(position.fret)} y={stringY(position.stringNumber)}>
-              {position.fret}
-            </text>
-          </g>
+        {positions.map((position) =>
+          position.fret === 0 ? (
+            showsNut && (
+              <g key={position.stringNumber} data-testid="fretboard-marker" data-kind="open">
+                <circle className={styles.openMarker} cx={OPEN_X} cy={stringY(position.stringNumber)} r={MARKER_RADIUS} />
+                <text className={styles.openMarkerText} x={OPEN_X} y={stringY(position.stringNumber)}>
+                  0
+                </text>
+              </g>
+            )
+          ) : (
+            position.fret <= lastFret && (
+              <g key={position.stringNumber} data-testid="fretboard-marker" data-kind="fretted">
+                <circle className={styles.marker} cx={fretCenterX(position.fret)} cy={stringY(position.stringNumber)} r={MARKER_RADIUS} />
+                <text className={styles.markerText} x={fretCenterX(position.fret)} y={stringY(position.stringNumber)}>
+                  {position.fret}
+                </text>
+              </g>
+            )
+          ),
         )}
       </svg>
       <figcaption id={captionId} className={styles.caption}>
-        {caption}
+        {describe(positions, chord)}
         {!showsNut && <span className="muted"> Showing frets {firstFret}–{lastFret}.</span>}
       </figcaption>
     </figure>

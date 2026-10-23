@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ListeningSession, type ListeningStats, type ListeningStatus, type PracticeRecording } from './listeningSession'
 import type { MicrophoneErrorKind } from './microphone'
-import type { NoteEvent } from './noteRecognizer'
+import type { DetectedEvent } from './pitchTracker'
 import type { PitchReading } from './pitchTracker'
 
 /** How often live readings are copied to the screen. Detection itself runs faster. */
@@ -15,6 +15,8 @@ export type ListeningState = {
   reading: PitchReading | null
   stats: ListeningStats | null
   start: (options?: { boost?: boolean }) => void
+  /** Test mode: play an audio file and analyse it instead of the microphone. */
+  startFromFile: (file: Blob) => void
   stop: () => void
   /** True while a diagnostic practice recording is running. */
   recording: boolean
@@ -26,11 +28,13 @@ export type ListeningState = {
   resetNotes: (options?: { requireFreshOnset?: boolean }) => void
   /** Tells the detector which notes may come next, current note first (empty: nothing expected). */
   setTargets: (midis: readonly number[]) => void
+  /** Tells the detector which chords may be strummed next (null for single-note steps). */
+  setChordTargets: (chords: readonly (readonly number[] | null)[]) => void
   /** Plays the wrong-note sound (and pauses detection while it plays). False if not listening. */
   playErrorSound: () => boolean
 }
 
-export function useListening(onNoteEvents: (events: NoteEvent[]) => void): ListeningState {
+export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): ListeningState {
   const [status, setStatus] = useState<ListeningStatus>('idle')
   const [error, setError] = useState<MicrophoneErrorKind | null>(null)
   const [autoStopped, setAutoStopped] = useState(false)
@@ -83,6 +87,13 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
     },
     [getSession],
   )
+  const startFromFile = useCallback(
+    (file: Blob) => {
+      setAutoStopped(false)
+      void getSession().startFromFile(file)
+    },
+    [getSession],
+  )
   const startRecording = useCallback(
     (maxSeconds: number) => {
       const started = getSession().startRecording(maxSeconds)
@@ -101,6 +112,10 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
   )
   const stop = useCallback(() => getSession().stop(), [getSession])
   const setTargets = useCallback((midis: readonly number[]) => getSession().setTargets(midis), [getSession])
+  const setChordTargets = useCallback(
+    (chords: readonly (readonly number[] | null)[]) => getSession().setChordTargets(chords),
+    [getSession],
+  )
   const playErrorSound = useCallback(() => sessionRef.current?.playErrorSound() ?? false, [])
   const resetNotes = useCallback((options?: { requireFreshOnset?: boolean }) => sessionRef.current?.resetNotes(options), [])
 
@@ -112,6 +127,7 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
     reading: active ? display.reading : null,
     stats: active ? display.stats : null,
     start,
+    startFromFile,
     stop,
     recording,
     startRecording,
@@ -119,6 +135,7 @@ export function useListening(onNoteEvents: (events: NoteEvent[]) => void): Liste
     logEvent,
     resetNotes,
     setTargets,
+    setChordTargets,
     playErrorSound,
   }
 }

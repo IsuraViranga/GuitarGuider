@@ -16,6 +16,7 @@ export function SongDetailPage() {
 
   const issues = validateSong(song)
   const hasMeasures = song.notes.some((note) => note.measure !== undefined)
+  const hasLyrics = song.notes.some((note) => note.lyric)
 
   return (
     <div className="page stack">
@@ -55,6 +56,7 @@ export function SongDetailPage() {
                 <th scope="col">Position</th>
                 <th scope="col">Note</th>
                 <th scope="col">Frequency</th>
+                {hasLyrics && <th scope="col">Words</th>}
               </tr>
             </thead>
             <tbody>
@@ -70,6 +72,7 @@ export function SongDetailPage() {
                     <td>{text.position}</td>
                     <td>{text.noteName}</td>
                     <td>{text.frequency}</td>
+                    {hasLyrics && <td>{note.lyric ?? ''}</td>}
                   </tr>
                 )
               })}

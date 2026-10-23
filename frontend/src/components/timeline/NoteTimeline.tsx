@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { describeNote, noteAccessibleLabel } from '../../songs/describeNote'
+import { describeNote, noteAccessibleLabel, shortLabel } from '../../songs/describeNote'
 import type { SongNote } from '../../songs/types'
 import styles from './NoteTimeline.module.css'
 
@@ -50,10 +50,10 @@ export function NoteTimeline({ notes, currentIndex, onSelect }: NoteTimelineProp
               {note.index + 1}
             </span>
             <span className={styles.number} aria-hidden="true">
-              {text.number}
+              {shortLabel(note)}
             </span>
             <span className={styles.noteName} aria-hidden="true">
-              {text.noteName}
+              {note.chord ? 'chord' : text.noteName}
             </span>
           </>
         )

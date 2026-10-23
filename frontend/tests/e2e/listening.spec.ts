@@ -2,6 +2,10 @@ import { expect, test, type Page } from '@playwright/test'
 
 // The fake microphone plays, on a loop: 1.5 s quiet, then a G4 (= 13) ringing for 2.5 s.
 // "First Frets on String 1" is 10 11 13 11 | 10 13 11 10 (E4 F4 G4 F4 | E4 G4 F4 E4).
+// These tests analyse live audio and check timing; running them one at a time keeps them from
+// competing for CPU (which made timing checks flaky when run in parallel).
+test.describe.configure({ mode: 'serial' })
+
 const SONG = '/songs/sample-first-frets/practice'
 const LOOP = { timeout: 30_000 }
 
@@ -90,10 +94,9 @@ test('jumping while a note rings: the mic stays on, the ringing note is ignored,
 
 test('finishing the last note completes the song', async ({ page }) => {
   await page.goto('/import')
-  await page.getByLabel('Song notes').fill('title: One Note\n11 13')
+  await page.getByLabel('Paste the song here').fill('title: One Note\n11 13')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save to my songs' }).click()
-  await page.getByRole('link', { name: 'Start practice' }).click()
+  await page.getByRole('button', { name: 'Save and practise' }).click()
 
   await page.getByRole('button', { name: /^Note 2 of 2/ }).click()
   await startListening(page)
@@ -155,4 +158,49 @@ test('the bottom bar starts listening; the note card shows mic status and the ne
   await expect(page.getByTestId('mic-line')).toContainText('hearing G4', LOOP)
   await page.getByRole('group', { name: 'Practice controls' }).getByRole('button', { name: /Pause/ }).click()
   await expect(page.getByTestId('mic-line')).toContainText('Microphone off')
+})
+
+test('follows a recording of the whole song, played into the app as a test file', async ({ page }) => {
+  const { encodeWav } = await import('../../src/audio/wav')
+  const { perform, SAMPLE_RATE } = await import('../../src/test/synth')
+  // First Frets on String 1: 10 11 13 11 | 10 13 11 10, one note every 0.5 s.
+  const notes = [64, 65, 67, 65, 64, 67, 65, 64].map((midi, i) => ({ midi, stringNumber: 1, start: 0.5 + i * 0.5 }))
+  const wav = Buffer.from(encodeWav(perform(notes, 5.5), SAMPLE_RATE, 'pcm16'))
+
+  await page.goto(SONG)
+  await page.getByLabel('Test with a recording').setInputFiles({ name: 'first-frets.wav', mimeType: 'audio/wav', buffer: wav })
+  await expect(page.getByRole('button', { name: /Pause listening/ })).toBeVisible()
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'complete', LOOP)
+  await expect(feedback(page)).toContainText('No wrong notes')
+})
+
+test('a pasted chord chart becomes a chord song that can be practised', async ({ page }) => {
+  const { encodeWav } = await import('../../src/audio/wav')
+  const { perform, SAMPLE_RATE } = await import('../../src/test/synth')
+
+  await page.goto('/import')
+  await page.getByLabel('Paste the song here').fill('title: Chord test\nC        G\nfirst words\nAm       F\nsecond words')
+  await expect(page.getByText(/Recognised as:/)).toContainText('Chord chart')
+  await page.getByRole('button', { name: 'Check song' }).click()
+  await expect(page.getByRole('heading', { name: /“Chord test”: 4 chords/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Save and practise' }).click()
+
+  // The practice screen shows the chord, its numbers, the words and which strings to skip.
+  await expect(page.getByTestId('expected-number')).toHaveText('C')
+  await expect(page.getByTestId('expected-chord-numbers')).toHaveText('[53 42 30 21 10]')
+  await expect(page.getByTestId('lyric')).toHaveText('♪ first')
+  await expect(page.getByRole('img', { name: /Strum C: .* Do not play string 6\./ })).toBeVisible()
+  await expect(page.getByTestId('upcoming')).toHaveText('Then: G · Am · F')
+
+  // A recording of the four chords strummed (strings 15 ms apart), one chord per second.
+  const chords = [
+    [[48, 5], [52, 4], [55, 3], [60, 2], [64, 1]], // C
+    [[43, 6], [47, 5], [50, 4], [55, 3], [59, 2], [67, 1]], // G
+    [[45, 5], [52, 4], [57, 3], [60, 2], [64, 1]], // Am
+    [[41, 6], [48, 5], [53, 4], [57, 3], [60, 2], [65, 1]], // F
+  ]
+  const notes = chords.flatMap((chord, c) => chord.map(([midi, stringNumber], k) => ({ midi, stringNumber, start: 0.6 + c + k * 0.015 })))
+  const wav = Buffer.from(encodeWav(perform(notes, 5.5), SAMPLE_RATE, 'pcm16'))
+  await page.getByLabel('Test with a recording').setInputFiles({ name: 'chords.wav', mimeType: 'audio/wav', buffer: wav })
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'complete', LOOP)
 })

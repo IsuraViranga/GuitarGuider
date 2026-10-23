@@ -1,6 +1,7 @@
 // Text shown and announced for a song note, kept in one place so the UI,
 // screen-reader labels and (later) spoken guidance all say the same thing.
 
+import { formatChordNumbers } from '../music/chords'
 import { describePosition, formatGuitarNumber } from '../music/guitarNumber'
 import { formatFrequency, midiToFrequency, midiToNoteName } from '../music/pitch'
 import type { Song, SongNote } from './types'
@@ -17,6 +18,15 @@ export type NoteText = {
 }
 
 export function describeNote(note: SongNote): NoteText {
+  if (note.chord) {
+    const positions = note.chord.tones.map((t) => t.position)
+    return {
+      number: formatChordNumbers(positions),
+      position: `chord on ${positions.length} strings`,
+      noteName: note.chord.name ?? 'chord',
+      frequency: '',
+    }
+  }
   return {
     number: note.position ? formatGuitarNumber(note.position) : '?',
     position: note.position ? describePosition(note.position) : 'position not set',
@@ -25,9 +35,18 @@ export function describeNote(note: SongNote): NoteText {
   }
 }
 
-/** e.g. "Note 5 of 12: 13, string 1, fret 3, G4" */
+/** Short label for lists: the chord name for chords ("Am"), the number for single notes ("13"). */
+export function shortLabel(note: SongNote): string {
+  if (note.chord) return note.chord.name ?? describeNote(note).number
+  return describeNote(note).number
+}
+
+/** e.g. "Note 5 of 12: 13, string 1, fret 3, G4" or "Note 2 of 8: C chord, [53 42 30 21 10]" */
 export function noteAccessibleLabel(note: SongNote, total: number): string {
   const text = describeNote(note)
+  if (note.chord) {
+    return `Note ${note.index + 1} of ${total}: ${note.chord.name ? `${note.chord.name} chord` : 'chord'}, ${text.number}`
+  }
   return `Note ${note.index + 1} of ${total}: ${text.number}, ${text.position}, ${text.noteName}`
 }
 
