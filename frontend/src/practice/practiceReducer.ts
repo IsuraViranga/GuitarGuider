@@ -60,6 +60,9 @@ export type PracticeState = {
   /** The detected note that already produced a result; its later events are ignored. */
   handledNoteId: number | null
   wrongCount: number
+  /** Correct steps in a row (a wrong note or a restart sets it back to 0), for encouragement. */
+  streak: number
+  bestStreak: number
 }
 
 export type PracticeAction =
@@ -91,6 +94,8 @@ export function createPracticeState(
     positionVersion: 0,
     handledNoteId: null,
     wrongCount: 0,
+    streak: 0,
+    bestStreak: 0,
   }
 }
 
@@ -132,6 +137,11 @@ function judge(state: PracticeState, index: number, midi: number) {
   return judgeTone(state, state.targets[index], state.targetStrings[index], midi)
 }
 
+function countCorrect(state: PracticeState): Pick<PracticeState, 'streak' | 'bestStreak'> {
+  const streak = state.streak + 1
+  return { streak, bestStreak: Math.max(state.bestStreak, streak) }
+}
+
 function accept(state: PracticeState, index: number, event: NoteEvent, skipped: number): PracticeState {
   const { string, offset, cents, inTune, heardMidi } = judge(state, index, event.midi)
   const isLast = index >= state.targets.length - 1
@@ -149,6 +159,7 @@ function accept(state: PracticeState, index: number, event: NoteEvent, skipped: 
     positionVersion: state.positionVersion + 1,
     handledNoteId: event.noteId,
     skippedCount: state.skippedCount + skipped,
+    ...countCorrect(state),
   }
 }
 
@@ -169,6 +180,7 @@ function handleChord(state: PracticeState, event: ChordEvent): PracticeState {
     feedback: { kind: 'wrong-chord', noteIndex: index, heard: event.heard },
     feedbackId: state.feedbackId + 1,
     wrongCount: state.wrongCount + 1,
+    streak: 0,
   }
 }
 
@@ -184,6 +196,7 @@ function acceptStep(state: PracticeState, index: number, skipped: number): Pract
     positionVersion: state.positionVersion + 1,
     handledNoteId: null,
     skippedCount: state.skippedCount + skipped,
+    ...countCorrect(state),
   }
 }
 
@@ -220,6 +233,7 @@ function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
     feedbackId: state.feedbackId + 1,
     handledNoteId: event.noteId,
     wrongCount: state.wrongCount + 1,
+    streak: 0,
   }
 }
 
@@ -232,7 +246,7 @@ export function practiceReducer(state: PracticeState, action: PracticeAction): P
     case 'jumpTo':
       return moveTo(state, action.index)
     case 'reset':
-      return { ...moveTo(state, 0), wrongCount: 0, skippedCount: 0 }
+      return { ...moveTo(state, 0), wrongCount: 0, skippedCount: 0, streak: 0, bestStreak: 0 }
     case 'setMode':
       return { ...state, mode: action.mode }
     case 'noteEvent':

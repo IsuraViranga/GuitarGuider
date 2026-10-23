@@ -6,18 +6,24 @@
      so keyboard and screen-reader users still reach them early. */
   grid-template-areas:
     'header'
-    'mode'
     'target'
+    'mode'
     'listening'
     'timeline'
     'controls';
 }
 
+/* Title, streak and a progress bar through the song. */
 .header {
   grid-area: header;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.headerRow {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
 }
@@ -27,43 +33,220 @@
   margin: 0;
 }
 
-.progress {
-  margin: 0;
-  font-size: 1.1rem;
+.streak {
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  border: 1px solid rgb(245 165 36 / 0.5);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: var(--glow-accent);
+  animation: pop 0.4s ease;
 }
 
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progressBar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.1);
+  overflow: hidden;
+}
+
+.progressBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-stage), var(--color-accent));
+  box-shadow: 0 0 10px rgb(245 165 36 / 0.6);
+  transition: width 0.4s ease;
+}
+
+.progress {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.progress strong {
+  color: var(--color-text);
+}
+
+/* The note to play. */
 .target {
   grid-area: target;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   text-align: center;
 }
 
+.target > :first-child {
+  align-self: stretch;
+}
+
+.micLine {
+  margin: 0;
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  background: rgb(255 255 255 / 0.05);
+}
+
+.micLive {
+  color: var(--color-text);
+  background: rgb(74 222 128 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(74 222 128 / 0.35);
+}
+
+/* The big number in its ring on the left, the facts about it on the right. */
+.noteRow {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-1) 0;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+/* Glowing ring behind the big number, like a spotlight on stage. */
+.spotlight {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 40%, rgb(245 165 36 / 0.2), transparent 65%),
+    rgb(13 11 18 / 0.6);
+  box-shadow:
+    0 0 0 2px rgb(245 165 36 / 0.55),
+    0 0 30px rgb(245 165 36 / 0.3),
+    inset 0 0 30px rgb(124 92 255 / 0.25);
+}
+
+/* A short bright arc travelling around the ring (sized from the edge, so it sits exactly on it). */
+.spotlight::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 70%, rgb(255 195 92 / 0.95) 88%, transparent 100%);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: spin 6s linear infinite;
+  pointer-events: none;
+}
+
 .targetHeading {
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--color-accent-strong);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 0;
+  letter-spacing: 0.12em;
+  margin: 0;
 }
 
 .number {
   color: var(--color-text);
-  text-shadow: 0 0 32px rgb(245 165 36 / 0.45);
+  text-shadow: 0 0 32px rgb(245 165 36 / 0.55);
   font-family: var(--font-display);
-  font-size: clamp(3.5rem, 18vw, 5.5rem);
+  font-size: 3.6rem;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
   margin: 0;
+  font-variant-numeric: tabular-nums;
+  animation: pop 0.35s ease;
+}
+
+/* Longer chord names (Dsus4, C/G) still fit the ring. */
+.numberLong {
+  font-size: 2.2rem;
+}
+
+.chordNumbers {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+}
+
+.lyric {
+  margin: 0;
+  font-size: 1.2rem;
+  font-style: italic;
+}
+
+/* Short facts instead of a sentence: which string, which fret, which note. */
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.chip {
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.chipString {
+  background: var(--color-accent-soft);
+  border-color: rgb(245 165 36 / 0.5);
+  color: var(--color-accent-strong);
+}
+
+.chipFret {
+  background: rgb(124 92 255 / 0.16);
+  border-color: rgb(155 132 255 / 0.5);
+  color: #cdbfff;
+}
+
+.board {
+  width: 100%;
+}
+
+.upcoming {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--color-muted);
+  min-height: 1.5em;
   font-variant-numeric: tabular-nums;
 }
 
-.targetDetails {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: 1.1rem;
+.upcoming strong {
+  color: var(--color-text);
+  letter-spacing: 0.02em;
 }
 
-/* On phones the controls stay at the bottom of the screen, within thumb reach. */
+/* On phones the controls stay at the bottom of the screen, within thumb reach, on frosted glass. */
 .controls {
   grid-area: controls;
   position: sticky;
@@ -72,8 +255,13 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
-  padding: var(--space-2) 0;
-  background: var(--color-bg);
+  margin: 0 calc(var(--space-4) * -1);
+  padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: rgb(13 11 18 / 0.78);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgb(245 165 36 / 0.25);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.4);
 }
 
 /* Icon above a short label, so four buttons fit a 360 px phone. */
@@ -91,52 +279,20 @@
   line-height: 1.1;
 }
 
+/* While listening, the Pause button pulses softly so it is clear the app is live. */
+.live {
+  position: relative;
+  border-color: var(--color-correct);
+  color: var(--color-correct);
+  animation: live 1.6s ease-in-out infinite;
+}
+
 .listening {
   grid-area: listening;
 }
 
-.upcoming {
-  margin: 0 0 var(--space-2);
-  font-size: 1.15rem;
-  color: var(--color-muted);
-  min-height: 1.5em;
-  font-variant-numeric: tabular-nums;
-}
-
-.upcoming strong {
-  color: var(--color-text);
-  letter-spacing: 0.02em;
-}
-
-.micLine {
-  margin: 0 0 var(--space-2);
-  font-size: 0.95rem;
-  color: var(--color-muted);
-}
-
 .timeline {
   grid-area: timeline;
-}
-
-@media (min-width: 800px) {
-  .layout {
-    grid-template-columns: 3fr 2fr;
-    grid-template-areas:
-      'header header'
-      'mode mode'
-      'target timeline'
-      'controls timeline'
-      'listening timeline';
-    align-items: start;
-  }
-
-  .controls {
-    position: static;
-  }
-
-  .timeline :global(ol) {
-    max-height: 70vh;
-  }
 }
 
 .mode {
@@ -146,13 +302,23 @@
   margin: 0;
 }
 
+.modeLegend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
 /* Two-button switch; the radio inputs stay real (keyboard and screen readers) but are hidden. */
 .modeSwitch {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius);
-  overflow: hidden;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgb(245 165 36 / 0.4);
+  border-radius: 999px;
+  background: rgb(13 11 18 / 0.6);
 }
 
 .modeOption {
@@ -161,9 +327,11 @@
   align-items: center;
   justify-content: center;
   min-height: var(--touch-target);
+  border-radius: 999px;
   font-weight: 600;
   color: var(--color-accent-strong);
   cursor: pointer;
+  transition: background 0.2s;
 }
 
 .modeOption input {
@@ -177,6 +345,7 @@
 .modeOption:has(input:checked) {
   background: var(--color-accent);
   color: var(--color-on-accent);
+  box-shadow: var(--glow-accent);
 }
 
 .modeOption:has(input:checked) span::before {
@@ -185,7 +354,7 @@
 
 .modeOption:has(input:focus-visible) {
   outline: 3px solid var(--color-focus);
-  outline-offset: -3px;
+  outline-offset: 2px;
 }
 
 .modeHint {
@@ -194,15 +363,75 @@
   color: var(--color-muted);
 }
 
-.chordNumbers {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 1.2rem;
-  font-weight: 700;
+@keyframes pop {
+  from {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
 }
 
-.lyric {
-  margin: var(--space-1) 0 var(--space-2);
-  font-size: 1.2rem;
-  font-style: italic;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes live {
+  50% {
+    box-shadow: 0 0 0 4px rgb(74 222 128 / 0.18);
+  }
+}
+
+@media (min-width: 800px) {
+  .layout {
+    grid-template-columns: 3fr 2fr;
+    grid-template-areas:
+      'header header'
+      'target timeline'
+      'controls timeline'
+      'mode timeline'
+      'listening timeline';
+    align-items: start;
+  }
+
+  .controls {
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .spotlight {
+    width: 160px;
+    height: 160px;
+  }
+
+  .number {
+    font-size: 4.6rem;
+  }
+
+  .numberLong {
+    font-size: 2.8rem;
+  }
+
+  .timeline :global(ol) {
+    max-height: 70vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight::before,
+  .number,
+  .streak,
+  .live {
+    animation: none;
+  }
+
+  .progressBar span {
+    transition: none;
+  }
 }

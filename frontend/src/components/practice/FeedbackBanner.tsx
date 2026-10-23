@@ -3,6 +3,7 @@ import { formatFrequency, midiToFrequency, midiToNoteName } from '../../music/pi
 import { describeNote } from '../../songs/describeNote'
 import type { SongNote } from '../../songs/types'
 import type { PracticeState } from '../../practice/practiceReducer'
+import { GuitarPick } from '../decor/GuitarPick'
 import styles from './FeedbackBanner.module.css'
 
 type FeedbackBannerProps = {
@@ -27,6 +28,12 @@ function wrongStringHint(expected: SongNote, heardMidi: number): string | null {
   return null
 }
 
+/** 3 picks for no mistakes, 2 for a few, 1 for finishing at all. */
+function completionRating(wrongCount: number): number {
+  if (wrongCount === 0) return 3
+  return wrongCount <= 3 ? 2 : 1
+}
+
 function describeCents(cents: number): string {
   const amount = Math.round(Math.abs(cents))
   return `${amount} cents ${cents > 0 ? 'too high' : 'too low'}`
@@ -45,13 +52,20 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
   if (completed) {
     kind = 'complete'
     symbol = '★'
+    const rating = completionRating(practice.wrongCount)
     message = (
       <>
+        <span className={styles.rating} aria-label={`${rating} of 3 picks`} role="img">
+          {[1, 2, 3].map((n) => (
+            <GuitarPick key={n} className={styles.ratingPick} filled={n <= rating} />
+          ))}
+        </span>
         <strong>Song complete. Well done!</strong>{' '}
         {practice.wrongCount === 0
           ? 'No wrong notes.'
           : `${practice.wrongCount} wrong note${practice.wrongCount === 1 ? '' : 's'} along the way.`}
-        {practice.skippedCount > 0 && ` ${practice.skippedCount} skipped.`}{' '}
+        {practice.skippedCount > 0 && ` ${practice.skippedCount} skipped.`}
+        {practice.bestStreak >= 3 && ` Best run: ${practice.bestStreak} in a row.`}{' '}
         <button type="button" className={`button button-primary ${styles.again}`} onClick={onRestart}>
           <span aria-hidden="true">↺</span> Play again
         </button>
@@ -101,7 +115,7 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
     )
   } else {
     const what = notes[practice.currentIndex]?.chord ? 'strum the chord' : 'play the note'
-    message = listening ? `${what[0].toUpperCase()}${what.slice(1)} shown below.` : `Start listening, then ${what} shown below.`
+    message = listening ? `${what[0].toUpperCase()}${what.slice(1)} shown below.` : `Tap Listen, then ${what} shown below.`
   }
 
   return (

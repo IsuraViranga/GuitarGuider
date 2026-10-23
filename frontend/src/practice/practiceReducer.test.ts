@@ -116,6 +116,14 @@ describe('wrong notes (§7.2)', () => {
     expect(again.wrongCount).toBe(1)
   })
 
+  it('counts correct notes in a row; a mistake or a restart starts the count again', () => {
+    const three = run([E4, F4, G4, E4], ...played(E4), ...played(F4), ...played(G4))
+    expect(three).toMatchObject({ streak: 3, bestStreak: 3 })
+    const broken = [...played(F4)].reduce(practiceReducer, three)
+    expect(broken).toMatchObject({ streak: 0, bestStreak: 3 })
+    expect(practiceReducer(three, { type: 'reset' })).toMatchObject({ streak: 0, bestStreak: 0 })
+  })
+
   it('a correct note after a mistake advances', () => {
     const state = run([E4, F4], ...played(G4), ...played(E4))
     expect(state.currentIndex).toBe(1)

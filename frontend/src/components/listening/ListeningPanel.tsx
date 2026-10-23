@@ -70,39 +70,40 @@ export function ListeningPanel({ listening, errorSound, onErrorSoundChange, boos
           <p className="muted">Sound is analysed on this device only. Nothing is recorded or uploaded.</p>
         </>
       )}
-      {!active && (
-        <label className={styles.option}>
-          <input type="checkbox" checked={boost} onChange={(event) => onBoostChange(event.target.checked)} />
-          <span>
-            Boost a quiet microphone
-            <span className="muted"> (try this if the level bar hardly moves while you play)</span>
-          </span>
-        </label>
-      )}
       <label className={styles.option}>
         <input type="checkbox" checked={errorSound} onChange={(event) => onErrorSoundChange(event.target.checked)} />
         <span>Play a short sound when a wrong note is played</span>
       </label>
       {!active && (
-        <div className={styles.fileTest}>
-          <label htmlFor="test-recording-file" className={styles.fileTestLabel}>
-            Test with a recording
+        <details className={styles.more}>
+          <summary>More options</summary>
+          <label className={styles.option}>
+            <input type="checkbox" checked={boost} onChange={(event) => onBoostChange(event.target.checked)} />
+            <span>
+              Boost a quiet microphone
+              <span className="muted"> (try this if the level bar hardly moves while you play)</span>
+            </span>
           </label>
-          <p className="muted">
-            Choose an audio file of this song played on guitar (for example by your teacher). It plays out loud and the
-            app follows it as if it were being played live.
-          </p>
-          <input
-            id="test-recording-file"
-            type="file"
-            accept="audio/*,.mp3,.m4a,.wav,.ogg"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              event.target.value = ''
-              if (file) listening.startFromFile(file)
-            }}
-          />
-        </div>
+          <div className={styles.fileTest}>
+            <label htmlFor="test-recording-file" className={styles.fileTestLabel}>
+              Test with a recording
+            </label>
+            <p className="muted">
+              Choose an audio file of this song played on guitar (for example by your teacher). It plays out loud and
+              the app follows it as if it were being played live.
+            </p>
+            <input
+              id="test-recording-file"
+              type="file"
+              accept="audio/*,.mp3,.m4a,.wav,.ogg"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) listening.startFromFile(file)
+              }}
+            />
+          </div>
+        </details>
       )}
       {autoStopped && status === 'idle' && (
         <p className="notice">Listening stopped because the app went to the background. Tap “Start listening” to continue.</p>

@@ -511,7 +511,13 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   example tiles and the six strings drawn thin to thick. "Melantha's corner" practice tips with photo.
 - Add a song: three format tiles with tiny samples (the recognised one lights up), a 1-2-3
   Paste/Check/Practise progress line, the form as a glass "studio" panel with a lined-paper paste box.
-- Practice: small level bars move with the microphone; a short pick shower on song completion.
+- Practice (phone first): progress bar and "N in a row" streak chip (reducer `streak`/`bestStreak`);
+  the note in a glowing ring with string/fret/note chips beside it, so the fretboard is visible above
+  the sticky frosted control bar on a 360×640 screen; mode switch moved below the note card; Pause
+  pulses green while listening; completion shows 1–3 picks (no / ≤3 / more wrong notes) and the best
+  run; "Boost" and "Test with a recording" folded into "More options".
+- Practice: small level bars move with the microphone; `PickBurst` (8 picks out of the ring) on every
+  correct note; the `Celebration` pick shower on song completion and at every 5 in a row.
   All decoration is `aria-hidden`, and motion is off with `prefers-reduced-motion`.
 
 ## 9. Later phases (unchanged from the brief, condensed)
