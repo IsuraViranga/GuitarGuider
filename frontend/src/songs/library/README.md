@@ -17,6 +17,9 @@ Every `.txt` or `.tab` file in this folder automatically becomes a built-in song
    10 11 13 11 | 10 23 21
    ```
 
+   A song sheet with the words under each numbers line also works (see `twinkle-twinkle.txt`):
+   each word or syllable belongs to the number above it, counted in order.
+
 4. Run `npm test` from the `frontend` folder. The test "every library file is valid" names the file,
    line and column of any mistake.
 5. The song appears in the app's Songs list (refresh the page if the app is open).

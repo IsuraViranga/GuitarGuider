@@ -225,6 +225,16 @@ describe('instructor library', () => {
     for (const song of LIBRARY_SONGS) expect(validateSong(song)).toEqual([])
   })
 
+  it('has Twinkle, twinkle as a song sheet: 42 notes, each with its syllable', () => {
+    const song = LIBRARY_SONGS.find((s) => s.id === 'library-twinkle-twinkle')
+    expect(song?.title).toBe('Twinkle, twinkle')
+    expect(song?.notes).toHaveLength(42)
+    expect(song?.notes.slice(0, 7).map((n) => `${n.position?.stringNumber}${n.position?.fret} ${n.lyric}`)).toEqual([
+      '23 Twin', '23 kle,', '15 twin', '15 kle,', '17 lit', '17 tle', '15 star,',
+    ])
+    expect(song?.notes.every((n) => n.lyric)).toBe(true)
+  })
+
   it('loads guitar-number and tab files, including Sinhala titles', () => {
     const { songs, errors } = loadLibrarySongs({
       './library/b-tab.tab': 'e|-0-3-|\nB|-----|\nG|-----|\nD|-----|\nA|-----|\nE|-----|',

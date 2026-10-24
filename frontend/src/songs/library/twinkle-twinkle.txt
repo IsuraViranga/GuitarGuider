@@ -1,0 +1,21 @@
+title: Twinkle, twinkle
+description: Song sheet with words: each number has its syllable underneath.
+difficulty: beginner
+
+23      23    15     15    17   17   15
+Twin  kle,  twin  kle,  lit    tle   star,
+
+13      13    12      12    10       10    23
+How   I      won   der    what  you   are!
+
+15     15   13      13    12        12   10
+Up      a    bove  the   world   so   high,
+
+15     15   13      13       12    12    10
+Like  a      dia    mond   in    the   sky,
+
+23      23    15     15    17   17   15
+Twin  kle,  twin  kle,  lit    tle   star,
+
+13      13    12      12    10       10    23
+How   I      won   der    what  you   are!

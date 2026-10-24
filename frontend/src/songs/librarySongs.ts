@@ -2,7 +2,7 @@
 // Every .txt or .tab file in that folder becomes a song in the library automatically.
 // See src/songs/library/README.md.
 
-import { importSongText, looksLikeAsciiTab, titleFromFileName } from './importSong'
+import { detectFormat, importSongText, looksLikeAsciiTab, titleFromFileName } from './importSong'
 import type { Song, SongIssue } from './types'
 
 export type LibraryFileError = { file: string; issues: SongIssue[] }
@@ -14,7 +14,8 @@ export function loadLibrarySongs(files: Record<string, string>): { songs: Song[]
 
   for (const [path, text] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
     const fileName = path.split('/').pop() ?? path
-    const format = fileName.toLowerCase().endsWith('.tab') || looksLikeAsciiTab(text) ? 'ascii-tab' : 'guitar-numbers'
+    // .tab files are tab; anything else is recognised like pasted text (numbers, song sheet with words, …).
+    const format = fileName.toLowerCase().endsWith('.tab') || looksLikeAsciiTab(text) ? 'ascii-tab' : detectFormat(text)
     // A file without a "title:" line is named after the file.
     const hasTitle = /^\s*title\s*:\s*\S/im.test(text)
     const result = importSongText(text, format, hasTitle ? '' : titleFromFileName(fileName))
