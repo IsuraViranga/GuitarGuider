@@ -2,38 +2,45 @@
 // File contents are untrusted: size is limited and everything is validated.
 
 import { getTuning, STANDARD_TUNING } from '../music/tuning'
+import { isDocumentFileName, MAX_DOCUMENT_BYTES } from './documentText'
 import { parseAsciiTab } from './parsers/asciiTab'
 import { parseChordChart } from './parsers/chordChart'
 import { parseGuitarNumberText } from './parsers/guitarNumberText'
+import { isNumbersLine, parseSongSheet } from './parsers/songSheet'
 import { parseHeaderLine } from './parsers/types'
 import type { NewSong } from './songRepository'
 import type { SongIssue } from './types'
 import { notesFromPositions, validateSong } from './validation'
 
-export type SongFileFormat = 'guitar-numbers' | 'ascii-tab' | 'chord-chart'
+export type SongFileFormat = 'guitar-numbers' | 'song-sheet' | 'ascii-tab' | 'chord-chart'
 
 /** Plain-language names for the formats, shown to the user. */
 export const FORMAT_LABELS: Record<SongFileFormat, string> = {
   'chord-chart': 'Chord chart (chord names above the words)',
   'ascii-tab': 'Guitar tab (6 lines like e|---0---|)',
   'guitar-numbers': "Instructor's numbers (like 10 11 [53 42 30 21 10])",
+  'song-sheet': "Song sheet (instructor's numbers with the words underneath)",
 }
 
 /**
  * Works out which format pasted text is in, so the user never has to choose:
- * tab lines → tab; only numbers/brackets/bars → instructor's numbers; anything else → chord chart.
+ * tab lines → tab; only numbers/brackets/bars → instructor's numbers; numbers lines mixed with
+ * text (words, a title) → song sheet; anything else → chord chart.
  */
 export function detectFormat(text: string): SongFileFormat {
   if (looksLikeAsciiTab(text)) return 'ascii-tab'
   const content = text.split(/\r?\n/).filter((line) => line.trim() && !/^\s*#/.test(line) && !parseHeaderLine(line))
-  if (content.length > 0 && content.every((line) => /^[\s\d,|[\]]+$/.test(line))) return 'guitar-numbers'
+  const numberLines = content.filter((line) => isNumbersLine(line)).length
+  if (content.length > 0 && numberLines === content.length) return 'guitar-numbers'
+  if (numberLines > 0) return 'song-sheet'
   return 'chord-chart'
 }
 
 export const MAX_IMPORT_BYTES = 100 * 1024
 export const MAX_TITLE_LENGTH = 120
 
-export type ImportResult = { ok: true; song: NewSong } | { ok: false; issues: SongIssue[] }
+/** `warnings` are things to check in the preview (e.g. words that could not be matched); they do not block saving. */
+export type ImportResult = { ok: true; song: NewSong; warnings: SongIssue[] } | { ok: false; issues: SongIssue[] }
 
 export function importSongText(
   text: string,
@@ -54,7 +61,9 @@ export function importSongText(
       ? parseAsciiTab(text, tuning)
       : chosen === 'chord-chart'
         ? parseChordChart(text, tuning)
-        : parseGuitarNumberText(text, tuning)
+        : chosen === 'song-sheet'
+          ? parseSongSheet(text, tuning)
+          : parseGuitarNumberText(text, tuning)
   if (!parsed.ok) return parsed
 
   const title = (titleOverride.trim() || parsed.value.title?.trim() || '').slice(0, MAX_TITLE_LENGTH)
@@ -70,7 +79,7 @@ export function importSongText(
     ...(parsed.value.description ? { description: parsed.value.description } : {}),
   }
   const issues = validateSong({ ...song, id: 'new', source: 'import' })
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, song }
+  return issues.length > 0 ? { ok: false, issues } : { ok: true, song, warnings: parsed.value.warnings ?? [] }
 }
 
 /** A line like "e|---" means the text is ASCII tab rather than guitar numbers. */
@@ -80,7 +89,13 @@ export function looksLikeAsciiTab(text: string): boolean {
 
 /** Accept only small plain-text files. */
 export function checkImportFile(file: Pick<File, 'name' | 'size' | 'type'>): string | null {
-  if (!/\.(txt|tab|cho|chopro|chordpro|pro)$/i.test(file.name)) return 'Please choose a text file (.txt, .tab or ChordPro).'
+  if (isDocumentFileName(file.name)) {
+    return file.size > MAX_DOCUMENT_BYTES ? `The file is larger than ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB.` : null
+  }
+  if (/\.doc$/i.test(file.name)) return 'This is an old Word file (.doc). In Word, use "Save As" and choose .docx or PDF, then try again.'
+  if (!/\.(txt|tab|cho|chopro|chordpro|pro)$/i.test(file.name)) {
+    return 'Please choose a song file: Word (.docx), PDF, a text file (.txt, .tab) or ChordPro.'
+  }
   if (file.type && !file.type.startsWith('text/')) return 'That file is not a plain-text file.'
   if (file.size > MAX_IMPORT_BYTES) return `The file is larger than ${MAX_IMPORT_BYTES / 1024} KB.`
   return null

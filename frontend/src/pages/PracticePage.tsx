@@ -22,7 +22,13 @@ import {
   isLastNote,
   practiceReducer,
 } from '../practice/practiceReducer'
-import { useErrorSoundSetting, useMicBoostSetting, usePracticeModeSetting } from '../practice/usePracticeSettings'
+import { canSpeak, correctionToSpeech, noteToSpeech, speak, stopSpeaking } from '../practice/speech'
+import {
+  useErrorSoundSetting,
+  useMicBoostSetting,
+  usePracticeModeSetting,
+  useSpeakNotesSetting,
+} from '../practice/usePracticeSettings'
 import { midiToNoteName } from '../music/pitch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
@@ -67,6 +73,7 @@ function PracticeView({ song }: { song: Song }) {
   }
   const [errorSound, setErrorSound] = useErrorSoundSetting()
   const [boost, setBoost] = useMicBoostSetting()
+  const [speakNotes, setSpeakNotes] = useSpeakNotesSetting()
 
   const handleNoteEvents = useCallback((events: DetectedEvent[]) => {
     for (const event of events) {
@@ -124,6 +131,31 @@ function PracticeView({ song }: { song: Song }) {
 
   const tuning = getTuning(song.tuningId) ?? STANDARD_TUNING
   const note = song.notes[practice.currentIndex]
+
+  // Spoken guidance: say each new note aloud (note-by-note mode only: in play-through the song
+  // moves on faster than speech). The microphone is ignored while the phone talks.
+  const { setSpeaking } = listening
+  const speechAvailable = canSpeak()
+  const voiceActive = speechAvailable && speakNotes && practice.mode === 'strict'
+  const speechText = practice.completed ? 'Song complete. Well done!' : noteToSpeech(note)
+  useEffect(() => {
+    if (!voiceActive) return
+    speak(speechText, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) })
+  }, [voiceActive, speechText, practice.positionVersion, setSpeaking])
+  useEffect(() => {
+    if (voiceActive) return
+    stopSpeaking()
+    setSpeaking(false)
+  }, [voiceActive, setSpeaking])
+  useEffect(() => stopSpeaking, [])
+  // After a wrong note or chord (and its short error sound): say what was wrong and what to play.
+  useEffect(() => {
+    if (!voiceActive) return
+    const correction = correctionToSpeech(song.notes[practice.currentIndex], practice.feedback)
+    if (correction) speak(correction, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) })
+    // Only a new result (feedbackId) should speak.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practice.feedbackId])
   const text = describeNote(note)
   const upcoming = song.notes.slice(practice.currentIndex + 1, practice.currentIndex + 5)
   const positions = note.chord ? note.chord.tones.map((t) => t.position) : note.position ? [note.position] : []
@@ -185,25 +217,41 @@ function PracticeView({ song }: { song: Song }) {
           listening={isListening}
           onRestart={() => dispatch({ type: 'reset' })}
         />
-        <p className={`${styles.micLine} ${listening.status === 'listening' ? styles.micLive : ''}`} data-testid="mic-line">
-          <span aria-hidden="true">🎤 </span>
-          {listening.status === 'listening' && (
-            <>
-              Listening
-              <LevelBars rms={listening.reading?.rms ?? 0} />
-              {heard !== null && (
-                <>
-                  {' '}
-                  · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong>
-                </>
-              )}
-            </>
+        <div className={styles.statusRow}>
+          <p className={`${styles.micLine} ${listening.status === 'listening' ? styles.micLive : ''}`} data-testid="mic-line">
+            <span aria-hidden="true">🎤 </span>
+            {listening.status === 'listening' && (
+              <>
+                Listening
+                <LevelBars rms={listening.reading?.rms ?? 0} />
+                {heard !== null && (
+                  <>
+                    {' '}
+                    · hearing <strong>{midiToNoteName(Math.round(heard)).label}</strong>
+                  </>
+                )}
+              </>
+            )}
+            {listening.status === 'calibrating' && 'Measuring background noise… keep quiet'}
+            {listening.status === 'starting' && 'Starting the microphone…'}
+            {listening.status === 'idle' && 'Microphone off'}
+            {listening.status === 'error' && 'Microphone not available. See “Listening” below.'}
+          </p>
+          {speechAvailable && (
+            <button
+              type="button"
+              className={`${styles.voice} ${speakNotes ? styles.voiceOn : ''}`}
+              aria-pressed={speakNotes}
+              onClick={() => setSpeakNotes(!speakNotes)}
+            >
+              <span aria-hidden="true">{speakNotes ? '🔊' : '🔈'} </span>
+              Voice
+            </button>
           )}
-          {listening.status === 'calibrating' && 'Measuring background noise… keep quiet'}
-          {listening.status === 'starting' && 'Starting the microphone…'}
-          {listening.status === 'idle' && 'Microphone off'}
-          {listening.status === 'error' && 'Microphone not available. See “Listening” below.'}
-        </p>
+        </div>
+        {speakNotes && speechAvailable && practice.mode === 'flow' && (
+          <p className={styles.voiceHint}>The voice works in Note by note mode.</p>
+        )}
 
         <div className={styles.noteRow}>
           <div className={styles.spotlight}>

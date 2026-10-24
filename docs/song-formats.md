@@ -1,8 +1,9 @@
 # Song file formats
 
-**Easiest way:** copy a song from any website and paste it on the **Add a song** page. The app
-recognises the format by itself (chord chart, tab, or instructor's numbers), converts it to guitar
-numbers, and shows a preview before saving.
+**Easiest way:** copy a song from any website and paste it on the **Add a song** page, or choose a
+file (Word `.docx`, PDF, `.txt`, ChordPro). The app recognises the format by itself (chord chart,
+tab, instructor's numbers, or a song sheet with words), converts it to guitar numbers, and shows a
+preview before saving.
 
 ## 0. Chord charts (most song websites)
 
@@ -77,6 +78,41 @@ difficulty: beginner
 21 23 10 11 | 13 11 10 23
 21 23 20 21
 ```
+
+## 1b. Song sheets: numbers with the words underneath (Word, PDF or pasted)
+
+The music school's sheets: each line of guitar numbers has the words (syllables) on the line
+directly below it.
+
+```
+Twinkle, twinkle
+
+23      23    15     15    17   17   15
+Twin  kle,  twin  kle,  lit    tle   star,
+```
+
+Rules (chosen so the result is exact, never a guess):
+- The numbers line is read exactly like section 1 (chords in brackets and `|` work too).
+- Words are matched **by count**: the 1st word goes with the 1st number, the 2nd with the 2nd, and
+  so on. Columns are not used, because sheets are typed in proportional fonts.
+- If the counts differ, `twin-kle` style syllables are tried. If they still differ, the whole words
+  line is kept with the line's first note and the preview says **"Please check this line"**, naming
+  the line and quoting the words. The notes themselves are still exact.
+- The title is the last text line before the first numbers line (so a school name above it is
+  skipped). A `title:` line or the title box overrides it.
+- A text line that looks like mistyped numbers (`2O` with a letter O, `l3`) is an error, so a note can
+  never be lost by being taken for words.
+- Other text lines (for example `Chorus`) are not played.
+- Each sheet line becomes one group in the "All notes" timeline.
+
+**Word and PDF files:** the text is taken out of the file and put in the paste box, with a note
+"Read from Twinkle.pdf", so you can compare it with the sheet and fix anything before pressing
+**Check song**. The saved song remembers which file it came from.
+- Word (`.docx`): paragraphs, tables (one row = one line) and text boxes; deleted tracked changes
+  are left out. Old `.doc` files must be saved as `.docx` or PDF first.
+- PDF: lines are rebuilt from where the text sits on the page. PDFs that are scans or photos have
+  no text and are refused with a message (no guessing from pictures). Sinhala words in PDFs can
+  come out with letters in the wrong order, so for Sinhala lyrics use the Word file.
 
 ## 2. ASCII tab
 

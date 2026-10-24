@@ -32,6 +32,8 @@ export type ListeningState = {
   setChordTargets: (chords: readonly (readonly number[] | null)[]) => void
   /** Plays the wrong-note sound (and pauses detection while it plays). False if not listening. */
   playErrorSound: () => boolean
+  /** Spoken guidance is talking (true) or finished (false): detection pauses meanwhile. */
+  setSpeaking: (speaking: boolean) => void
 }
 
 export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): ListeningState {
@@ -117,6 +119,7 @@ export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): L
     [getSession],
   )
   const playErrorSound = useCallback(() => sessionRef.current?.playErrorSound() ?? false, [])
+  const setSpeaking = useCallback((speaking: boolean) => sessionRef.current?.setSpeaking(speaking), [])
   const resetNotes = useCallback((options?: { requireFreshOnset?: boolean }) => sessionRef.current?.resetNotes(options), [])
 
   // Old readings are hidden as soon as listening stops.
@@ -137,5 +140,6 @@ export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): L
     setTargets,
     setChordTargets,
     playErrorSound,
+    setSpeaking,
   }
 }

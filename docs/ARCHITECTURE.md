@@ -520,6 +520,26 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   correct note; the `Celebration` pick shower on song completion and at every 5 in a row.
   All decoration is `aria-hidden`, and motion is off with `prefers-reduced-motion`.
 
+### 8i. Spoken guidance and song sheets (Word / PDF)
+
+- Spoken guidance (`practice/speech.ts`): a "Voice" switch on the note card says each new step with
+  the browser's speech ("String 1, fret 3.", "A minor chord.", "Song complete. Well done!"). Note by
+  note mode only. While the phone talks, `ListeningSession.setSpeaking` ignores the microphone (at
+  most 5 s, plus 150 ms echo), so the app does not hear its own voice as a note.
+  After a wrong note or chord (after the error sound) it says the correction
+  (`correctionToSpeech`): "Wrong note. Play string 1, open.", "Wrong string. Use string 1, the
+  thinnest string." (string 6 played instead of 1, or the reverse), "Wrong chord. Play C major."
+- Song sheets (`songs/parsers/songSheet.ts`, format `song-sheet`): numbers lines with the words line
+  underneath, words matched by count; mismatches become preview warnings (`ImportResult.warnings`),
+  never guesses. `detectFormat`: numbers lines mixed with text → song sheet.
+- Word/PDF upload (`songs/documentText.ts`): `.docx` via fflate + DOMParser, PDF via pdf.js (loaded
+  only when a PDF is chosen; its worker is a separate file). The text goes into the paste box with
+  "Read from <file>"; the saved song's description records the file. Verified on the client's
+  Riversheen "Twinkle, twinkle" sheet (`sharedSongs/`, not committed): Word and PDF both give all
+  42 notes and every syllable, with no warnings (guarded tests, skipped without the folder).
+- Browser tests run with 2 workers: more overloaded the dev server on this laptop (pages timed out,
+  also on older commits).
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

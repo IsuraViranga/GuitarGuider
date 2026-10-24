@@ -6,6 +6,7 @@ import type { PracticeMode } from './practiceReducer'
 const ERROR_SOUND_KEY = 'guitar-practice:error-sound'
 const BOOST_KEY = 'guitar-practice:mic-boost'
 const MODE_KEY = 'guitar-practice:mode'
+const SPEAK_KEY = 'guitar-practice:speak-notes'
 
 function readBoolean(key: string, fallback: boolean): boolean {
   try {
@@ -32,6 +33,18 @@ export function useErrorSoundSetting(): [boolean, (value: boolean) => void] {
     (value: boolean) => {
       setEnabled(value)
       writeBoolean(ERROR_SOUND_KEY, value)
+    },
+  ]
+}
+
+/** Whether the next note is said aloud (spoken guidance). Off by default. */
+export function useSpeakNotesSetting(): [boolean, (value: boolean) => void] {
+  const [enabled, setEnabled] = useState(() => readBoolean(SPEAK_KEY, false))
+  return [
+    enabled,
+    (value: boolean) => {
+      setEnabled(value)
+      writeBoolean(SPEAK_KEY, value)
     },
   ]
 }

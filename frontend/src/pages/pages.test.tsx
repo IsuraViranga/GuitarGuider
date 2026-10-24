@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { strToU8, zipSync } from 'fflate'
 import { renderApp } from '../test/renderApp'
 
 describe('Library', () => {
@@ -80,6 +81,38 @@ describe('Practice navigation', () => {
     await userEvent.keyboard(' ')
     expect(expected()).toBe('13')
   })
+
+  it('says each note aloud when Voice is on, and stops in play-through mode', async () => {
+    const spoken: string[] = []
+    vi.stubGlobal('SpeechSynthesisUtterance', class {
+      text: string
+      constructor(text: string) {
+        this.text = text
+      }
+    })
+    vi.stubGlobal('speechSynthesis', { speak: (u: { text: string }) => spoken.push(u.text), cancel: vi.fn(), getVoices: () => [] })
+    try {
+      renderApp('/songs/sample-first-frets/practice') // 10 11 13 ...
+      const voice = await screen.findByRole('button', { name: 'Voice' })
+      expect(voice).toHaveAttribute('aria-pressed', 'false')
+      expect(spoken).toEqual([])
+
+      await userEvent.click(voice)
+      expect(voice).toHaveAttribute('aria-pressed', 'true')
+      expect(spoken).toEqual(['String 1, open.'])
+
+      await userEvent.click(screen.getByRole('button', { name: /Next$/ }))
+      expect(spoken.at(-1)).toBe('String 1, fret 1.')
+
+      await userEvent.click(screen.getByLabelText('Play through'))
+      expect(screen.getByText('The voice works in Note by note mode.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Next$/ }))
+      expect(spoken.at(-1)).toBe('String 1, fret 1.')
+    } finally {
+      vi.unstubAllGlobals()
+      localStorage.clear()
+    }
+  })
 })
 
 describe('Add a song (import)', () => {
@@ -124,7 +157,7 @@ describe('Add a song (import)', () => {
   it('rejects non-text files before reading them', async () => {
     renderApp('/import')
     const file = new File(['x'], 'song.mp3', { type: 'audio/mpeg' })
-    await userEvent.upload(screen.getByLabelText(/Or choose a text file/), file, { applyAccept: false })
+    await userEvent.upload(screen.getByLabelText(/Or choose a song file/), file, { applyAccept: false })
     expect(await screen.findByRole('alert')).toHaveTextContent('text file')
   })
 
@@ -132,10 +165,35 @@ describe('Add a song (import)', () => {
     renderApp('/import')
     const tab = ['e|-----0-|', 'B|---1---|', 'G|-------|', 'D|-------|', 'A|-------|', 'E|-0-----|'].join('\n')
     const file = new File([tab], 'Little_Tab.txt', { type: 'text/plain' })
-    await userEvent.upload(screen.getByLabelText(/Or choose a text file/), file)
+    await userEvent.upload(screen.getByLabelText(/Or choose a song file/), file)
     expect(await screen.findByDisplayValue('Little Tab')).toBeInTheDocument()
     expect(screen.getByText(/Recognised as:/)).toHaveTextContent('Guitar tab')
     await userEvent.click(screen.getByRole('button', { name: 'Check song' }))
     expect(await screen.findByRole('heading', { name: /3 notes/ })).toBeInTheDocument()
+  })
+
+  it('reads a Word song sheet into the box, shows where it came from, and imports it exactly', async () => {
+    const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    const p = (text: string) => `<w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`
+    const xml = `<w:document ${W}><w:body>${p('Little Star')}${p('')}${p('23    23   15')}${p('Twin  kle  twin')}</w:body></w:document>`
+    const bytes = zipSync({ 'word/document.xml': strToU8(xml) })
+    renderApp('/import')
+    await userEvent.upload(screen.getByLabelText(/Or choose a song file/), new File([new Uint8Array(bytes)], 'Little_Star.docx'))
+
+    expect(await screen.findByTestId('source-file')).toHaveTextContent('Read from Little_Star.docx')
+    expect(screen.getByLabelText('Paste the song here')).toHaveValue('Little Star\n\n23    23   15\nTwin  kle  twin')
+    expect(screen.getByText(/Recognised as:/)).toHaveTextContent('Song sheet')
+    expect(screen.getByLabelText('Song title')).toHaveValue('') // the sheet's own title is used
+    await userEvent.click(screen.getByRole('button', { name: 'Check song' }))
+    expect(await screen.findByRole('heading', { name: '“Little Star”: 3 notes' })).toBeInTheDocument()
+    expect(screen.queryByTestId('import-warnings')).not.toBeInTheDocument()
+  })
+
+  it('names the line to check when words and numbers do not match', async () => {
+    renderApp('/import')
+    await userEvent.click(screen.getByLabelText('Paste the song here'))
+    await userEvent.paste('Song\n23 23 15\nTwin kle')
+    await userEvent.click(screen.getByRole('button', { name: 'Check song' }))
+    expect(await screen.findByTestId('import-warnings')).toHaveTextContent('Line 3: “Twin kle”: 3 numbers but 2 words')
   })
 })

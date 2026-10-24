@@ -75,6 +75,22 @@ test('the error sound can be switched off', async ({ page }) => {
   expect(await soundsPlayed(page)).toBe(0)
 })
 
+test('with Voice on, a wrong note is followed by a spoken correction', async ({ page }) => {
+  // Record what the app says instead of speaking.
+  await page.addInitScript(() => {
+    const w = window as unknown as { spoken: string[] }
+    w.spoken = []
+    window.speechSynthesis.speak = (utterance: SpeechSynthesisUtterance) => void w.spoken.push(utterance.text)
+  })
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken)
+  await page.goto(SONG) // note 1 is 10 = string 1 open; the microphone plays G4
+  await page.getByRole('button', { name: 'Voice' }).click()
+  await expect.poll(spoken).toEqual(['String 1, open.'])
+  await startListening(page)
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'incorrect', LOOP)
+  await expect.poll(spoken).toEqual(['String 1, open.', 'Wrong note. Play string 1, open.'])
+})
+
 test('jumping while a note rings: the mic stays on, the ringing note is ignored, the next pluck counts', async ({ page }) => {
   await page.goto(SONG)
   await startListening(page)

@@ -14,6 +14,8 @@ export type ParsedSongFile = {
   description?: string
   difficulty?: Difficulty
   notes: ParsedNote[]
+  /** Things the user should check in the preview; they do not stop the import. */
+  warnings?: SongIssue[]
 }
 
 export type SongFileParseResult = { ok: true; value: ParsedSongFile } | { ok: false; issues: SongIssue[] }

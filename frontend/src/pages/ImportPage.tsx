@@ -13,6 +13,7 @@ import {
   type ImportResult,
   type SongFileFormat,
 } from '../songs/importSong'
+import { extractDocumentText, isDocumentFileName } from '../songs/documentText'
 import { useSongRepository } from '../songs/songRepository'
 import { decodeTextFile } from '../songs/text'
 import type { SongIssue, SongNote } from '../songs/types'
@@ -35,6 +36,7 @@ const FORMAT_CARDS: { format: SongFileFormat; name: string; sample: string }[] =
   { format: 'chord-chart', name: 'Chord chart', sample: 'C        G\nWords of the song' },
   { format: 'ascii-tab', name: 'Guitar tab', sample: 'e|--0--3--|\nB|--1-----|' },
   { format: 'guitar-numbers', name: "Instructor's numbers", sample: '10 11 13\n[53 42 30 21 10]' },
+  { format: 'song-sheet', name: 'Song sheet (Word, PDF)', sample: '23   23   15\nTwin kle, twin' },
 ]
 
 function issueText(issue: SongIssue): string {
@@ -54,6 +56,9 @@ export function ImportPage() {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  /** The file the text came from, shown to the user and kept with the saved song. */
+  const [sourceFile, setSourceFile] = useState<string | null>(null)
+  const [readingFile, setReadingFile] = useState(false)
 
   const detected = text.trim() ? detectFormat(text) : null
   const format = formatOverride === 'auto' ? detected : formatOverride
@@ -78,6 +83,11 @@ export function ImportPage() {
       event.target.value = ''
       return
     }
+    if (isDocumentFileName(file.name)) {
+      await loadDocument(file)
+      event.target.value = ''
+      return
+    }
     try {
       const content = decodeTextFile(await file.arrayBuffer())
       if (content === null) {
@@ -86,9 +96,31 @@ export function ImportPage() {
         return
       }
       edited(setText)(content)
+      setSourceFile(file.name)
       if (!title) setTitle(titleFromFileName(file.name))
     } catch {
       setFileError('The file could not be read.')
+    }
+  }
+
+  /** Word or PDF: the text is put in the paste box, so the user sees exactly what was read. */
+  async function loadDocument(file: File) {
+    setReadingFile(true)
+    try {
+      const extracted = await extractDocumentText(file.name, new Uint8Array(await file.arrayBuffer()))
+      if (!extracted.ok) {
+        setFileError(extracted.message)
+        return
+      }
+      edited(setText)(extracted.text)
+      setSourceFile(file.name)
+      // The sheet's own title ("Twinkle, twinkle") is better than the file name; use the name only if there is none.
+      const probe = importSongText(extracted.text, 'auto')
+      if (!title && !probe.ok && probe.issues.some((issue) => issue.message.startsWith('Please give the song a title'))) {
+        setTitle(titleFromFileName(file.name))
+      }
+    } finally {
+      setReadingFile(false)
     }
   }
 
@@ -102,7 +134,8 @@ export function ImportPage() {
     setSaving(true)
     setSaveError(null)
     try {
-      const saved = await repository.saveImportedSong(result.song)
+      const song = sourceFile && !result.song.description ? { ...result.song, description: `From ${sourceFile}` } : result.song
+      const saved = await repository.saveImportedSong(song)
       navigate(`/songs/${saved.id}/practice`)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'The song could not be saved.')
@@ -116,8 +149,8 @@ export function ImportPage() {
     <div className="page stack">
       <PageBanner kicker="Bring your own songs" title="Add a song" headingId="import-heading" />
       <p className={styles.intro}>
-        Copy a song from any website and paste it below. The app works out which kind it is and turns it into guitar
-        numbers for you.
+        Copy a song from any website and paste it below, or choose a song file (Word, PDF or text). The app works out
+        which kind it is and turns it into guitar numbers for you.
       </p>
 
       <ul className={styles.formats} aria-label="Kinds of song you can paste">
@@ -163,7 +196,10 @@ export function ImportPage() {
             className={`mono ${styles.paste}`}
             rows={10}
             value={text}
-            onChange={(event) => edited(setText)(event.target.value)}
+            onChange={(event) => {
+              if (!event.target.value.trim()) setSourceFile(null)
+              edited(setText)(event.target.value)
+            }}
             spellCheck={false}
             placeholder={'C              G\nWords of the song…'}
             aria-describedby="import-format"
@@ -182,6 +218,13 @@ export function ImportPage() {
               </>
             )}
           </p>
+          {sourceFile && text.trim() && (
+            <p className={styles.source} data-testid="source-file">
+              <span aria-hidden="true">📄 </span>
+              Read from <strong>{sourceFile}</strong>. The box shows exactly what was read: compare it with your sheet, fix
+              anything if needed, then press “Check song”.
+            </p>
+          )}
           {text.trim() && (
             <details className={styles.override}>
               <summary>Not recognised correctly?</summary>
@@ -203,8 +246,21 @@ export function ImportPage() {
         </div>
 
         <div className="field">
-          <label htmlFor="import-file">Or choose a text file</label>
-          <input id="import-file" className={styles.file} type="file" accept=".txt,.tab,.cho,.chopro,.chordpro,.pro,text/plain" onChange={handleFile} />
+          <label htmlFor="import-file">Or choose a song file</label>
+          <input
+            id="import-file"
+            className={styles.file}
+            type="file"
+            accept=".docx,.pdf,.txt,.tab,.cho,.chopro,.chordpro,.pro,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFile}
+            aria-describedby="import-file-help"
+            disabled={readingFile}
+          />
+          <p id="import-file-help" className="muted">
+            Word (.docx), PDF, text (.txt, .tab) or ChordPro. For Sinhala words, the Word file is best: PDFs can mix up
+            Sinhala letters.
+          </p>
+          {readingFile && <p role="status">Reading the file…</p>}
           {fileError && (
             <p role="alert" className="error-box">
               {fileError}
@@ -251,6 +307,18 @@ export function ImportPage() {
             “{result.song.title}”: {stepSummary(result.song.notes)}
           </h2>
           <p role="status">Here is the song in guitar numbers. If it looks right, save it and start practising.</p>
+          {result.warnings.length > 0 && (
+            <div className="notice" data-testid="import-warnings">
+              <p>
+                <strong>Please check {result.warnings.length === 1 ? 'this line' : 'these lines'}:</strong>
+              </p>
+              <ul>
+                {result.warnings.map((warning, i) => (
+                  <li key={i}>{issueText(warning)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {simplified.length > 0 && (
             <p className="notice">
               Some chords were made easier to play: {simplified.join('; ')}.
@@ -283,19 +351,35 @@ function stepSummary(notes: readonly SongNote[]): string {
 }
 
 /** Every step as it will be practised: chord name or note, its guitar numbers, and the words. */
+/** Steps grouped by line (measure), so the preview reads like the sheet: each number with its word under it. */
+function previewLines(notes: readonly SongNote[]): SongNote[][] {
+  const lines: SongNote[][] = []
+  for (const note of notes) {
+    const last = lines.at(-1)
+    if (last && last[0].measure === note.measure) last.push(note)
+    else lines.push([note])
+  }
+  return lines
+}
+
+/** Every step as it will be practised: chord name or note, its guitar numbers, and the words. */
 function SongPreview({ notes }: { notes: readonly SongNote[] }) {
   return (
-    <ol className={styles.preview}>
-      {notes.map((note) => {
-        const text = describeNote(note)
-        return (
-          <li key={note.index} className={styles.step}>
-            <span className={styles.stepName}>{note.chord ? (note.chord.name ?? 'Chord') : text.number}</span>
-            <span className={styles.stepNumbers}>{note.chord ? text.number : text.noteName}</span>
-            {note.lyric && <span className={styles.stepLyric}>{note.lyric}</span>}
-          </li>
-        )
-      })}
-    </ol>
+    <div className={styles.preview}>
+      {previewLines(notes).map((line) => (
+        <ol key={line[0].index} className={styles.previewLine} start={line[0].index + 1}>
+          {line.map((note) => {
+            const text = describeNote(note)
+            return (
+              <li key={note.index} className={`${styles.step} ${note.chord ? styles.stepChord : ''}`}>
+                <span className={styles.stepName}>{note.chord ? (note.chord.name ?? 'Chord') : text.number}</span>
+                <span className={styles.stepNumbers}>{note.chord ? text.number : text.noteName}</span>
+                {note.lyric && <span className={styles.stepLyric}>{note.lyric}</span>}
+              </li>
+            )
+          })}
+        </ol>
+      ))}
+    </div>
   )
 }

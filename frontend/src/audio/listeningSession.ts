@@ -15,6 +15,10 @@ const ERROR_SOUND_TONES_HZ = [220, 233.08]
 const ERROR_SOUND_VOLUME = 0.15
 /** Detection pauses while the error sound plays, plus this much for echoes in the room. */
 const ERROR_SOUND_ECHO_MS = 120
+/** Spoken guidance: the microphone is ignored while the phone talks, at most this long (in case "end" never comes). */
+const SPEECH_MUTE_MAX_MS = 5000
+/** ...and a little after, while the room echo fades. */
+const SPEECH_ECHO_MS = 150
 
 export type ListeningStatus = 'idle' | 'starting' | 'calibrating' | 'listening' | 'error'
 
@@ -325,6 +329,18 @@ export class ListeningSession {
     setTimeout(() => volume.disconnect(), (ERROR_SOUND_SECONDS + 0.1) * 1000)
     if (listeningToRoom) this.mutedUntil = end * 1000 + ERROR_SOUND_ECHO_MS
     return true
+  }
+
+  /**
+   * Spoken guidance: while the app talks, ignore the microphone so its own voice is not heard
+   * as a played note. Call with true when speech starts and false when it ends.
+   */
+  setSpeaking(speaking: boolean): void {
+    const context = this.context
+    // In file test mode the app listens to the file, not the room, so it cannot hear itself.
+    if (!context || this.fileSource !== null) return
+    const now = context.currentTime * 1000
+    this.mutedUntil = now + (speaking ? SPEECH_MUTE_MAX_MS : SPEECH_ECHO_MS)
   }
 
   /**

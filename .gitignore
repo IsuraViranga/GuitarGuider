@@ -4,3 +4,6 @@ node_modules
 
 # Personal test recordings (not committed)
 recordings/
+
+# Client song sheets used for testing (not published)
+sharedSongs/

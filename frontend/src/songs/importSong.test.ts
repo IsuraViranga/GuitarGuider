@@ -39,6 +39,13 @@ describe('checkImportFile', () => {
     expect(checkImportFile({ name: 'song.txt', size: 100, type: 'application/octet-stream' })).toMatch(/plain-text/)
     expect(checkImportFile({ name: 'song.txt', size: MAX_IMPORT_BYTES + 1, type: 'text/plain' })).toMatch(/larger/)
   })
+
+  it('accepts Word (.docx) and PDF song sheets up to 5 MB, and explains old .doc files', () => {
+    expect(checkImportFile({ name: 'Twinkle.docx', size: 60_000, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })).toBeNull()
+    expect(checkImportFile({ name: 'Twinkle.PDF', size: 60_000, type: 'application/pdf' })).toBeNull()
+    expect(checkImportFile({ name: 'big.pdf', size: 6 * 1024 * 1024, type: 'application/pdf' })).toMatch(/larger than 5 MB/)
+    expect(checkImportFile({ name: 'old.doc', size: 100, type: 'application/msword' })).toMatch(/Save As/)
+  })
 })
 
 it('derives a title from a file name', () => {

@@ -71,7 +71,7 @@ test('an imported song can be practised', async ({ page }) => {
 test('a song with a Sinhala title can be imported, found and practised', async ({ page }) => {
   await page.goto('/import')
   const file = { name: 'sinhala.txt', mimeType: 'text/plain', buffer: Buffer.from('title: මගේ පළමු ගීතය\n10 11 | 13', 'utf-8') }
-  await page.getByLabel(/Or choose a text file/).setInputFiles(file)
+  await page.getByLabel(/Or choose a song file/).setInputFiles(file)
   await expect(page.getByLabel('Song title')).toHaveValue('sinhala')
   await page.getByLabel('Song title').fill('')
   await page.getByRole('button', { name: 'Check song' }).click()

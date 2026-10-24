@@ -9,6 +9,8 @@ writeFakeMicWav(FAKE_MIC_WAV)
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
+  // More than two browsers at once overloads the dev server on a normal laptop (pages time out).
+  workers: 2,
   reporter: 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
