@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { describeNote, noteAccessibleLabel, shortLabel } from '../../songs/describeNote'
+import type { StepRecord } from '../../practice/practiceReducer'
 import type { SongNote } from '../../songs/types'
+import { stepStatus } from '../practice/PlayedStrip'
 import styles from './NoteTimeline.module.css'
 
 type NoteTimelineProps = {
@@ -9,10 +11,14 @@ type NoteTimelineProps = {
   currentIndex: number
   /** When omitted the timeline is read-only. */
   onSelect?: (index: number) => void
+  /** What the student played at each step (practice): notes are marked right, mistake or skipped. */
+  record?: readonly StepRecord[]
 }
 
+const RESULT_WORDS = { right: 'right first time', mistake: 'had a mistake', skipped: 'skipped' } as const
+
 /** Every note in the song. When selectable, choosing one jumps practice to that note. */
-export function NoteTimeline({ notes, currentIndex, onSelect }: NoteTimelineProps) {
+export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTimelineProps) {
   const listRef = useRef<HTMLOListElement>(null)
   const currentRef = useRef<HTMLButtonElement>(null)
 
@@ -34,17 +40,23 @@ export function NoteTimeline({ notes, currentIndex, onSelect }: NoteTimelineProp
         const isCurrent = note.index === currentIndex
         const startsMeasure = note.index > 0 && note.measure !== notes[note.index - 1].measure
         const text = describeNote(note)
+        const status = record ? stepStatus(record[note.index], false) : null
+        const result = status === 'right' || status === 'mistake' || status === 'skipped' ? status : null
         const className = [
           styles.note,
           isCurrent && styles.current,
           note.index < currentIndex && styles.past,
+          result && !isCurrent && styles[result],
           !onSelect && styles.readOnly,
         ]
           .filter(Boolean)
           .join(' ')
         const content = (
           <>
-            <span className="visually-hidden">{noteAccessibleLabel(note, notes.length)}</span>
+            <span className="visually-hidden">
+              {noteAccessibleLabel(note, notes.length)}
+              {result ? `, ${RESULT_WORDS[result]}` : ''}
+            </span>
             <span className={styles.position} aria-hidden="true">
               {isCurrent ? '▶ ' : ''}
               {note.index + 1}

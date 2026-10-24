@@ -105,7 +105,7 @@ describe('Practice navigation', () => {
       expect(spoken.at(-1)).toBe('String 1, fret 1.')
 
       await userEvent.click(screen.getByLabelText('Play through'))
-      expect(screen.getByText('The voice works in Note by note mode.')).toBeInTheDocument()
+      expect(screen.getByText('In Play through, the voice only says “Wrong” after a mistake.')).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: /Next$/ }))
       expect(spoken.at(-1)).toBe('String 1, fret 1.')
     } finally {

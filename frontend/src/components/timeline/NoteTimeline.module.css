@@ -68,3 +68,20 @@
 .readOnly:hover {
   border-color: var(--color-border);
 }
+
+/* Practice results (always with words for screen readers): right first time, mistake, skipped. */
+.right {
+  border-color: rgb(74 222 128 / 0.6);
+  background: var(--color-correct-soft);
+  color: var(--color-text);
+}
+
+.mistake {
+  border-color: var(--color-incorrect);
+  background: var(--color-incorrect-soft);
+  color: var(--color-text);
+}
+
+.skipped {
+  border-style: dashed;
+}

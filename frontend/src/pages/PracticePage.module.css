@@ -7,6 +7,7 @@
   grid-template-areas:
     'header'
     'target'
+    'played'
     'mode'
     'listening'
     'timeline'
@@ -389,6 +390,7 @@
       'header header'
       'target timeline'
       'controls timeline'
+      'played timeline'
       'mode timeline'
       'listening timeline';
     align-items: start;
@@ -477,4 +479,8 @@
   margin: 0;
   font-size: 0.85rem;
   color: var(--color-muted);
+}
+
+.played {
+  grid-area: played;
 }

@@ -1,0 +1,134 @@
+.panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.sumRight {
+  color: var(--color-correct);
+}
+
+.sumMistake {
+  color: var(--color-incorrect);
+}
+
+.sumSkipped {
+  color: var(--color-muted);
+}
+
+.empty,
+.hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+/* Chips wrap in rows; a new sheet line starts with a little gap, like the timeline. */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-height: 9.5rem;
+  overflow-y: auto;
+}
+
+.lineStart {
+  margin-left: var(--space-3);
+}
+
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 48px;
+  min-height: var(--touch-target);
+  padding: 3px var(--space-2);
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.chip:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.number {
+  font-weight: 800;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mark {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.heard {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Colours always come with a symbol (✓ ✗ – ▶) and words for screen readers. */
+.right {
+  border-color: rgb(74 222 128 / 0.6);
+  background: var(--color-correct-soft);
+}
+
+.right .mark {
+  color: var(--color-correct);
+}
+
+.mistake {
+  border-color: var(--color-incorrect);
+  background: var(--color-incorrect-soft);
+}
+
+.mistake .mark,
+.mistake .heard {
+  color: var(--color-incorrect);
+}
+
+.skipped {
+  border-style: dashed;
+  color: var(--color-muted);
+}
+
+.current .mark {
+  color: var(--color-accent-strong);
+}
+
+/* The note being played now (also when it already has a mistake). */
+.now {
+  box-shadow: 0 0 0 2px var(--color-accent), var(--glow-accent);
+}

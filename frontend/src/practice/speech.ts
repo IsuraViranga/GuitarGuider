@@ -78,12 +78,16 @@ function englishVoice(): SpeechSynthesisVoice | undefined {
  * Says `text`, interrupting anything still being said (the newest note matters most).
  * `onStart`/`onEnd` let the listener ignore the microphone while the phone talks.
  */
-export function speak(text: string, { onStart, onEnd }: { onStart?: () => void; onEnd?: () => void } = {}): void {
+export function speak(
+  text: string,
+  { onStart, onEnd, rate = 1 }: { onStart?: () => void; onEnd?: () => void; rate?: number } = {},
+): void {
   if (!canSpeak()) return
   const synth = window.speechSynthesis
   synth.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'en-GB'
+  utterance.rate = rate
   const voice = englishVoice()
   if (voice) utterance.voice = voice
   utterance.onstart = () => onStart?.()

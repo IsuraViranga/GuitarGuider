@@ -529,6 +529,13 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   After a wrong note or chord (after the error sound) it says the correction
   (`correctionToSpeech`): "Wrong note. Play string 1, open.", "Wrong string. Use string 1, the
   thinnest string." (string 6 played instead of 1, or the reverse), "Wrong chord. Play C major."
+- Play through with Voice on: only a fast "Wrong" (rate 1.6, at most every 1.5 s) after a mistake;
+  no announcements or corrections (they would hold the song up).
+- "What you played" (`components/practice/PlayedStrip.tsx`): the reducer keeps a `record` per step
+  (every wrong try with the note/chord heard, and the result: correct / skipped). Shown under the
+  note card: green = right first time, red = had a mistake (stays red after it was played right,
+  with "you: G4"), grey = skipped (play-through catch-up or Next). Tapping a chip jumps there; the
+  "All notes" timeline shows the same marks. Kept until Restart.
 - Song sheets (`songs/parsers/songSheet.ts`, format `song-sheet`): numbers lines with the words line
   underneath, words matched by count; mismatches become preview warnings (`ImportResult.warnings`),
   never guesses. `detectFormat`: numbers lines mixed with text → song sheet.

@@ -8,6 +8,7 @@ import { Fretboard } from './fretboard/Fretboard'
 import { firstVisibleFret } from './fretboard/fretWindow'
 import { NoteTimeline } from './timeline/NoteTimeline'
 import { FeedbackBanner } from './practice/FeedbackBanner'
+import { PlayedStrip } from './practice/PlayedStrip'
 import { createPracticeState, practiceReducer } from '../practice/practiceReducer'
 
 describe('Fretboard', () => {
@@ -146,5 +147,64 @@ describe('HeroSlideshow', () => {
     expect(screen.getByRole('button', { name: 'Play photos' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Show photo 2 of 2: B' }))
     expect(screen.getByRole('img', { name: 'Photo B' })).toBeInTheDocument()
+  })
+})
+
+describe('PlayedStrip (what you played)', () => {
+  const notes = notesFromPositions(
+    [{ position: { stringNumber: 1, fret: 0 } }, { position: { stringNumber: 1, fret: 3 } }, { position: { stringNumber: 2, fret: 1 } }, { position: { stringNumber: 1, fret: 1 } }],
+    STANDARD_TUNING,
+  )
+
+  it('shows right notes green, a corrected mistake still red with what was played, skipped notes and the current note', async () => {
+    const onSelect = vi.fn()
+    render(
+      <PlayedStrip
+        notes={notes}
+        record={[
+          { wrong: [], result: 'correct' },
+          { wrong: [{ heardMidi: 64 }, { heardMidi: 64 }], result: 'correct' },
+          { wrong: [], result: 'skipped' },
+          { wrong: [], result: null },
+        ]}
+        currentIndex={3}
+        completed={false}
+        onSelect={onSelect}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Note 1, 10: right first time' })).toHaveAttribute('data-status', 'right')
+    const corrected = screen.getByRole('button', { name: 'Note 2, 13: wrong 2 times (played E4), then right' })
+    expect(corrected).toHaveAttribute('data-status', 'mistake')
+    expect(corrected).toHaveTextContent('13✗2you: E4')
+    expect(screen.getByRole('button', { name: 'Note 3, 21: skipped' })).toHaveAttribute('data-status', 'skipped')
+    expect(screen.getByRole('button', { name: 'Note 4, 11: playing now' })).toHaveAttribute('data-status', 'current')
+    expect(screen.getByTestId('played-summary')).toHaveTextContent('✓ 1 right✗ 1 to practise1 skipped')
+
+    await userEvent.click(corrected)
+    expect(onSelect).toHaveBeenCalledWith(1)
+  })
+
+  it('explains itself before anything is played', () => {
+    render(<PlayedStrip notes={notes} record={notes.map(() => ({ wrong: [], result: null }))} currentIndex={0} completed={false} onSelect={() => {}} />)
+    expect(screen.getByText(/Your notes appear here as you play/)).toBeInTheDocument()
+  })
+
+  it('marks the same results in the All notes timeline', () => {
+    render(
+      <NoteTimeline
+        notes={notes}
+        currentIndex={3}
+        onSelect={() => {}}
+        record={[
+          { wrong: [], result: 'correct' },
+          { wrong: [{ heardMidi: 64 }], result: 'correct' },
+          { wrong: [], result: 'skipped' },
+          { wrong: [], result: null },
+        ]}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /^Note 1 of 4: 10.*, right first time$/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Note 2 of 4: 13.*, had a mistake$/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Note 3 of 4: 21.*, skipped$/ })).toBeInTheDocument()
   })
 })

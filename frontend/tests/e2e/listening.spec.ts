@@ -91,6 +91,47 @@ test('with Voice on, a wrong note is followed by a spoken correction', async ({ 
   await expect.poll(spoken).toEqual(['String 1, open.', 'Wrong note. Play string 1, open.'])
 })
 
+test('in Play through with Voice on, a mistake is followed by a quick "Wrong" only', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { spoken: { text: string; rate: number }[] }
+    w.spoken = []
+    window.speechSynthesis.speak = (u: SpeechSynthesisUtterance) => void w.spoken.push({ text: u.text, rate: u.rate })
+  })
+  const spoken = () => page.evaluate(() => (window as unknown as { spoken: { text: string; rate: number }[] }).spoken)
+  await page.goto(SONG)
+  await page.getByLabel('Play through').check()
+  await page.getByRole('button', { name: 'Voice' }).click()
+  await expect(page.getByText('In Play through, the voice only says “Wrong” after a mistake.')).toBeVisible()
+  await startListening(page)
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'incorrect', LOOP)
+  // No note announcements and no full correction: only fast "Wrong" (the loop repeats the wrong note).
+  await expect.poll(async () => (await spoken()).length).toBeGreaterThan(0)
+  for (const { text, rate } of await spoken()) {
+    expect(text).toBe('Wrong')
+    expect(rate).toBeCloseTo(1.6)
+  }
+})
+
+test('"What you played" shows a wrong note in red with what was heard, and a right note in green', async ({ page }) => {
+  await page.goto(SONG) // note 1 is 10 (E4); the microphone plays G4
+  await expect(page.getByText(/Your notes appear here as you play/)).toBeVisible()
+  await startListening(page)
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'incorrect', LOOP)
+  const wrong = page.getByRole('button', { name: /^Note 1, 10: wrong 1 time \(played G4\), not played right yet$/ })
+  await expect(wrong).toHaveAttribute('data-status', 'mistake')
+  await expect(wrong).toContainText('you: G4')
+
+  // Note 3 is 13 = G4: played right first time.
+  await page.getByRole('button', { name: /^Note 3 of 8: 13/ }).click()
+  await expect(feedback(page)).toHaveAttribute('data-kind', 'correct', LOOP)
+  await expect(page.getByRole('button', { name: 'Note 3, 13: right first time' })).toHaveAttribute('data-status', 'right')
+  await expect(page.getByTestId('played-summary')).toContainText('✓ 1 right')
+  await expect(page.getByTestId('played-summary')).toContainText('✗ 1 to practise')
+  // The All notes timeline keeps the same marks.
+  await expect(page.getByRole('button', { name: /^Note 1 of 8: 10.*, had a mistake$/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Note 3 of 8: 13.*, right first time$/ })).toBeVisible()
+})
+
 test('jumping while a note rings: the mic stays on, the ringing note is ignored, the next pluck counts', async ({ page }) => {
   await page.goto(SONG)
   await startListening(page)

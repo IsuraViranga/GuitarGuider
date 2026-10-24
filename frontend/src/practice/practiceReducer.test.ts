@@ -205,3 +205,45 @@ describe('play-through mode', () => {
     expect(state.skippedCount).toBe(2)
   })
 })
+
+describe('what you played (the record of each step)', () => {
+  it('a note played wrong and then right stays marked, with what was heard', () => {
+    const state = run([E4, F4, G4], ...played(G4), ...played(E4), ...played(F4))
+    expect(state.record[0]).toEqual({ wrong: [{ heardMidi: G4 }], result: 'correct' })
+    expect(state.record[1]).toEqual({ wrong: [], result: 'correct' })
+    expect(state.record[2]).toEqual({ wrong: [], result: null })
+  })
+
+  it('records every wrong try, one per played note', () => {
+    const state = run([E4, F4], ...played(G4), ...played(F4), ...played(E4))
+    expect(state.record[0].wrong).toEqual([{ heardMidi: G4 }, { heardMidi: F4 }])
+  })
+
+  it('play-through: notes passed over are skipped, the one played is right', () => {
+    const state = [...played(F4)].reduce(practiceReducer, createPracticeState([E4, F4, G4], [1, 1, 1], 'flow'))
+    expect(state.record.map((step) => step.result)).toEqual(['skipped', 'correct', null])
+  })
+
+  it('Next without playing skips the note; playing it later still counts as right', () => {
+    let state = run([E4, F4, G4], { type: 'next' })
+    expect(state.record[0].result).toBe('skipped')
+    state = [{ type: 'previous' } as PracticeAction, ...played(E4)].reduce(practiceReducer, state)
+    expect(state.record[0].result).toBe('correct')
+  })
+
+  it('records wrong chords with the chord heard', () => {
+    const chord = [{ midi: 48, string: 5 }, { midi: 52, string: 4 }, { midi: 55, string: 3 }]
+    const start = createPracticeState([48], [5], 'strict', [chord])
+    const state = practiceReducer(start, { type: 'chordEvent', event: { type: 'chordWrong', strumId: 1, heard: 'G', time: 0 } })
+    expect(state.record[0]).toEqual({ wrong: [{ heardChord: 'G' }], result: null })
+    const done = practiceReducer(state, { type: 'chordEvent', event: { type: 'chordStart', strumId: 2, step: 0, time: 10 } })
+    expect(done.record[0]).toEqual({ wrong: [{ heardChord: 'G' }], result: 'correct' })
+  })
+
+  it('jumping around keeps the record; Restart clears it', () => {
+    let state = run([E4, F4, G4], ...played(G4), ...played(E4), { type: 'jumpTo', index: 0 })
+    expect(state.record[0].result).toBe('correct')
+    state = practiceReducer(state, { type: 'reset' })
+    expect(state.record.every((step) => step.wrong.length === 0 && step.result === null)).toBe(true)
+  })
+})

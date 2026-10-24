@@ -9,6 +9,7 @@ import { Celebration } from '../components/decor/Celebration'
 import { LevelBars } from '../components/decor/LevelBars'
 import { PickBurst } from '../components/decor/PickBurst'
 import { FeedbackBanner } from '../components/practice/FeedbackBanner'
+import { PlayedStrip } from '../components/practice/PlayedStrip'
 import { NoteTimeline } from '../components/timeline/NoteTimeline'
 import { STANDARD_TUNING, getTuning } from '../music/tuning'
 import { describeNote, noteAccessibleLabel, shortLabel } from '../songs/describeNote'
@@ -56,6 +57,9 @@ export function PracticePage() {
 
 /** At most one error sound in this period, even if several wrong notes are played quickly. */
 const ERROR_SOUND_COOLDOWN_MS = 800
+/** Play through with Voice on: "Wrong" is said fast, and not again within this time. */
+const QUICK_WRONG_COOLDOWN_MS = 1500
+const QUICK_WRONG_RATE = 1.6
 
 function PracticeView({ song }: { song: Song }) {
   const [mode, setMode] = usePracticeModeSetting()
@@ -148,11 +152,22 @@ function PracticeView({ song }: { song: Song }) {
     setSpeaking(false)
   }, [voiceActive, setSpeaking])
   useEffect(() => stopSpeaking, [])
-  // After a wrong note or chord (and its short error sound): say what was wrong and what to play.
+  // After a wrong note or chord (and its short error sound). Note by note: what was wrong and what
+  // to play. Play through: only a quick "Wrong" (at most every 1.5 s), so the song is not held up.
+  const lastQuickWrong = useRef(-Infinity)
   useEffect(() => {
-    if (!voiceActive) return
-    const correction = correctionToSpeech(song.notes[practice.currentIndex], practice.feedback)
-    if (correction) speak(correction, { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) })
+    const { feedback } = practice
+    if (!speechAvailable || !speakNotes || (feedback.kind !== 'incorrect' && feedback.kind !== 'wrong-chord')) return
+    const muteWhileTalking = { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) }
+    if (practice.mode === 'strict') {
+      const correction = correctionToSpeech(song.notes[feedback.noteIndex], feedback)
+      if (correction) speak(correction, muteWhileTalking)
+      return
+    }
+    const now = performance.now()
+    if (now - lastQuickWrong.current < QUICK_WRONG_COOLDOWN_MS) return
+    lastQuickWrong.current = now
+    speak('Wrong', { ...muteWhileTalking, rate: QUICK_WRONG_RATE })
     // Only a new result (feedbackId) should speak.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practice.feedbackId])
@@ -250,7 +265,7 @@ function PracticeView({ song }: { song: Song }) {
           )}
         </div>
         {speakNotes && speechAvailable && practice.mode === 'flow' && (
-          <p className={styles.voiceHint}>The voice works in Note by note mode.</p>
+          <p className={styles.voiceHint}>In Play through, the voice only says “Wrong” after a mistake.</p>
         )}
 
         <div className={styles.noteRow}>
@@ -350,6 +365,16 @@ function PracticeView({ song }: { song: Song }) {
         </button>
       </div>
 
+      <div className={styles.played}>
+        <PlayedStrip
+          notes={song.notes}
+          record={practice.record}
+          currentIndex={practice.currentIndex}
+          completed={practice.completed}
+          onSelect={(index) => dispatch({ type: 'jumpTo', index })}
+        />
+      </div>
+
       <fieldset className={styles.mode}>
         <legend className={styles.modeLegend}>How should the app follow you?</legend>
         <div className={styles.modeSwitch}>
@@ -384,6 +409,7 @@ function PracticeView({ song }: { song: Song }) {
           notes={song.notes}
           currentIndex={practice.currentIndex}
           onSelect={(index) => dispatch({ type: 'jumpTo', index })}
+          record={practice.record}
         />
       </section>
     </div>

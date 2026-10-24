@@ -32,6 +32,16 @@ export type PracticeMode = 'strict' | 'flow'
 
 export type ChordTarget = { midi: number; string: number }
 
+/** One wrong try at a step: the note that was heard, or for chords the chord heard (null if unknown). */
+export type WrongTry = { heardMidi: number } | { heardChord: string | null }
+
+/**
+ * What the student did at one step, kept for the whole session ("What you played"): every wrong
+ * try, and how the step ended (played right, skipped, or not yet). A step with wrong tries stays
+ * marked even after it was played right.
+ */
+export type StepRecord = { wrong: readonly WrongTry[]; result: 'correct' | 'skipped' | null }
+
 /** In play-through mode, how many notes ahead of the current one are recognised. */
 export const FLOW_LOOKAHEAD = 1
 
@@ -63,6 +73,8 @@ export type PracticeState = {
   /** Correct steps in a row (a wrong note or a restart sets it back to 0), for encouragement. */
   streak: number
   bestStreak: number
+  /** One record per step of the song. */
+  record: readonly StepRecord[]
 }
 
 export type PracticeAction =
@@ -96,7 +108,25 @@ export function createPracticeState(
     wrongCount: 0,
     streak: 0,
     bestStreak: 0,
+    record: emptyRecord(targets.length),
   }
+}
+
+function emptyRecord(length: number): StepRecord[] {
+  return Array.from({ length }, () => ({ wrong: [], result: null }))
+}
+
+/** Step `index` was played right; the `skipped` steps before it (play-through) were passed over. */
+function recordCorrect(record: readonly StepRecord[], index: number, skipped: number): StepRecord[] {
+  return record.map((step, i) => {
+    if (i === index) return { ...step, result: 'correct' }
+    if (i >= index - skipped && i < index && step.result === null) return { ...step, result: 'skipped' }
+    return step
+  })
+}
+
+function recordWrong(record: readonly StepRecord[], index: number, wrong: WrongTry): StepRecord[] {
+  return record.map((step, i) => (i === index ? { ...step, wrong: [...step.wrong, wrong] } : step))
 }
 
 /** How quickly a string's tuning error is learned from each correct note (0–1). */
@@ -160,6 +190,7 @@ function accept(state: PracticeState, index: number, event: NoteEvent, skipped: 
     handledNoteId: event.noteId,
     skippedCount: state.skippedCount + skipped,
     ...countCorrect(state),
+    record: recordCorrect(state.record, index, skipped),
   }
 }
 
@@ -181,6 +212,7 @@ function handleChord(state: PracticeState, event: ChordEvent): PracticeState {
     feedbackId: state.feedbackId + 1,
     wrongCount: state.wrongCount + 1,
     streak: 0,
+    record: recordWrong(state.record, index, { heardChord: event.heard }),
   }
 }
 
@@ -197,6 +229,7 @@ function acceptStep(state: PracticeState, index: number, skipped: number): Pract
     handledNoteId: null,
     skippedCount: state.skippedCount + skipped,
     ...countCorrect(state),
+    record: recordCorrect(state.record, index, skipped),
   }
 }
 
@@ -234,19 +267,23 @@ function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
     handledNoteId: event.noteId,
     wrongCount: state.wrongCount + 1,
     streak: 0,
+    record: recordWrong(state.record, noteIndex, { heardMidi: current.heardMidi }),
   }
 }
 
 export function practiceReducer(state: PracticeState, action: PracticeAction): PracticeState {
   switch (action.type) {
-    case 'next':
-      return moveTo(state, state.currentIndex + 1)
+    case 'next': {
+      // Moving on without playing the note counts as skipping it (playing it later still counts).
+      const record = state.record.map((step, i) => (i === state.currentIndex && step.result === null ? { ...step, result: 'skipped' as const } : step))
+      return { ...moveTo(state, state.currentIndex + 1), record }
+    }
     case 'previous':
       return moveTo(state, state.currentIndex - 1)
     case 'jumpTo':
       return moveTo(state, action.index)
     case 'reset':
-      return { ...moveTo(state, 0), wrongCount: 0, skippedCount: 0, streak: 0, bestStreak: 0 }
+      return { ...moveTo(state, 0), wrongCount: 0, skippedCount: 0, streak: 0, bestStreak: 0, record: emptyRecord(state.targets.length) }
     case 'setMode':
       return { ...state, mode: action.mode }
     case 'noteEvent':

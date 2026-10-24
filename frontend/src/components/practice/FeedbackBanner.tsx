@@ -65,7 +65,8 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
           ? 'No wrong notes.'
           : `${practice.wrongCount} wrong note${practice.wrongCount === 1 ? '' : 's'} along the way.`}
         {practice.skippedCount > 0 && ` ${practice.skippedCount} skipped.`}
-        {practice.bestStreak >= 3 && ` Best run: ${practice.bestStreak} in a row.`}{' '}
+        {practice.bestStreak >= 3 && ` Best run: ${practice.bestStreak} in a row.`}
+        {practice.wrongCount > 0 && ' The red notes in “What you played” show what to practise.'}{' '}
         <button type="button" className={`button button-primary ${styles.again}`} onClick={onRestart}>
           <span aria-hidden="true">↺</span> Play again
         </button>
