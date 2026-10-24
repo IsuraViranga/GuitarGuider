@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import mapping from '../../../fixtures/guitar-mapping.json'
-import { positionToMidi, positionsForMidi, validatePosition } from './fretboard'
+import { positionToMidi, positionsForMidi, validatePosition, samePitchPositions } from './fretboard'
 import { describePosition, formatGuitarNumber, parseGuitarNumber } from './guitarNumber'
 import { centsBetween, frequencyToMidi, midiToFrequency, midiToNoteName } from './pitch'
 import { STANDARD_TUNING, STRING_NUMBERS, type Tuning } from './tuning'
@@ -98,5 +98,21 @@ describe('fretboard mapping (standard tuning)', () => {
     const dropD: Tuning = { ...STANDARD_TUNING, id: 'drop-d', openStringMidi: { ...STANDARD_TUNING.openStringMidi, 6: 38 } }
     expect(midiToNoteName(positionToMidi({ stringNumber: 6, fret: 0 }, dropD)).label).toBe('D2')
     expect(positionToMidi({ stringNumber: 6, fret: 2 }, dropD)).toBe(40)
+  })
+})
+
+describe('same note on other strings', () => {
+  const numbers = (positions: { stringNumber: number; fret: number }[]) => positions.map((p) => `${p.stringNumber}${p.fret}`)
+
+  it('finds the places that sound exactly the same (the client examples)', () => {
+    expect(numbers(samePitchPositions({ stringNumber: 1, fret: 0 }))).toEqual(['25', '39'])
+    expect(numbers(samePitchPositions({ stringNumber: 2, fret: 0 }))).toEqual(['34', '49'])
+    expect(numbers(samePitchPositions({ stringNumber: 1, fret: 1 }))).toEqual(['26', '310'])
+    expect(numbers(samePitchPositions({ stringNumber: 2, fret: 5 }))).toEqual(['10', '39'])
+  })
+
+  it('has none for notes only one string can play, and stays within fret 12', () => {
+    expect(samePitchPositions({ stringNumber: 6, fret: 0 })).toEqual([])
+    expect(numbers(samePitchPositions({ stringNumber: 1, fret: 12 }))).toEqual([]) // 217, 321… are above fret 12
   })
 })

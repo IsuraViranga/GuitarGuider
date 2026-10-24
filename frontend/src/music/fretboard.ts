@@ -35,3 +35,15 @@ export function positionsForMidi(midi: number, tuning: Tuning = STANDARD_TUNING)
     return Number.isInteger(fret) && fret >= 0 && fret <= tuning.maxFret ? [{ stringNumber, fret }] : []
   })
 }
+
+/**
+ * Other places where exactly the same note can be played (same pitch, other strings), lowest fret
+ * first, up to `maxFret`. The app hears pitch only, so it cannot tell these apart: 10 and 25 are
+ * both E4.
+ */
+export function samePitchPositions(position: GuitarPosition, tuning: Tuning = STANDARD_TUNING, maxFret = 12): GuitarPosition[] {
+  const midi = positionToMidi(position, tuning)
+  return positionsForMidi(midi, tuning)
+    .filter((p) => p.stringNumber !== position.stringNumber && p.fret <= maxFret)
+    .sort((a, b) => a.fret - b.fret)
+}

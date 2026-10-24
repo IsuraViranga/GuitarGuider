@@ -536,6 +536,12 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   note card: green = right first time, red = had a mistake (stays red after it was played right,
   with "you: G4"), grey = skipped (play-through catch-up or Next). Tapping a chip jumps there; the
   "All notes" timeline shows the same marks. Kept until Restart.
+- Same note on different strings (client finding, e.g. 10 = 25 = E4, 20 = 34 = B3, 11 = 26 = F4):
+  identical pitch, so detection cannot tell which string was used. The practice card now says so
+  ("25 and 39 sound the same… play it on string 1 as shown", `samePitchPositions`, up to fret 12),
+  feedback says "Correct note!" / "Correct chord!", and Home explains it. String detection from
+  timbre (inharmonicity, per-guitar calibration) is only to be tried after measuring it on the
+  client's recordings of these pairs.
 - Song sheets (`songs/parsers/songSheet.ts`, format `song-sheet`): numbers lines with the words line
   underneath, words matched by count; mismatches become preview warnings (`ImportResult.warnings`),
   never guesses. `detectFormat`: numbers lines mixed with text → song sheet.

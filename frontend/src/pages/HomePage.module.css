@@ -451,3 +451,11 @@
     padding: var(--space-5);
   }
 }
+
+.sameSound {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: rgb(124 92 255 / 0.12);
+  border: 1px solid rgb(155 132 255 / 0.4);
+}

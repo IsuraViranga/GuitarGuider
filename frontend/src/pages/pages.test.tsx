@@ -66,6 +66,13 @@ describe('Practice navigation', () => {
     expect(screen.getByTestId('position-status')).toHaveTextContent('Note 6 of 8: 13, string 1, fret 3, G4')
   })
 
+  it('says when the same note can be played on another string (the app cannot tell them apart)', async () => {
+    renderApp('/songs/sample-first-frets/practice') // 10 11 13 ...
+    expect(await screen.findByTestId('same-pitch')).toHaveTextContent('25 and 39 sound the same. The app hears the note, not the string, so play it on string 1 as shown.')
+    await userEvent.click(screen.getByRole('button', { name: /^Note 3 of 8: 13/ }))
+    expect(screen.getByTestId('same-pitch')).toHaveTextContent('28 and 312 sound the same')
+  })
+
   it('disables Next on the last note', async () => {
     renderApp('/songs/sample-first-frets/practice')
     await userEvent.click(await screen.findByRole('button', { name: /^Note 8 of 8/ }))

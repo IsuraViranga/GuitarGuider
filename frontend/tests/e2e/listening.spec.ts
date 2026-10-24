@@ -38,7 +38,7 @@ test('a correct note advances exactly once, with no sound', async ({ page }) => 
   await startListening(page)
 
   await expect(feedback(page)).toHaveAttribute('data-kind', 'correct', LOOP)
-  await expect(feedback(page)).toContainText('Correct! 13 (G4)')
+  await expect(feedback(page)).toContainText('Correct note! 13 (G4)')
   await expect(progress(page)).toHaveText('Note 4 of 8')
   // The G4 keeps ringing for ~2 s more: it must not advance again.
   await page.waitForTimeout(1500)
@@ -146,7 +146,7 @@ test('jumping while a note rings: the mic stays on, the ringing note is ignored,
 
   // The next fresh pluck is compared with the new target and advances.
   await expect(progress(page)).toHaveText('Note 7 of 8', LOOP)
-  await expect(feedback(page)).toContainText('Correct! 13 (G4)')
+  await expect(feedback(page)).toContainText('Correct note! 13 (G4)')
 })
 
 test('finishing the last note completes the song', async ({ page }) => {

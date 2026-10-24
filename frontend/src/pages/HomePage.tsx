@@ -176,6 +176,13 @@ export function HomePage() {
             </li>
           ))}
         </ul>
+
+        <p className={styles.sameSound}>
+          <span aria-hidden="true">👂 </span>
+          <strong>Good to know:</strong> the app checks the note you play by its sound. Some notes sound exactly the
+          same on two strings: <code>10</code> and <code>25</code> are both E4. So always play on the string the
+          fretboard shows.
+        </p>
       </section>
 
       <section className={styles.tips} aria-labelledby="tips-heading">

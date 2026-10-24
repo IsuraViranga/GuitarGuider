@@ -107,7 +107,7 @@ describe('FeedbackBanner', () => {
 
   it('says when the next note is the same one again', () => {
     render(<FeedbackBanner practice={heard(67)} notes={notes} listening onRestart={() => {}} />)
-    expect(screen.getByRole('status')).toHaveTextContent('Correct! 13 (G4). Now play it again.')
+    expect(screen.getByRole('status')).toHaveTextContent('Correct note! 13 (G4). Now play it again.')
   })
 
   it('offers Play again when the song is complete', async () => {

@@ -80,7 +80,7 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
     const stringName = playedNote.position ? `String ${playedNote.position.stringNumber}` : 'Your guitar'
     message = (
       <>
-        <strong>Correct!</strong> {playedNote.chord ? (playedNote.chord.name ?? played.number) : `${played.number} (${played.noteName})`}.
+        <strong>{playedNote.chord ? 'Correct chord!' : 'Correct note!'}</strong> {playedNote.chord ? (playedNote.chord.name ?? played.number) : `${played.number} (${played.noteName})`}.
         {feedback.skipped > 0 && ` (Caught up: ${feedback.skipped} note${feedback.skipped === 1 ? '' : 's'} skipped.)`}
         {feedback.inTune
           ? notes[feedback.noteIndex + 1] && describeNote(notes[feedback.noteIndex + 1]).number === played.number

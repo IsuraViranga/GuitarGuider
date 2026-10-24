@@ -30,6 +30,8 @@ import {
   usePracticeModeSetting,
   useSpeakNotesSetting,
 } from '../practice/usePracticeSettings'
+import { samePitchPositions } from '../music/fretboard'
+import { formatGuitarNumber } from '../music/guitarNumber'
 import { midiToNoteName } from '../music/pitch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
@@ -173,6 +175,8 @@ function PracticeView({ song }: { song: Song }) {
   }, [practice.feedbackId])
   const text = describeNote(note)
   const upcoming = song.notes.slice(practice.currentIndex + 1, practice.currentIndex + 5)
+  // Other strings where the same note sounds (the app cannot tell them apart by sound).
+  const samePitch = note.position && !note.chord ? samePitchPositions(note.position, tuning) : []
   const positions = note.chord ? note.chord.tones.map((t) => t.position) : note.position ? [note.position] : []
   const heard = listening.reading?.reliable && listening.reading.midi !== null ? listening.reading.midi : null
 
@@ -323,6 +327,13 @@ function PracticeView({ song }: { song: Song }) {
         <div className={styles.board}>
           <Fretboard positions={positions} tuning={tuning} chord={note.chord ? { name: note.chord.name } : undefined} />
         </div>
+        {samePitch.length > 0 && note.position && (
+          <p className={styles.samePitch} data-testid="same-pitch">
+            <span aria-hidden="true">👂 </span>
+            {samePitch.map(formatGuitarNumber).join(' and ')} {samePitch.length === 1 ? 'sounds' : 'sound'} the same. The app
+            hears the note, not the string, so play it on <strong>string {note.position.stringNumber}</strong> as shown.
+          </p>
+        )}
 
         <p className={styles.upcoming} data-testid="upcoming">
           {upcomingText}

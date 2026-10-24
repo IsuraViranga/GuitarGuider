@@ -484,3 +484,14 @@
 .played {
   grid-area: played;
 }
+
+/* "25 sounds the same": the app hears pitch only, so the student must follow the shown string. */
+.samePitch {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: rgb(124 92 255 / 0.12);
+  border: 1px solid rgb(155 132 255 / 0.4);
+  font-size: 0.9rem;
+  text-align: left;
+}
