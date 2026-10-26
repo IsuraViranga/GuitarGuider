@@ -21,6 +21,7 @@
 
 import type { Tuning } from '../../music/tuning'
 import type { SongIssue } from '../types'
+import { damagedSinhalaWords } from '../text'
 import { parseGuitarNumberText } from './guitarNumberText'
 import {
   MAX_REPORTED_ISSUES,
@@ -106,6 +107,13 @@ export function parseSongSheet(text: string, tuning: Tuning): SongFileParseResul
     const next = lines[i + 1]
     if (next !== undefined && !isBlankOrComment(next) && !parseHeaderLine(next) && !isNumbersLine(next) && !looksLikeMistypedNumbers(next)) {
       i++
+      const damaged = damagedSinhalaWords(next)
+      if (damaged.length > 0) {
+        warnings.push({
+          line: i + 1,
+          message: `Some Sinhala words look damaged: ${damaged.join('  ·  ')}. The notes are correct; please correct these words, or use the Word (.docx) file.`,
+        })
+      }
       const words = wordsFor(next, lineNotes.length)
       if (words) {
         lineNotes.forEach((note, k) => (note.lyric = words[k]))

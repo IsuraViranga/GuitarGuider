@@ -25,3 +25,20 @@ export function decodeTextFile(bytes: ArrayBuffer): string | null {
     return null
   }
 }
+
+const SINHALA = /[\u0D80-\u0DFF]/
+/** Vowel signs and the virama: in real Sinhala text they always follow a letter, never start a word. */
+const STARTS_WITH_SIGN = /^[\u0DCA-\u0DDF\u0DF2\u0DF3]/
+/** Digits and symbols that do not belong in Sinhala lyrics (normal end punctuation like , . ! ? is fine). */
+const FOREIGN = /[0-9"*#$%&+/<=>@[\]\\^_`{|}~]|^[!:;?.,'-]+$/
+
+/**
+ * Words of a Sinhala lyrics line that look damaged: some PDFs store Sinhala letters in a broken
+ * way, so reading their text gives symbols ("!", "0", "*") or a lone vowel sign instead of
+ * letters. Returns [] for lines without Sinhala.
+ */
+export function damagedSinhalaWords(line: string): string[] {
+  const words = line.trim().split(/\s+/).filter(Boolean)
+  if (!words.some((word) => SINHALA.test(word))) return []
+  return words.filter((word) => FOREIGN.test(word) || STARTS_WITH_SIGN.test(word))
+}

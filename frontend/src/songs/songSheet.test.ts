@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { STANDARD_TUNING } from '../music/tuning'
 import { detectFormat, importSongText } from './importSong'
 import { parseSongSheet } from './parsers/songSheet'
+import { damagedSinhalaWords } from './text'
 
 /** The Riversheen school sheet exactly as the text comes out of the PDF (header above the title). */
 const TWINKLE_FROM_PDF = [
@@ -103,5 +104,39 @@ describe('song sheets (numbers with words underneath)', () => {
     // "Chorus:" is directly under the first numbers line, so it is taken as its words: 2 numbers, 1 word → warning.
     expect(result.value.warnings).toHaveLength(1)
     expect(result.value.notes.slice(2).map((n) => n.lyric)).toEqual(['la', 'la'])
+  })
+})
+
+describe('Sinhala words damaged by a PDF', () => {
+  // The exact text pdf.js reads from the Riversheen "නිල් අහස් තලේ" PDF: its font stores some
+  // letters in a broken way (other PDF readers give the same symbols).
+  const FROM_PDF = [
+    'Riversheen school of Music',
+    '22 23 10 22 23 22 20',
+    '!" අ හස් ත ෙ" අ ෙ*',
+    '22 23 10 12 14',
+    'නෑ ව ළා 0 1',
+    '12 14 15 12 10 22 20',
+    'ලස් ස න3 4 රා හ ෙඳ්',
+    '10 20 22 20 32',
+    '7ස් 8 9 : ලා',
+  ].join('\n')
+
+  it('finds the damaged words and says so for each line, while the notes stay exact', () => {
+    expect(damagedSinhalaWords('!" අ හස් ත ෙ" අ ෙ*')).toEqual(['!"', 'ෙ"', 'ෙ*'])
+    expect(damagedSinhalaWords('නෑ ව ළා 0 1')).toEqual(['0', '1'])
+    expect(damagedSinhalaWords('ලස් ස න3 4 රා හ ෙඳ්')).toEqual(['න3', '4', 'ෙඳ්'])
+    expect(damagedSinhalaWords('7ස් 8 9 : ලා')).toEqual(['7ස්', '8', '9', ':'])
+    const result = parseSongSheet(FROM_PDF, STANDARD_TUNING)
+    if (!result.ok) throw new Error('not parsed')
+    expect(numbersOf(result.value.notes)).toBe('22 23 10 22 23 22 20 22 23 10 12 14 12 14 15 12 10 22 20 10 20 22 20 32')
+    expect(result.value.warnings?.map((w) => w.line)).toEqual([3, 5, 7, 9])
+    expect(result.value.warnings?.[0].message).toContain('Some Sinhala words look damaged: !"  ·  ෙ"  ·  ෙ*.')
+  })
+
+  it('correct Sinhala lyrics are never flagged (also with normal punctuation)', () => {
+    for (const line of ['නිල් අ හස් ත ලේ අ ගේ', 'නෑ ව ළා කු ළු', 'ලස් ස නයි පු රා හ දේ', 'රැස් වි හි දි ලා', 'මල් පිපී ඇත, ඔබ!', 'ශ්‍රී ලංකා මාතා', 'Twin kle, 2 twin']) {
+      expect(damagedSinhalaWords(line)).toEqual([])
+    }
   })
 })

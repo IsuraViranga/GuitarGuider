@@ -18,7 +18,7 @@ import { useAuth } from '../auth/authContext'
 import { DRAFT_SONG_ID, useSongRepository, type NewSong } from '../songs/songRepository'
 import { groupKey } from '../songs/lines'
 import { songToText } from '../songs/songText'
-import { decodeTextFile } from '../songs/text'
+import { damagedSinhalaWords, decodeTextFile } from '../songs/text'
 import type { Difficulty, Song, SongIssue, SongNote } from '../songs/types'
 import styles from './ImportPage.module.css'
 
@@ -99,12 +99,16 @@ export function ImportPage({ editSong, review }: { editSong?: Song; review?: { r
   const [sourceFile, setSourceFile] = useState<string | null>(null)
   const [readingFile, setReadingFile] = useState(false)
 
+
   // Keep a new song's text for this tab, so it survives signing in to save it.
   useEffect(() => {
     if (!editSong) writeDraft(text || title || artist ? { text, title, artist, difficulty } : null)
   }, [editSong, text, title, artist, difficulty])
 
   const detected = text.trim() ? detectFormat(text) : null
+  // Sinhala words a file gave as symbols (broken letters in the file); counted live, so the
+  // warning goes away once they are corrected in the box.
+  const damagedWords = sourceFile ? text.split(/\r?\n/).reduce((count, line) => count + damagedSinhalaWords(line).length, 0) : 0
   const format = formatOverride === 'auto' ? detected : formatOverride
   let step = 0
   if (result?.ok) step = 2
@@ -300,6 +304,21 @@ export function ImportPage({ editSong, review }: { editSong?: Song; review?: { r
               </>
             )}
           </p>
+          {sourceFile && text.trim() && damagedWords > 0 && (
+            <div className={`error-box ${styles.damaged}`} role="alert" data-testid="damaged-words">
+              <p>
+                <strong>
+                  ⚠ {damagedWords} Sinhala word{damagedWords === 1 ? '' : 's'} in this file could not be read correctly.
+                </strong>{' '}
+                The PDF stores some Sinhala letters in a broken way, so they show as symbols like ! or 0. The
+                guitar numbers are correct.
+              </p>
+              <p>
+                Best: upload the <strong>Word (.docx)</strong> file of this sheet instead. Or correct the marked words in
+                the box. “Check song” lists every line to fix.
+              </p>
+            </div>
+          )}
           {sourceFile && text.trim() && (
             <p className={styles.source} data-testid="source-file">
               <span aria-hidden="true">📄 </span>

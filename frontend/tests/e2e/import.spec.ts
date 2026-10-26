@@ -51,3 +51,22 @@ test('the Riversheen school Twinkle PDF imports with all 42 notes and words', as
   await expect(page.getByRole('heading', { name: '“Twinkle, twinkle”: 42 notes' })).toBeVisible()
   await expect(page.getByTestId('import-warnings')).toHaveCount(0)
 })
+
+// The client's Sinhala sheet whose PDF stores some letters in a broken way (not committed).
+const SINHALA_PDF = '../sharedSongs/nil-ahas-thale.pdf'
+test('a PDF with broken Sinhala letters: notes are exact, and the damaged words are flagged', async ({ page }) => {
+  test.skip(!existsSync(SINHALA_PDF), 'sharedSongs/nil-ahas-thale.pdf is not here')
+  await page.goto('/import')
+  await page.getByLabel('Or choose a song file').setInputFiles(SINHALA_PDF)
+  await expect(page.getByTestId('damaged-words')).toContainText('Sinhala words in this file could not be read correctly')
+  await expect(page.getByTestId('damaged-words')).toContainText('Word (.docx)')
+  await page.getByLabel('Song title').fill('Nil ahas thale')
+  await page.getByRole('button', { name: 'Check song' }).click()
+  await expect(page.getByRole('heading', { name: '“Nil ahas thale”: 24 notes' })).toBeVisible()
+  await expect(page.getByTestId('import-warnings')).toContainText('Some Sinhala words look damaged')
+  const numbers = (await page.getByLabel('Paste the song here').inputValue())
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/).join(' '))
+    .filter((line) => /^[\d ]+$/.test(line))
+  expect(numbers).toEqual(['22 23 10 22 23 22 20', '22 23 10 12 14', '12 14 15 12 10 22 20', '10 20 22 20 32'])
+})

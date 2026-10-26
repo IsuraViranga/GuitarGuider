@@ -3,11 +3,13 @@
 // Nothing is guessed: no recognising text in pictures (scans), because that cannot be exact.
 
 import { strFromU8, unzipSync } from 'fflate'
+import { damagedSinhalaWords } from './text'
 
 export const DOCUMENT_FILE_PATTERN = /\.(docx|pdf)$/i
 export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 
-export type DocumentTextResult = { ok: true; text: string } | { ok: false; message: string }
+/** `damagedWords`: Sinhala words that came out as symbols (a PDF with broken Sinhala letters). */
+export type DocumentTextResult = { ok: true; text: string; damagedWords: number } | { ok: false; message: string }
 
 export function isDocumentFileName(name: string): boolean {
   return DOCUMENT_FILE_PATTERN.test(name)
@@ -24,7 +26,8 @@ export async function extractDocumentText(name: string, bytes: Uint8Array): Prom
           : 'No text was found in this document.',
       }
     }
-    return { ok: true, text }
+    const damagedWords = text.split(/\r?\n/).reduce((count, line) => count + damagedSinhalaWords(line).length, 0)
+    return { ok: true, text, damagedWords }
   } catch (error) {
     if (error instanceof Error && error.name === 'PasswordException') {
       return { ok: false, message: 'This PDF is protected with a password. Please use a copy without a password.' }

@@ -371,3 +371,11 @@
 .previewEven[data-line]::before {
   color: #b9a6ff;
 }
+
+.damaged p {
+  margin: 0;
+}
+
+.damaged p + p {
+  margin-top: var(--space-2);
+}
