@@ -25,6 +25,7 @@ import { parseGuitarNumberText } from './guitarNumberText'
 import {
   MAX_REPORTED_ISSUES,
   applyHeader,
+  numberLines,
   parseHeaderLine,
   type ParsedNote,
   type ParsedSongFile,
@@ -98,7 +99,8 @@ export function parseSongSheet(text: string, tuning: Tuning): SongFileParseResul
       continue
     }
     measure++
-    const lineNotes = parsed.value.notes.map((note) => ({ ...note, measure }))
+    // Each sheet line is one measure and one line (a "|" inside a sheet line does not split it).
+    const lineNotes = parsed.value.notes.map((note) => ({ ...note, measure, line: measure }))
 
     // The words line, if there is one directly underneath.
     const next = lines[i + 1]
@@ -123,7 +125,7 @@ export function parseSongSheet(text: string, tuning: Tuning): SongFileParseResul
   if (issues.length > 0) return { ok: false, issues }
   if (notes.length === 0) return { ok: false, issues: [{ message: 'No guitar numbers were found in the file.' }] }
   result.title ??= titleCandidate
-  result.notes = notes
+  result.notes = numberLines(notes)
   if (warnings.length > 0) result.warnings = warnings
   return { ok: true, value: result }
 }

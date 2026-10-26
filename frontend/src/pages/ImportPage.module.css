@@ -348,3 +348,26 @@
     grid-template-columns: 2fr 1fr;
   }
 }
+
+/* "Line 2" on top of each line of the sheet; lines alternate amber and purple edges. */
+.previewLine[data-line]::before {
+  content: 'Line ' attr(data-line);
+  flex-basis: 100%;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.previewLine[data-line] {
+  border-left: 3px solid rgb(245 165 36 / 0.6);
+}
+
+.previewEven[data-line] {
+  border-left-color: rgb(155 132 255 / 0.7);
+}
+
+.previewEven[data-line]::before {
+  color: #b9a6ff;
+}

@@ -13,10 +13,11 @@ export function notesFromPositions(
     chord?: { name?: string; positions: GuitarPosition[]; simplifiedFrom?: string }
     lyric?: string
     measure?: number
+    line?: number
   }>,
   tuning: Tuning,
 ): SongNote[] {
-  return items.map(({ position, chord, lyric, measure }, index) => {
+  return items.map(({ position, chord, lyric, measure, line }, index) => {
     if (chord) {
       const tones = [...chord.positions]
         .sort((a, b) => b.stringNumber - a.stringNumber)
@@ -29,6 +30,7 @@ export function notesFromPositions(
         chord: { tones, ...(chord.name ? { name: chord.name } : {}), ...(chord.simplifiedFrom ? { simplifiedFrom: chord.simplifiedFrom } : {}) },
         ...(lyric ? { lyric } : {}),
         ...(measure === undefined ? {} : { measure }),
+        ...(line === undefined ? {} : { line }),
       }
     }
     return {
@@ -37,6 +39,7 @@ export function notesFromPositions(
       position,
       ...(lyric ? { lyric } : {}),
       ...(measure === undefined ? {} : { measure }),
+      ...(line === undefined ? {} : { line }),
     }
   })
 }

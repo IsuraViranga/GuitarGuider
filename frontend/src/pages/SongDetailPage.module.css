@@ -1,0 +1,8 @@
+/* Arrangement table: a line of the sheet starts with a rule; even lines are tinted purple. */
+.lineStart td {
+  border-top: 2px solid rgb(245 165 36 / 0.45);
+}
+
+.lineEven td {
+  background: rgb(124 92 255 / 0.08);
+}

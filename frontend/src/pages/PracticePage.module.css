@@ -502,3 +502,9 @@
   font-style: italic;
   color: var(--color-accent-strong);
 }
+
+/* "↵": the next note starts a new line of the song. */
+.newLine {
+  color: #b9a6ff;
+  font-weight: 700;
+}

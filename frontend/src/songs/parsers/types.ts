@@ -7,6 +7,8 @@ export type ParsedNote = {
   chord?: { name?: string; positions: GuitarPosition[]; simplifiedFrom?: string }
   lyric?: string
   measure?: number
+  /** Which line of the sheet the step was written on (1, 2, …); only set when there are several lines. */
+  line?: number
 }
 
 export type ParsedSongFile = {
@@ -19,6 +21,17 @@ export type ParsedSongFile = {
 }
 
 export type SongFileParseResult = { ok: true; value: ParsedSongFile } | { ok: false; issues: SongIssue[] }
+
+/**
+ * Numbers the lines that have notes 1, 2, 3… in order (source lines without notes leave no gap).
+ * A song written on one line gets no line numbers at all, so it stays exactly as before.
+ */
+export function numberLines<T extends { line?: number }>(notes: T[]): T[] {
+  const order = [...new Set(notes.map((n) => n.line).filter((l): l is number => l !== undefined))]
+  if (order.length <= 1) return notes.map(({ line: _line, ...rest }) => rest as T)
+  const index = new Map(order.map((line, i) => [line, i + 1]))
+  return notes.map((n) => (n.line === undefined ? n : { ...n, line: index.get(n.line)! }))
+}
 
 /** Stop collecting after this many problems so a wrong file doesn't produce thousands of messages. */
 export const MAX_REPORTED_ISSUES = 20

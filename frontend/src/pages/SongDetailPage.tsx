@@ -7,6 +7,8 @@ import { getTuning } from '../music/tuning'
 import { useSongRepository } from '../songs/songRepository'
 import type { Song } from '../songs/types'
 import { useSong } from '../songs/useSong'
+import { hasLines, startsLine } from '../songs/lines'
+import styles from './SongDetailPage.module.css'
 import { validateSong } from '../songs/validation'
 import { SongStatus } from './SongStatus'
 
@@ -20,6 +22,7 @@ export function SongDetailPage() {
 
   const issues = validateSong(song)
   const hasMeasures = song.notes.some((note) => note.measure !== undefined)
+  const showLines = hasLines(song.notes)
   const hasLyrics = song.notes.some((note) => note.lyric)
 
   return (
@@ -59,6 +62,7 @@ export function SongDetailPage() {
             <thead>
               <tr>
                 <th scope="col">#</th>
+                {showLines && <th scope="col">Line</th>}
                 {hasMeasures && <th scope="col">Measure</th>}
                 <th scope="col">Number</th>
                 <th scope="col">Position</th>
@@ -71,8 +75,15 @@ export function SongDetailPage() {
               {song.notes.map((note) => {
                 const text = describeNote(note)
                 return (
-                  <tr key={note.index}>
+                  <tr
+                    key={note.index}
+                    className={[
+                      showLines && startsLine(note, song.notes[note.index - 1]) && note.index > 0 ? styles.lineStart : '',
+                      showLines && (note.line ?? 0) % 2 === 0 ? styles.lineEven : '',
+                    ].join(' ').trim() || undefined}
+                  >
                     <td>{note.index + 1}</td>
+                    {showLines && <td>{note.line ?? ''}</td>}
                     {hasMeasures && <td>{note.measure ?? ''}</td>}
                     <td>
                       <strong>{text.number}</strong>

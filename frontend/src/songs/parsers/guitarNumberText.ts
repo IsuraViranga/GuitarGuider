@@ -17,6 +17,7 @@ import type { SongIssue } from '../types'
 import {
   MAX_REPORTED_ISSUES,
   applyHeader,
+  numberLines,
   parseHeaderLine,
   type ParsedSongFile,
   type ParsedNote,
@@ -56,7 +57,7 @@ export function parseGuitarNumberText(text: string, tuning: Tuning): SongFilePar
         const chord = token.endsWith(']') ? parseChordNumbers(token, tuning.maxFret) : ({ ok: false, error: `The chord ${token} has no closing "]".` } as const)
         if (chord.ok) {
           const name = identifyChord(chord.value)
-          notes.push({ position: chord.value[0], chord: { positions: chord.value, ...(name ? { name } : {}) }, measure })
+          notes.push({ position: chord.value[0], chord: { positions: chord.value, ...(name ? { name } : {}) }, measure, line: lineNumber })
         } else {
           issues.push({ line: lineNumber, column, message: chord.error })
           if (issues.length >= MAX_REPORTED_ISSUES) break
@@ -65,7 +66,7 @@ export function parseGuitarNumberText(text: string, tuning: Tuning): SongFilePar
       }
       const parsed = parseGuitarNumber(token, tuning.maxFret)
       if (parsed.ok) {
-        notes.push({ position: parsed.value, measure })
+        notes.push({ position: parsed.value, measure, line: lineNumber })
       } else {
         issues.push({ line: lineNumber, column, message: parsed.error })
         if (issues.length >= MAX_REPORTED_ISSUES) break
@@ -77,6 +78,6 @@ export function parseGuitarNumberText(text: string, tuning: Tuning): SongFilePar
   if (notes.length === 0) return { ok: false, issues: [{ message: 'No guitar numbers were found in the file.' }] }
 
   // Measures are only meaningful if the file actually used barlines.
-  result.notes = sawBarline ? notes : notes.map(({ measure: _measure, ...note }) => note)
+  result.notes = numberLines(sawBarline ? notes : notes.map(({ measure: _measure, ...note }) => note))
   return { ok: true, value: result }
 }

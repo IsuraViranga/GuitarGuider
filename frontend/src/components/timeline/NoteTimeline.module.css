@@ -100,3 +100,8 @@
 .current .lyric {
   color: var(--color-on-accent);
 }
+
+/* Even lines of the sheet: purple edges (see LineBreak). */
+.lineEven > .note:not(.current):not(.right):not(.mistake) {
+  border-color: rgb(124 92 255 / 0.45);
+}

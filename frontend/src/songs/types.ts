@@ -28,6 +28,8 @@ export type SongNote = {
   lyric?: string
   durationBeats?: number
   measure?: number
+  /** Which line of the sheet this step was written on (1, 2, …); absent for one-line songs. */
+  line?: number
 }
 
 /**

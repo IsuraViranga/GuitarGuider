@@ -169,7 +169,8 @@
           "fret": 3
         },
         "lyric": "Twin",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 1,
@@ -179,7 +180,8 @@
           "fret": 3
         },
         "lyric": "kle,",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 2,
@@ -189,7 +191,8 @@
           "fret": 5
         },
         "lyric": "twin",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 3,
@@ -199,7 +202,8 @@
           "fret": 5
         },
         "lyric": "kle,",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 4,
@@ -209,7 +213,8 @@
           "fret": 7
         },
         "lyric": "lit",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 5,
@@ -219,7 +224,8 @@
           "fret": 7
         },
         "lyric": "tle",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 6,
@@ -229,7 +235,8 @@
           "fret": 5
         },
         "lyric": "star,",
-        "measure": 1
+        "measure": 1,
+        "line": 1
       },
       {
         "index": 7,
@@ -239,7 +246,8 @@
           "fret": 3
         },
         "lyric": "How",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 8,
@@ -249,7 +257,8 @@
           "fret": 3
         },
         "lyric": "I",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 9,
@@ -259,7 +268,8 @@
           "fret": 2
         },
         "lyric": "won",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 10,
@@ -269,7 +279,8 @@
           "fret": 2
         },
         "lyric": "der",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 11,
@@ -279,7 +290,8 @@
           "fret": 0
         },
         "lyric": "what",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 12,
@@ -289,7 +301,8 @@
           "fret": 0
         },
         "lyric": "you",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 13,
@@ -299,7 +312,8 @@
           "fret": 3
         },
         "lyric": "are!",
-        "measure": 2
+        "measure": 2,
+        "line": 2
       },
       {
         "index": 14,
@@ -309,7 +323,8 @@
           "fret": 5
         },
         "lyric": "Up",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 15,
@@ -319,7 +334,8 @@
           "fret": 5
         },
         "lyric": "a",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 16,
@@ -329,7 +345,8 @@
           "fret": 3
         },
         "lyric": "bove",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 17,
@@ -339,7 +356,8 @@
           "fret": 3
         },
         "lyric": "the",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 18,
@@ -349,7 +367,8 @@
           "fret": 2
         },
         "lyric": "world",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 19,
@@ -359,7 +378,8 @@
           "fret": 2
         },
         "lyric": "so",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 20,
@@ -369,7 +389,8 @@
           "fret": 0
         },
         "lyric": "high,",
-        "measure": 3
+        "measure": 3,
+        "line": 3
       },
       {
         "index": 21,
@@ -379,7 +400,8 @@
           "fret": 5
         },
         "lyric": "Like",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 22,
@@ -389,7 +411,8 @@
           "fret": 5
         },
         "lyric": "a",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 23,
@@ -399,7 +422,8 @@
           "fret": 3
         },
         "lyric": "dia",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 24,
@@ -409,7 +433,8 @@
           "fret": 3
         },
         "lyric": "mond",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 25,
@@ -419,7 +444,8 @@
           "fret": 2
         },
         "lyric": "in",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 26,
@@ -429,7 +455,8 @@
           "fret": 2
         },
         "lyric": "the",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 27,
@@ -439,7 +466,8 @@
           "fret": 0
         },
         "lyric": "sky,",
-        "measure": 4
+        "measure": 4,
+        "line": 4
       },
       {
         "index": 28,
@@ -449,7 +477,8 @@
           "fret": 3
         },
         "lyric": "Twin",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 29,
@@ -459,7 +488,8 @@
           "fret": 3
         },
         "lyric": "kle,",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 30,
@@ -469,7 +499,8 @@
           "fret": 5
         },
         "lyric": "twin",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 31,
@@ -479,7 +510,8 @@
           "fret": 5
         },
         "lyric": "kle,",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 32,
@@ -489,7 +521,8 @@
           "fret": 7
         },
         "lyric": "lit",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 33,
@@ -499,7 +532,8 @@
           "fret": 7
         },
         "lyric": "tle",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 34,
@@ -509,7 +543,8 @@
           "fret": 5
         },
         "lyric": "star,",
-        "measure": 5
+        "measure": 5,
+        "line": 5
       },
       {
         "index": 35,
@@ -519,7 +554,8 @@
           "fret": 3
         },
         "lyric": "How",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 36,
@@ -529,7 +565,8 @@
           "fret": 3
         },
         "lyric": "I",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 37,
@@ -539,7 +576,8 @@
           "fret": 2
         },
         "lyric": "won",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 38,
@@ -549,7 +587,8 @@
           "fret": 2
         },
         "lyric": "der",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 39,
@@ -559,7 +598,8 @@
           "fret": 0
         },
         "lyric": "what",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 40,
@@ -569,7 +609,8 @@
           "fret": 0
         },
         "lyric": "you",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       },
       {
         "index": 41,
@@ -579,7 +620,8 @@
           "fret": 3
         },
         "lyric": "are!",
-        "measure": 6
+        "measure": 6,
+        "line": 6
       }
     ]
   },
@@ -589,7 +631,7 @@
     "description": "Play each open string from thickest to thinnest and back. No fretting needed.",
     "difficulty": "beginner",
     "tuningId": "standard",
-    "sourceText": "60 50 40 30 |\n20 10 10 20 |\n30 40 50 60",
+    "sourceText": "60 50 40 30 | 20 10 10 20 | 30 40 50 60",
     "notes": [
       {
         "index": 0,
@@ -707,7 +749,7 @@
     "description": "Open, fret 1 and fret 3 on the thinnest string.",
     "difficulty": "beginner",
     "tuningId": "standard",
-    "sourceText": "10 11 13 11 |\n10 13 11 10",
+    "sourceText": "10 11 13 11 | 10 13 11 10",
     "notes": [
       {
         "index": 0,
@@ -789,7 +831,7 @@
     "description": "One octave up and back down, from C on string 5.",
     "difficulty": "beginner",
     "tuningId": "standard",
-    "sourceText": "53 40 42 43 |\n30 32 20 21 |\n21 20 32 30 |\n43 42 40 53",
+    "sourceText": "53 40 42 43 | 30 32 20 21 | 21 20 32 30 | 43 42 40 53",
     "notes": [
       {
         "index": 0,
@@ -943,7 +985,7 @@
     "description": "A short original melody on strings 1 and 2.",
     "difficulty": "beginner",
     "tuningId": "standard",
-    "sourceText": "21 23 10 11 |\n13 11 10 23 |\n21 23 20 21",
+    "sourceText": "21 23 10 11 | 13 11 10 23 | 21 23 20 21",
     "notes": [
       {
         "index": 0,
@@ -1061,7 +1103,7 @@
     "description": "Beethoven's melody (public domain), arranged for this app. Has repeated notes.",
     "difficulty": "beginner",
     "tuningId": "standard",
-    "sourceText": "10 10 11 13 |\n13 11 10 23 |\n21 21 23 10 |\n10 23 23",
+    "sourceText": "10 10 11 13 | 13 11 10 23 | 21 21 23 10 | 10 23 23",
     "notes": [
       {
         "index": 0,
@@ -1206,7 +1248,7 @@
     "description": "Climb string 1 to fret 12 and back. Practises reading two-digit frets.",
     "difficulty": "intermediate",
     "tuningId": "standard",
-    "sourceText": "15 17 18 110 |\n112 110 18 17 |\n15",
+    "sourceText": "15 17 18 110 | 112 110 18 17 | 15",
     "notes": [
       {
         "index": 0,

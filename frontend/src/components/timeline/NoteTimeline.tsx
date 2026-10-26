@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { describeNote, noteAccessibleLabel, shortLabel } from '../../songs/describeNote'
 import type { StepRecord } from '../../practice/practiceReducer'
 import type { SongNote } from '../../songs/types'
+import { startsLine } from '../../songs/lines'
+import { LineBreak } from './LineBreak'
 import { stepStatus } from '../practice/PlayedStrip'
 import styles from './NoteTimeline.module.css'
 
@@ -38,7 +40,10 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
     <ol ref={listRef} className={styles.timeline}>
       {notes.map((note) => {
         const isCurrent = note.index === currentIndex
-        const startsMeasure = note.index > 0 && note.measure !== notes[note.index - 1].measure
+        const previous = notes[note.index - 1]
+        const newLine = startsLine(note, previous)
+        // Within a line (or in songs without lines), a small gap still marks a new measure ("|").
+        const startsMeasure = !newLine && note.index > 0 && note.measure !== previous.measure
         const text = describeNote(note)
         const status = record ? stepStatus(record[note.index], false) : null
         const result = status === 'right' || status === 'mistake' || status === 'skipped' ? status : null
@@ -55,6 +60,7 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
           <>
             <span className="visually-hidden">
               {noteAccessibleLabel(note, notes.length)}
+              {note.line !== undefined ? `, line ${note.line}` : ''}
               {note.lyric ? `, words: ${note.lyric}` : ''}
               {result ? `, ${RESULT_WORDS[result]}` : ''}
             </span>
@@ -76,7 +82,9 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
           </>
         )
         return (
-          <li key={note.index} className={startsMeasure ? styles.measureStart : undefined}>
+          <Fragment key={note.index}>
+            {newLine && <LineBreak line={note.line!} />}
+          <li className={[startsMeasure && styles.measureStart, note.line !== undefined && note.line % 2 === 0 && styles.lineEven].filter(Boolean).join(' ') || undefined}>
             {onSelect ? (
               <button
                 ref={isCurrent ? currentRef : undefined}
@@ -91,6 +99,7 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
               <span className={className}>{content}</span>
             )}
           </li>
+          </Fragment>
         )
       })}
     </ol>

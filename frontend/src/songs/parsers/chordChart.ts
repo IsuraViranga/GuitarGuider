@@ -17,7 +17,7 @@
 import { chordShape, isChordName } from '../../music/chords'
 import type { Tuning } from '../../music/tuning'
 import type { SongIssue } from '../types'
-import { MAX_REPORTED_ISSUES, applyHeader, parseHeaderLine, type ParsedNote, type ParsedSongFile, type SongFileParseResult } from './types'
+import { MAX_REPORTED_ISSUES, applyHeader, numberLines, parseHeaderLine, type ParsedNote, type ParsedSongFile, type SongFileParseResult } from './types'
 
 /** A section label at the start of a line: "[Verse 1]", "(Chorus)" or "Intro:" (only the label itself). */
 const SECTION_LABEL =
@@ -84,6 +84,7 @@ export function parseChordChart(text: string, _tuning: Tuning): SongFileParseRes
       position: positions[0],
       chord: { name, positions, ...(simplifiedFrom ? { simplifiedFrom } : {}) },
       ...(lyric ? { lyric } : {}),
+      line,
     }
     result.notes.push(step)
   }
@@ -150,6 +151,7 @@ export function parseChordChart(text: string, _tuning: Tuning): SongFileParseRes
   }
 
   if (issues.length > 0) return { ok: false, issues: issues.slice(0, MAX_REPORTED_ISSUES) }
+  result.notes = numberLines(result.notes)
   if (result.notes.length === 0) {
     return {
       ok: false,

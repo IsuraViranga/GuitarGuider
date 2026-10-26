@@ -229,3 +229,33 @@ describe('song words next to the numbers', () => {
     expect(screen.getByRole('button', { name: 'Note 1, 23 (Twin): right first time' })).toHaveTextContent('Twin')
   })
 })
+
+describe('the sheet lines are shown', () => {
+  const twoLines = notesFromPositions(
+    [
+      { position: { stringNumber: 1, fret: 0 }, line: 1 },
+      { position: { stringNumber: 1, fret: 1 }, line: 1 },
+      { position: { stringNumber: 1, fret: 3 }, line: 2 },
+    ],
+    STANDARD_TUNING,
+  )
+
+  it('All notes starts each line on a new row marked "Line N", and each note says its line', () => {
+    const { container } = render(<NoteTimeline notes={twoLines} currentIndex={0} onSelect={() => {}} />)
+    expect([...container.querySelectorAll('[role=presentation]')].map((el) => el.textContent)).toEqual(['Line 1', 'Line 2'])
+    expect(screen.getByRole('button', { name: /^Note 3 of 3: 13.*, line 2$/ })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(3) // the line markers are not list items
+  })
+
+  it('What you played marks lines too', () => {
+    const { container } = render(
+      <PlayedStrip notes={twoLines} record={[{ wrong: [], result: 'correct' }, { wrong: [], result: 'correct' }, { wrong: [], result: null }]} currentIndex={2} completed={false} onSelect={() => {}} />,
+    )
+    expect([...container.querySelectorAll('[role=presentation]')].map((el) => el.textContent)).toEqual(['Line 1', 'Line 2'])
+  })
+
+  it('songs without lines look as before', () => {
+    const { container } = render(<NoteTimeline notes={notesFromPositions([{ position: { stringNumber: 1, fret: 0 } }], STANDARD_TUNING)} currentIndex={0} />)
+    expect(container.querySelectorAll('[role=presentation]')).toHaveLength(0)
+  })
+})

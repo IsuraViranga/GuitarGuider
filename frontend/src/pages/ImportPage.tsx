@@ -16,6 +16,7 @@ import {
 import { extractDocumentText, isDocumentFileName } from '../songs/documentText'
 import { useAuth } from '../auth/authContext'
 import { DRAFT_SONG_ID, useSongRepository, type NewSong } from '../songs/songRepository'
+import { groupKey } from '../songs/lines'
 import { songToText } from '../songs/songText'
 import { decodeTextFile } from '../songs/text'
 import type { Difficulty, Song, SongIssue, SongNote } from '../songs/types'
@@ -503,7 +504,7 @@ function previewLines(notes: readonly SongNote[]): SongNote[][] {
   const lines: SongNote[][] = []
   for (const note of notes) {
     const last = lines.at(-1)
-    if (last && last[0].measure === note.measure) last.push(note)
+    if (last && groupKey(last[0]) === groupKey(note)) last.push(note)
     else lines.push([note])
   }
   return lines
@@ -514,7 +515,13 @@ function SongPreview({ notes }: { notes: readonly SongNote[] }) {
   return (
     <div className={styles.preview}>
       {previewLines(notes).map((line) => (
-        <ol key={line[0].index} className={styles.previewLine} start={line[0].index + 1}>
+        <ol
+          key={line[0].index}
+          className={`${styles.previewLine} ${(line[0].line ?? 0) % 2 === 0 ? styles.previewEven : ''}`}
+          start={line[0].index + 1}
+          data-line={line[0].line}
+          aria-label={line[0].line !== undefined ? `Line ${line[0].line}` : undefined}
+        >
           {line.map((note) => {
             const text = describeNote(note)
             return (

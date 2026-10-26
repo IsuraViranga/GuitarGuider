@@ -200,6 +200,14 @@ def test_impossible_or_broken_songs_are_refused():
         assert isura.post("/api/songs", json=body).status_code == 422, name
 
 
+def test_sheet_lines_are_kept_exactly():
+    isura = person("Isura", "isura@example.com")
+    notes = [{**note(0, 1, 0), "line": 1}, {**note(1, 1, 1), "line": 1}, {**note(2, 1, 3), "line": 2}]
+    created = isura.post("/api/songs", json=song(notes=notes)).json()
+    assert isura.get(f"/api/songs/{created['id']}").json()["notes"] == notes
+    assert isura.post("/api/songs", json=song(notes=[{**note(0, 1, 0), "line": 0}])).status_code == 422
+
+
 def test_lyrics_measures_and_chords_are_kept_exactly():
     isura = person("Isura", "isura@example.com")
     notes = [note(0, 2, 3, lyric="Twin", measure=1), note(1, 2, 3, lyric="kle,", measure=1), chord(2, (5, 3), (4, 2), (3, 0), (2, 1), (1, 0), name="C")]

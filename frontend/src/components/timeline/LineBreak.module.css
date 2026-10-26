@@ -1,0 +1,31 @@
+/* A new line of the sheet starts a new row, with "Line 2" and a thin rule; lines alternate amber and
+   purple so a long line that wraps on a small screen still reads as one line. */
+.break {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.break::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, currentColor, transparent);
+  opacity: 0.5;
+}
+
+.break:first-child {
+  margin-top: 0;
+}
+
+.even {
+  color: #b9a6ff;
+}
+

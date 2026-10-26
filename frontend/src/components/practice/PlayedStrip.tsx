@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { midiToNoteName } from '../../music/pitch'
 import type { StepRecord, WrongTry } from '../../practice/practiceReducer'
 import { shortLabel } from '../../songs/describeNote'
+import { startsLine } from '../../songs/lines'
+import { LineBreak } from '../timeline/LineBreak'
 import type { SongNote } from '../../songs/types'
 import styles from './PlayedStrip.module.css'
 
@@ -79,10 +81,15 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
       ) : (
         <ol ref={listRef} className={styles.list} data-testid="played-list">
           {shown.map(({ note, step, status }, k) => {
-            const startsLine = k > 0 && note.measure !== undefined && note.measure !== shown[k - 1].note.measure
+            const previous = shown[k - 1]?.note
+            const newLine = startsLine(note, previous)
+            // Songs without sheet lines: a small gap where a new measure starts (as before).
+            const newMeasure = !newLine && k > 0 && note.measure !== undefined && note.measure !== previous?.measure
             const label = shortLabel(note)
             return (
-              <li key={note.index} className={startsLine ? styles.lineStart : undefined}>
+              <Fragment key={note.index}>
+              {newLine && <LineBreak line={note.line!} className={styles.lineBreak} />}
+              <li className={newMeasure ? styles.lineStart : undefined}>
                 <button
                   type="button"
                   className={`${styles.chip} ${styles[status]} ${note.index === currentIndex && !completed ? styles.now : ''}`}
@@ -110,6 +117,7 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
                   )}
                 </button>
               </li>
+              </Fragment>
             )
           })}
         </ol>

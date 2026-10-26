@@ -31,6 +31,7 @@ import {
   useSpeakNotesSetting,
 } from '../practice/usePracticeSettings'
 import { samePitchPositions } from '../music/fretboard'
+import { startsLine } from '../songs/lines'
 import { formatGuitarNumber } from '../music/guitarNumber'
 import { midiToNoteName } from '../music/pitch'
 import { SongStatus } from './SongStatus'
@@ -195,6 +196,11 @@ function PracticeView({ song }: { song: Song }) {
             {upcoming.map((n, i) => (
               <span key={n.index}>
                 {i > 0 && ' · '}
+                {startsLine(n, i === 0 ? note : upcoming[i - 1]) && (
+                  <span className={styles.newLine} title="New line of the song">
+                    ↵{' '}
+                  </span>
+                )}
                 {shortLabel(n) + (i === 0 && shortLabel(n) === shortLabel(note) ? ' again' : '')}
                 {n.lyric && <span className={styles.upcomingWord}> {n.lyric}</span>}
               </span>

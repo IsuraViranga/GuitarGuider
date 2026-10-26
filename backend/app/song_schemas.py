@@ -48,6 +48,8 @@ class SongNote(Camel):
     lyric: str | None = Field(default=None, max_length=300)
     duration_beats: float | None = Field(default=None, gt=0, le=64)
     measure: int | None = Field(default=None, ge=0, le=100_000)
+    # Which line of the sheet the step was written on (1, 2, …); absent for one-line songs.
+    line: int | None = Field(default=None, ge=1, le=100_000)
 
     @model_validator(mode="after")
     def pitch_matches_position(self) -> "SongNote":

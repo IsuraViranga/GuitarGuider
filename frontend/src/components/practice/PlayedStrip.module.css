@@ -142,3 +142,8 @@
   font-style: italic;
   color: var(--color-muted);
 }
+
+/* "Line 2" rows come from the All notes list; only the size differs here. */
+.lineBreak {
+  font-size: 0.7rem;
+}

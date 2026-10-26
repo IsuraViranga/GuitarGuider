@@ -16,6 +16,7 @@ import { identifyChord } from '../../music/chords'
 import { STRING_NUMBERS, type StringNumber, type Tuning } from '../../music/tuning'
 import type { SongIssue } from '../types'
 import {
+  numberLines,
   MAX_REPORTED_ISSUES,
   applyHeader,
   parseHeaderLine,
@@ -94,11 +95,13 @@ export function parseAsciiTab(text: string, tuning: Tuning): SongFileParseResult
     for (let k = 0; k < notes.length; ) {
       const column = notes.filter((n) => n.offset === notes[k].offset)
       const positions = column.map(({ stringNumber, fret }) => ({ stringNumber, fret }))
+      // Each tab block is one line of the song.
+      const line = block[0].lineNumber
       if (positions.length === 1) {
-        result.notes.push({ position: positions[0] })
+        result.notes.push({ position: positions[0], line })
       } else {
         const name = identifyChord(positions)
-        result.notes.push({ position: positions[positions.length - 1], chord: { positions, ...(name ? { name } : {}) } })
+        result.notes.push({ position: positions[positions.length - 1], chord: { positions, ...(name ? { name } : {}) }, line })
       }
       k += column.length
     }
@@ -108,6 +111,7 @@ export function parseAsciiTab(text: string, tuning: Tuning): SongFileParseResult
   if (result.notes.length === 0) {
     return { ok: false, issues: [{ message: 'No tab notes were found. Each tab line should look like "e|---0---3---|".' }] }
   }
+  result.notes = numberLines(result.notes)
   return { ok: true, value: result }
 }
 

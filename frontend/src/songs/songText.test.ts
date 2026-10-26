@@ -16,7 +16,16 @@ describe('song → text → song', () => {
     const [twinkle] = LIBRARY_SONGS.filter((s) => s.id === 'library-twinkle-twinkle')
     expect(songToText(twinkle).split('\n').slice(0, 2)).toEqual(['23 23 15 15 17 17 15', 'Twin kle, twin kle, lit tle star,'])
     const [first] = SAMPLE_SONGS.filter((s) => s.id === 'sample-first-frets')
-    expect(songToText(first)).toBe('10 11 13 11 |\n10 13 11 10')
+    expect(songToText(first)).toBe('10 11 13 11 | 10 13 11 10')
+  })
+
+  it('keeps lines and bars exactly, also when a bar is at the end of a line', () => {
+    for (const text of ['10 11\n13 | 11\n10', '10 11 |\n13 11\n10', '10 [53 42 30 21 10]\n13 13']) {
+      const song = importSongText(text, 'guitar-numbers', 'T')
+      if (!song.ok) throw new Error(song.issues[0].message)
+      const again = importSongText(songToText(song.song), 'guitar-numbers', 'T')
+      expect(again.ok && again.song.notes).toEqual(song.song.notes)
+    }
   })
 })
 
