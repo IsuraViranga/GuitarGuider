@@ -341,43 +341,68 @@
   font-size: 1.2rem;
 }
 
-/* Practise, then Edit / Delete (your songs) or Notes (others). */
+/* Practise on the left; small round icon buttons (Edit, Delete or Notes) on the right. */
 .actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
 
-.action {
-  display: inline-flex;
-  align-items: center;
+.iconButtons {
+  display: flex;
   gap: var(--space-1);
-  min-height: var(--touch-target);
-  padding: 0 var(--space-3);
-  border-radius: 999px;
-  border: 1px solid rgb(255 255 255 / 0.18);
+  margin-left: auto;
+}
+
+/* 38 px circle inside a full-size (44 px) touch area. */
+.iconButton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 3px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.16);
   background: rgb(255 255 255 / 0.05);
-  color: var(--color-text);
-  font: inherit;
-  font-weight: 700;
-  text-decoration: none;
+  color: var(--color-muted);
   cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.action:hover {
-  border-color: var(--color-accent);
+.iconButton::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.iconButton svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iconButton:hover {
   color: var(--color-accent-strong);
+  border-color: rgb(245 165 36 / 0.6);
+  background: rgb(245 165 36 / 0.1);
 }
 
-.action:focus-visible {
+.iconButton:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-.danger:hover {
-  border-color: var(--color-incorrect);
+.danger:hover,
+.danger[aria-expanded='true'] {
   color: var(--color-incorrect);
+  border-color: rgb(255 122 122 / 0.6);
+  background: rgb(255 122 122 / 0.1);
 }
 
 .confirm {
@@ -405,19 +430,3 @@
   }
 }
 
-/* Small phones: Practise across the card, Edit and Delete side by side under it. */
-@media (max-width: 420px) {
-  .actionsEditable {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .actionsEditable .play {
-    grid-column: 1 / -1;
-    justify-content: center;
-  }
-
-  .actionsEditable .action {
-    justify-content: center;
-  }
-}

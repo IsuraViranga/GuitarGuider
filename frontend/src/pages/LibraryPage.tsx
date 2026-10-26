@@ -27,6 +27,26 @@ function DifficultyPicks({ difficulty }: { difficulty: Difficulty }) {
   )
 }
 
+/** Small line icons for the card buttons (decorative: the buttons have names). */
+const PencilIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+    <path d="M13.5 6.5l4 4" />
+  </svg>
+)
+const BinIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+  </svg>
+)
+const NoteIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M9 18V5l11-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="17" cy="16" r="3" />
+  </svg>
+)
+
 function deviceSummary(song: Song): SongSummary {
   return {
     id: song.id,
@@ -97,33 +117,36 @@ function SongCard({ song, number, onDeleted }: { song: SongSummary; number: numb
           <span key={n} />
         ))}
       </span>
-      <div className={`${styles.actions} ${song.canEdit ? styles.actionsEditable : ''}`}>
+      <div className={styles.actions}>
         <Link className={styles.play} to={`/songs/${song.id}/practice`} aria-label={`Practise ${song.title}`}>
           <span className={styles.playIcon} aria-hidden="true">
             ▶
           </span>
           Practise
         </Link>
-        {song.canEdit ? (
-          <>
-            <Link className={styles.action} to={`/songs/${song.id}/edit`} aria-label={`Edit ${song.title}`}>
-              <span aria-hidden="true">✎</span> Edit
+        <span className={styles.iconButtons}>
+          {song.canEdit ? (
+            <>
+              <Link className={styles.iconButton} to={`/songs/${song.id}/edit`} aria-label={`Edit ${song.title}`} title="Edit">
+                <PencilIcon />
+              </Link>
+              <button
+                type="button"
+                className={`${styles.iconButton} ${styles.danger}`}
+                aria-label={`Delete ${song.title}`}
+                title="Delete"
+                aria-expanded={confirming}
+                onClick={() => setConfirming(true)}
+              >
+                <BinIcon />
+              </button>
+            </>
+          ) : (
+            <Link className={styles.iconButton} to={`/songs/${song.id}`} aria-label={`Notes of ${song.title}`} title="Notes">
+              <NoteIcon />
             </Link>
-            <button
-              type="button"
-              className={`${styles.action} ${styles.danger}`}
-              aria-label={`Delete ${song.title}`}
-              aria-expanded={confirming}
-              onClick={() => setConfirming(true)}
-            >
-              <span aria-hidden="true">🗑</span> Delete
-            </button>
-          </>
-        ) : (
-          <Link className={styles.action} to={`/songs/${song.id}`} aria-label={`Notes of ${song.title}`}>
-            <span aria-hidden="true">♪</span> Notes
-          </Link>
-        )}
+          )}
+        </span>
       </div>
       {confirming && (
         <div className={styles.confirm} role="alertdialog" aria-label={`Delete ${song.title}?`}>
