@@ -1,6 +1,7 @@
 """The API server. Run locally: uvicorn app.main:app --reload (from the backend folder)."""
 
 import asyncio
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,6 +13,15 @@ from .progress import router as progress_router
 from .sharing import router as sharing_router
 from .songs import router as songs_router
 from .db import MAX_CONNECTIONS, engine
+
+# The app's own messages (e.g. "Brevo refused the email … because …") in Render's Logs tab.
+_app_log = logging.getLogger("app")
+if not _app_log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    _app_log.addHandler(_handler)
+    _app_log.setLevel(logging.INFO)
+    _app_log.propagate = False
 
 app = FastAPI(title="Melantha Guitar Academy API", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 

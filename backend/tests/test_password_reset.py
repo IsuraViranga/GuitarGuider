@@ -146,3 +146,29 @@ def test_the_email_goes_to_brevo_with_the_link_and_the_key(monkeypatch):
     assert "https://site/reset-password#abc" in body["textContent"]
     assert 'href="https://site/reset-password#abc"' in body["htmlContent"]
     assert "Isura &lt;b&gt;" in body["htmlContent"]  # names are escaped in the HTML
+
+
+def test_when_brevo_refuses_its_reason_is_logged(monkeypatch, caplog):
+    import io
+    import logging
+    import urllib.error
+
+    import app.email as email
+    from app.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "email_api_key", "test-key")
+    monkeypatch.setattr(settings, "email_from", "academy@example.com")
+
+    def refuse(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, io.BytesIO(b'{"message":"unrecognised IP address"}'))
+
+    monkeypatch.setattr(email.urllib.request, "urlopen", refuse)
+    logging.getLogger("app").propagate = True  # let pytest see it
+    try:
+        with caplog.at_level(logging.INFO, logger="app.email"):
+            email.send_password_reset("isura@example.com", "Isura", "https://site/reset-password#abc", 30)
+    finally:
+        logging.getLogger("app").propagate = False
+    assert 'Brevo refused the email to isura@example.com (HTTP 401): {"message":"unrecognised IP address"}' in caplog.text
+    assert "test-key" not in caplog.text

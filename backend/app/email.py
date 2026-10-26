@@ -3,6 +3,7 @@
 import html
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from .config import get_settings
@@ -33,7 +34,11 @@ def send_email(to_email: str, to_name: str, subject: str, text: str, html_body: 
     )
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
-            response.read()
+            log.info("Email to %s accepted by Brevo: %s", to_email, response.read()[:200].decode(errors="replace"))
+    except urllib.error.HTTPError as error:
+        # Brevo says why (e.g. sender not confirmed, unknown IP address, account not activated).
+        reason = error.read()[:500].decode(errors="replace")
+        log.error("Brevo refused the email to %s (HTTP %s): %s", to_email, error.code, reason)
     except Exception:  # noqa: BLE001 - a failed email must not break the request that asked for it
         log.exception("Could not send the email to %s", to_email)
 
