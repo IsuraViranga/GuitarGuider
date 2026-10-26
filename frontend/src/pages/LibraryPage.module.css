@@ -109,12 +109,30 @@
 
 .title a {
   color: var(--color-text);
-  text-decoration: none;
+  /* Looks tappable on phones too (no hover there): amber underline and a "›" arrow. */
+  text-decoration: underline;
+  text-decoration-color: rgb(245 165 36 / 0.55);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 
-.title a:hover {
+.title a:hover,
+.title a:focus-visible {
   color: var(--color-accent-strong);
-  text-decoration: underline;
+  text-decoration-color: var(--color-accent-strong);
+}
+
+.chevron {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.15s;
+}
+
+.title a:hover .chevron {
+  transform: translateX(3px);
 }
 
 .description {
@@ -175,7 +193,6 @@
 
 /* A calm glass button: amber text with a small amber play circle, not a big yellow block. */
 .play {
-  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -322,4 +339,85 @@
 .deviceHeading {
   margin: 0;
   font-size: 1.2rem;
+}
+
+/* Practise, then Edit / Delete (your songs) or Notes (others). */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.05);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+}
+
+.action:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.danger:hover {
+  border-color: var(--color-incorrect);
+  color: var(--color-incorrect);
+}
+
+.confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  border: 2px solid var(--color-incorrect);
+  background: var(--color-incorrect-soft);
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.confirmButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
+/* Small phones: Practise across the card, Edit and Delete side by side under it. */
+@media (max-width: 420px) {
+  .actionsEditable {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .actionsEditable .play {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .actionsEditable .action {
+    justify-content: center;
+  }
 }

@@ -39,9 +39,29 @@ function deviceSummary(song: Song): SongSummary {
   }
 }
 
-/** One song in the set list: numbered cover, title, artist, badges and a Practise button. */
-function SongCard({ song, number }: { song: SongSummary; number: number }) {
+/**
+ * One song in the set list: numbered cover, title (opens the song), artist, badges, and the
+ * buttons: Practise, then Edit and Delete for songs you may change, or Notes for the others.
+ */
+function SongCard({ song, number, onDeleted }: { song: SongSummary; number: number; onDeleted: () => void }) {
   const where = scopeLabel(song.scope)
+  const repository = useSongRepository()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await repository.deleteSong(song.id)
+      onDeleted()
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'The song could not be deleted.')
+      setBusy(false)
+    }
+  }
+
   return (
     <li className={`card ${styles.item}`} data-scope={song.scope}>
       <div className={styles.head}>
@@ -51,7 +71,12 @@ function SongCard({ song, number }: { song: SongSummary; number: number }) {
         </span>
         <div className={styles.headText}>
           <h2 className={styles.title}>
-            <Link to={`/songs/${song.id}`}>{song.title}</Link>
+            <Link to={`/songs/${song.id}`}>
+              {song.title}
+              <span className={styles.chevron} aria-hidden="true">
+                ›
+              </span>
+            </Link>
           </h2>
           {song.artist && <p className={styles.artist}>{song.artist}</p>}
           {song.difficulty && <DifficultyPicks difficulty={song.difficulty} />}
@@ -72,12 +97,54 @@ function SongCard({ song, number }: { song: SongSummary; number: number }) {
           <span key={n} />
         ))}
       </span>
-      <Link className={styles.play} to={`/songs/${song.id}/practice`} aria-label={`Practise ${song.title}`}>
-        <span className={styles.playIcon} aria-hidden="true">
-          ▶
-        </span>
-        Practise
-      </Link>
+      <div className={`${styles.actions} ${song.canEdit ? styles.actionsEditable : ''}`}>
+        <Link className={styles.play} to={`/songs/${song.id}/practice`} aria-label={`Practise ${song.title}`}>
+          <span className={styles.playIcon} aria-hidden="true">
+            ▶
+          </span>
+          Practise
+        </Link>
+        {song.canEdit ? (
+          <>
+            <Link className={styles.action} to={`/songs/${song.id}/edit`} aria-label={`Edit ${song.title}`}>
+              <span aria-hidden="true">✎</span> Edit
+            </Link>
+            <button
+              type="button"
+              className={`${styles.action} ${styles.danger}`}
+              aria-label={`Delete ${song.title}`}
+              aria-expanded={confirming}
+              onClick={() => setConfirming(true)}
+            >
+              <span aria-hidden="true">🗑</span> Delete
+            </button>
+          </>
+        ) : (
+          <Link className={styles.action} to={`/songs/${song.id}`} aria-label={`Notes of ${song.title}`}>
+            <span aria-hidden="true">♪</span> Notes
+          </Link>
+        )}
+      </div>
+      {confirming && (
+        <div className={styles.confirm} role="alertdialog" aria-label={`Delete ${song.title}?`}>
+          <p>
+            <strong>Delete “{song.title}”?</strong> {song.scope === 'global' ? 'It will be removed for everyone.' : 'This cannot be undone.'}
+          </p>
+          <div className={styles.confirmButtons}>
+            <button type="button" className="button button-primary" onClick={remove} disabled={busy}>
+              {busy ? 'Deleting…' : 'Yes, delete it'}
+            </button>
+            <button type="button" className="button" onClick={() => setConfirming(false)} disabled={busy}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="error-box">
+          {error}
+        </p>
+      )}
     </li>
   )
 }
@@ -227,7 +294,7 @@ export function LibraryPage() {
           {shown.length > 0 && (
             <ol className={styles.list}>
               {shown.map((song, i) => (
-                <SongCard key={song.id} song={song} number={i + 1} />
+                <SongCard key={song.id} song={song} number={i + 1} onDeleted={() => setVersion((v) => v + 1)} />
               ))}
             </ol>
           )}

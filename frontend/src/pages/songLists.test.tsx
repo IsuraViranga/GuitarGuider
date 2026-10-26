@@ -75,6 +75,40 @@ describe('Songs page: Global set list and My songs', () => {
     expect((calls.find((c) => c.key === 'POST /api/songs/move-from-device')!.body as { songs: { title: string }[] }).songs[0].title).toBe('Old phone song')
   })
 
+  it('cards of your own songs have Edit and Delete; other songs have Notes', async () => {
+    fakeServer({ ...signedInAs(USER), ...GLOBAL, 'GET /api/songs?scope=mine': () => [200, { songs: [apiSong('m1', 'Mine', { scope: 'mine', canEdit: true })] }] })
+    renderApp('/songs?list=mine')
+    expect(await screen.findByRole('link', { name: 'Edit Mine' })).toHaveAttribute('href', '/songs/m1/edit')
+    expect(screen.getByRole('button', { name: 'Delete Mine' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Notes of Mine' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: /Global set list/ }))
+    expect(await screen.findByRole('link', { name: 'Notes of Malata Bambareku Se' })).toHaveAttribute('href', '/songs/g1')
+    expect(screen.queryByRole('link', { name: 'Edit Malata Bambareku Se' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete Malata Bambareku Se' })).not.toBeInTheDocument()
+  })
+
+  it('deleting from the card asks first, then the song leaves the list', async () => {
+    let deleted = false
+    const calls = fakeServer({
+      ...signedInAs(USER),
+      'GET /api/songs?scope=mine': () => [200, { songs: deleted ? [] : [apiSong('m1', 'Mine', { scope: 'mine', canEdit: true })] }],
+      'DELETE /api/songs/m1': () => {
+        deleted = true
+        return [204]
+      },
+    })
+    renderApp('/songs?list=mine')
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete Mine' }))
+    expect(screen.getByRole('alertdialog', { name: 'Delete Mine?' })).toHaveTextContent('This cannot be undone.')
+    await userEvent.click(screen.getByRole('button', { name: 'Keep it' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(calls.some((c) => c.key.startsWith('DELETE'))).toBe(false)
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Mine' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, delete it' }))
+    expect(await screen.findByText(/No songs yet/)).toBeInTheDocument()
+    expect(calls.some((c) => c.key === 'DELETE /api/songs/m1')).toBe(true)
+  })
+
   it('only the admin sees "Add a global song"', async () => {
     fakeServer({ ...signedInAs(ADMIN), ...GLOBAL })
     renderApp('/songs')
