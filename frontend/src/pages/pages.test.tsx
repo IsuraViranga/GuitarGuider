@@ -9,12 +9,12 @@ describe('Library', () => {
     renderApp('/songs')
     expect(await screen.findByRole('link', { name: 'Ode to Joy (melody)' })).toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText('Search songs by title'), 'scale')
+    await userEvent.type(screen.getByLabelText('Search songs by title or artist'), 'scale')
     expect(await screen.findByText('1 song')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'C Major Scale' })).toBeInTheDocument()
 
-    await userEvent.clear(screen.getByLabelText('Search songs by title'))
-    await userEvent.type(screen.getByLabelText('Search songs by title'), 'no such song')
+    await userEvent.clear(screen.getByLabelText('Search songs by title or artist'))
+    await userEvent.type(screen.getByLabelText('Search songs by title or artist'), 'no such song')
     expect(await screen.findByText(/No songs match/)).toBeInTheDocument()
   })
 })
@@ -123,7 +123,7 @@ describe('Practice navigation', () => {
 })
 
 describe('Add a song (import)', () => {
-  it('checks, previews and saves instructor numbers, then opens practice', async () => {
+  it('a guest checks instructor numbers, is invited to sign up to save, and can practise without saving', async () => {
     const { router } = renderApp('/import')
     await userEvent.type(screen.getByLabelText('Paste the song here'), '10 11 13')
     expect(screen.getByText(/Recognised as:/)).toHaveTextContent("Instructor's numbers")
@@ -131,10 +131,14 @@ describe('Add a song (import)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Check song' }))
 
     expect(await screen.findByRole('heading', { name: /“My Song”: 3 notes/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Save and practise' }))
+    const guestSave = screen.getByTestId('guest-save')
+    expect(guestSave).toHaveTextContent('Create a free account to save this song.')
+    expect(within(guestSave).getByRole('link', { name: 'Create a free account' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save and practise' })).not.toBeInTheDocument()
 
+    await userEvent.click(within(guestSave).getByRole('button', { name: 'Practise without saving' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'My Song' })).toBeInTheDocument()
-    expect(router.state.location.pathname).toMatch(/^\/songs\/import-.*\/practice$/)
+    expect(router.state.location.pathname).toBe('/songs/draft/practice')
   })
 
   it('turns a pasted chord chart into chords with the words', async () => {

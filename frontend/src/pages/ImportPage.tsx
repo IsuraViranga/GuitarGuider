@@ -1,5 +1,5 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { PageBanner } from '../components/decor/PageBanner'
 import { describeNote } from '../songs/describeNote'
@@ -14,9 +14,11 @@ import {
   type SongFileFormat,
 } from '../songs/importSong'
 import { extractDocumentText, isDocumentFileName } from '../songs/documentText'
-import { useSongRepository } from '../songs/songRepository'
+import { useAuth } from '../auth/authContext'
+import { DRAFT_SONG_ID, useSongRepository, type NewSong } from '../songs/songRepository'
+import { songToText } from '../songs/songText'
 import { decodeTextFile } from '../songs/text'
-import type { SongIssue, SongNote } from '../songs/types'
+import type { Difficulty, Song, SongIssue, SongNote } from '../songs/types'
 import styles from './ImportPage.module.css'
 
 /** An original practice chart (not a real song), to show what a chord chart looks like. */
@@ -44,13 +46,46 @@ function issueText(issue: SongIssue): string {
   return where.length > 0 ? `${where.join(', ')}: ${issue.message}` : issue.message
 }
 
-export function ImportPage() {
-  usePageTitle('Add a song')
+/** What is typed on the page, kept for this browser tab (e.g. while the user signs up to save it). */
+const DRAFT_KEY = 'mga:import-draft:v1'
+type Draft = { text: string; title: string; artist: string; difficulty: Difficulty | '' }
+
+function readDraft(): Partial<Draft> {
+  try {
+    return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') as Partial<Draft>
+  } catch {
+    return {}
+  }
+}
+
+function writeDraft(draft: Draft | null) {
+  try {
+    if (draft) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    else sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // Not kept: the page still works.
+  }
+}
+
+/** "Add a song" — or, with `editSong`, the same page for changing an existing song. */
+export function ImportPage({ editSong }: { editSong?: Song } = {}) {
+  usePageTitle(editSong ? `Edit ${editSong.title}` : 'Add a song')
   const repository = useSongRepository()
   const navigate = useNavigate()
+  const auth = useAuth()
+  const [params] = useSearchParams()
+  const isAdmin = auth.user?.role === 'admin'
+  const [initial] = useState<Partial<Draft>>(() =>
+    editSong
+      ? { text: editSong.sourceText ?? songToText(editSong), title: editSong.title, artist: editSong.artist ?? '', difficulty: editSong.difficulty ?? '' }
+      : readDraft(),
+  )
 
-  const [text, setText] = useState('')
-  const [title, setTitle] = useState('')
+  const [text, setText] = useState(initial.text ?? '')
+  const [title, setTitle] = useState(initial.title ?? '')
+  const [artist, setArtist] = useState(initial.artist ?? '')
+  const [difficulty, setDifficulty] = useState<Difficulty | ''>(initial.difficulty ?? '')
+  const [saveTo, setSaveTo] = useState<'mine' | 'global'>(params.get('to') === 'global' ? 'global' : 'mine')
   const [formatOverride, setFormatOverride] = useState<SongFileFormat | 'auto'>('auto')
   const [fileError, setFileError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -59,6 +94,11 @@ export function ImportPage() {
   /** The file the text came from, shown to the user and kept with the saved song. */
   const [sourceFile, setSourceFile] = useState<string | null>(null)
   const [readingFile, setReadingFile] = useState(false)
+
+  // Keep a new song's text for this tab, so it survives signing in to save it.
+  useEffect(() => {
+    if (!editSong) writeDraft(text || title || artist ? { text, title, artist, difficulty } : null)
+  }, [editSong, text, title, artist, difficulty])
 
   const detected = text.trim() ? detectFormat(text) : null
   const format = formatOverride === 'auto' ? detected : formatOverride
@@ -129,17 +169,48 @@ export function ImportPage() {
     setResult(importSongText(text, formatOverride, title))
   }
 
+  /** The checked song with the fields typed on the page and the text it was made from. */
+  function songToSave(): NewSong | null {
+    if (!result?.ok) return null
+    const description = result.song.description ?? (sourceFile ? `From ${sourceFile}` : editSong?.description)
+    return {
+      ...result.song,
+      ...(artist.trim() ? { artist: artist.trim() } : { artist: undefined }),
+      ...(difficulty ? { difficulty } : {}),
+      ...(description ? { description } : {}),
+      sourceText: text,
+    }
+  }
+
   async function handleSave() {
-    if (!result?.ok) return
+    const song = songToSave()
+    if (!song) return
     setSaving(true)
     setSaveError(null)
     try {
-      const song = sourceFile && !result.song.description ? { ...result.song, description: `From ${sourceFile}` } : result.song
-      const saved = await repository.saveImportedSong(song)
-      navigate(`/songs/${saved.id}/practice`)
+      if (editSong) {
+        await repository.updateSong(editSong.id, song)
+        navigate(`/songs/${editSong.id}`)
+      } else {
+        const saved = await repository.createSong(song, isAdmin ? saveTo : 'mine')
+        writeDraft(null)
+        navigate(`/songs/${saved.id}/practice`)
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'The song could not be saved.')
       setSaving(false)
+    }
+  }
+
+  /** Guests: practise the checked song without saving it. */
+  function practiseWithoutSaving() {
+    const song = songToSave()
+    if (!song) return
+    try {
+      repository.practiseWithoutSaving(song)
+      navigate(`/songs/${DRAFT_SONG_ID}/practice`)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'The song could not be kept for practice.')
     }
   }
 
@@ -147,7 +218,11 @@ export function ImportPage() {
 
   return (
     <div className="page stack">
-      <PageBanner kicker="Bring your own songs" title="Add a song" headingId="import-heading" />
+      <PageBanner
+        kicker={editSong ? (editSong.scope === 'global' ? 'Global set list' : 'My songs') : 'Bring your own songs'}
+        title={editSong ? 'Edit song' : 'Add a song'}
+        headingId="import-heading"
+      />
       <p className={styles.intro}>
         Copy a song from any website and paste it below, or choose a song file (Word, PDF or text). The app works out
         which kind it is and turns it into guitar numbers for you.
@@ -283,6 +358,37 @@ export function ImportPage() {
           </p>
         </div>
 
+        <div className={styles.twoFields}>
+          <div className="field">
+            <label htmlFor="import-artist">
+              Artist <span className="muted">(optional)</span>
+            </label>
+            <input
+              id="import-artist"
+              type="text"
+              maxLength={120}
+              value={artist}
+              onChange={(event) => edited(setArtist)(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="import-difficulty">
+              Difficulty <span className="muted">(optional)</span>
+            </label>
+            <select
+              id="import-difficulty"
+              className={styles.select}
+              value={difficulty}
+              onChange={(event) => edited(setDifficulty)(event.target.value as Difficulty | '')}
+            >
+              <option value="">Not set</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+        </div>
+
         <div className="button-row">
           <button type="submit" className="button button-primary" disabled={!text.trim()}>
             Check song
@@ -330,12 +436,53 @@ export function ImportPage() {
               {saveError}
             </p>
           )}
-          <div className="button-row">
-            <button type="button" className="button button-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save and practise'}
-            </button>
-          </div>
-          <p className="muted">Songs you add are saved in this browser until accounts are added.</p>
+          {auth.status !== 'signedIn' && !editSong ? (
+            <div className={styles.guestSave} data-testid="guest-save">
+              <p>
+                <strong>Create a free account to save this song.</strong> What you typed stays here while you sign up.
+              </p>
+              <div className="button-row">
+                <Link className="button button-primary" to="/signup" state={{ from: '/import' }}>
+                  Create a free account
+                </Link>
+                <Link className="button" to="/signin" state={{ from: '/import' }}>
+                  Sign in
+                </Link>
+                <button type="button" className="button" onClick={practiseWithoutSaving}>
+                  Practise without saving
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {isAdmin && !editSong && (
+                <fieldset className={styles.saveTo}>
+                  <legend>Save to</legend>
+                  <label>
+                    <input type="radio" name="save-to" checked={saveTo === 'mine'} onChange={() => setSaveTo('mine')} /> 🎸 My songs
+                  </label>
+                  <label>
+                    <input type="radio" name="save-to" checked={saveTo === 'global'} onChange={() => setSaveTo('global')} /> 🌍 Global set list (everyone)
+                  </label>
+                </fieldset>
+              )}
+              <div className="button-row">
+                <button type="button" className="button button-primary" onClick={handleSave} disabled={saving}>
+                  {saving ? 'Saving…' : editSong ? 'Save changes' : 'Save and practise'}
+                </button>
+                {editSong && (
+                  <Link className="button" to={`/songs/${editSong.id}`}>
+                    Cancel
+                  </Link>
+                )}
+              </div>
+              <p className="muted">
+                {editSong?.scope === 'global' || (isAdmin && saveTo === 'global' && !editSong)
+                  ? 'Global songs are seen by everyone.'
+                  : 'Saved in your account: open it from My songs on any phone.'}
+              </p>
+            </>
+          )}
         </section>
       )}
     </div>

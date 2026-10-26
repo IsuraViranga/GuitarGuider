@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc -b",
-    "analyse": "tsx scripts/analyse-recording.ts"
+    "analyse": "tsx scripts/analyse-recording.ts",
+    "export:songs": "tsx scripts/export-global-songs.ts"
   },
   "dependencies": {
     "fflate": "0.8.3",

@@ -30,14 +30,27 @@ export type SongNote = {
   measure?: number
 }
 
+/**
+ * Where a song lives: global = the set list for everyone (only the admin changes it), mine = the
+ * signed-in user's own song (on the server), device = saved on this phone before accounts
+ * existed, draft = checked on the Add a song page but not saved (practise without saving).
+ */
+export type SongScope = 'global' | 'mine' | 'device' | 'draft'
+
 export type Song = {
   id: string
   title: string
+  artist?: string
   description?: string
   difficulty?: Difficulty
   tuningId: string
-  /** sample = written for this app, library = instructor's file in src/songs/library, import = added in the browser */
-  source: 'sample' | 'library' | 'import'
+  /** Built into the app: sample = written for this app, library = instructor's file in src/songs/library, import = added in the browser */
+  source?: 'sample' | 'library' | 'import'
+  scope?: SongScope
+  /** True when the signed-in user may change or delete this song. */
+  canEdit?: boolean
+  /** The text the song was made from, so it can be edited. */
+  sourceText?: string
   notes: SongNote[]
 }
 

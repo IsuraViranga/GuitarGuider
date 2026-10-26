@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { importSongText } from './importSong'
-import { LocalSongRepository } from './songRepository'
+import { AppSongRepository } from './songRepository'
 import { decodeTextFile, normalizeForSearch } from './text'
 
 const SRI_WITH_ZWJ = 'ශ්‍රී' // ශ්‍රී as typed with a zero-width joiner
@@ -17,10 +17,10 @@ describe('Sinhala text', () => {
     if (!result.ok) return
     expect(result.song.title).toBe(`${SRI_WITH_ZWJ} පුහුණුව`)
 
-    const repo = new LocalSongRepository()
-    await repo.saveImportedSong(result.song)
-    expect((await repo.listSongs(SRI_WITHOUT_ZWJ)).map((s) => s.title)).toEqual([`${SRI_WITH_ZWJ} පුහුණුව`])
-    expect((await repo.listSongs('පුහුණුව')).map((s) => s.title)).toContain(`${SRI_WITH_ZWJ} පුහුණුව`)
+    // Found on the phone's copy of the global list (and by the server, see backend tests).
+    const repo = new AppSongRepository([{ ...result.song, id: 'sri', source: 'library' }])
+    expect(repo.cachedGlobalSongs(SRI_WITHOUT_ZWJ).map((s) => s.title)).toEqual([`${SRI_WITH_ZWJ} පුහුණුව`])
+    expect(repo.cachedGlobalSongs('පුහුණුව').map((s) => s.title)).toContain(`${SRI_WITH_ZWJ} පුහුණුව`)
   })
 
   it('reads UTF-8 files, with or without a byte-order mark', () => {

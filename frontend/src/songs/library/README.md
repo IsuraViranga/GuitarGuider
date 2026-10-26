@@ -22,7 +22,9 @@ Every `.txt` or `.tab` file in this folder automatically becomes a built-in song
 
 4. Run `npm test` from the `frontend` folder. The test "every library file is valid" names the file,
    line and column of any mistake.
-5. The song appears in the app's Songs list (refresh the page if the app is open).
+5. Run `npm run export:songs` (from `frontend`) so the server gets the song too, and commit
+   `backend/app/seed/global_songs.json` with your file. After the next deploy the song is in the
+   global set list for everyone (the admin can then edit or delete it in the app).
 
 ## Copyright
 

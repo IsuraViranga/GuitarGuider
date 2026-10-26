@@ -153,7 +153,7 @@ test('finishing the last note completes the song', async ({ page }) => {
   await page.goto('/import')
   await page.getByLabel('Paste the song here').fill('title: One Note\n11 13')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save and practise' }).click()
+  await page.getByRole('button', { name: 'Practise without saving' }).click()
 
   await page.getByRole('button', { name: /^Note 2 of 2/ }).click()
   await startListening(page)
@@ -240,7 +240,7 @@ test('a pasted chord chart becomes a chord song that can be practised', async ({
   await expect(page.getByText(/Recognised as:/)).toContainText('Chord chart')
   await page.getByRole('button', { name: 'Check song' }).click()
   await expect(page.getByRole('heading', { name: /“Chord test”: 4 chords/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Save and practise' }).click()
+  await page.getByRole('button', { name: 'Practise without saving' }).click()
 
   // The practice screen shows the chord, its numbers, the words and which strings to skip.
   await expect(page.getByTestId('expected-number')).toHaveText('C')

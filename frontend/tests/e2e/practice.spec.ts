@@ -8,7 +8,7 @@ async function expectNoHorizontalScroll(page: Page) {
 test('student picks a sample song and navigates through it', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('link', { name: /Start playing/ }).click()
-  await page.getByLabel('Search songs by title').fill('first frets')
+  await page.getByLabel('Search songs by title or artist').fill('first frets')
   await page.getByRole('link', { name: 'Practise First Frets on String 1' }).click()
 
   const expected = page.getByTestId('expected-number')
@@ -63,25 +63,28 @@ test('an imported song can be practised', async ({ page }) => {
   await page.goto('/import')
   await page.getByLabel('Paste the song here').fill('title: Typed Tune\n21 23 | 10')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save and practise' }).click()
+  await page.getByRole('button', { name: 'Practise without saving' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Typed Tune' })).toBeVisible()
   await expect(page.getByTestId('expected-number')).toHaveText('21')
 })
 
-test('a song with a Sinhala title can be imported, found and practised', async ({ page }) => {
+test('a song with a Sinhala title can be imported and practised, and Sinhala titles can be searched', async ({ page }) => {
   await page.goto('/import')
   const file = { name: 'sinhala.txt', mimeType: 'text/plain', buffer: Buffer.from('title: මගේ පළමු ගීතය\n10 11 | 13', 'utf-8') }
   await page.getByLabel(/Or choose a song file/).setInputFiles(file)
   await expect(page.getByLabel('Song title')).toHaveValue('sinhala')
   await page.getByLabel('Song title').fill('')
   await page.getByRole('button', { name: 'Check song' }).click()
-  await page.getByRole('button', { name: 'Save and practise' }).click()
+  await page.getByRole('button', { name: 'Practise without saving' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'මගේ පළමු ගීතය' })).toBeVisible()
 
-  await page.goto('/songs')
-  await page.getByLabel('Search songs by title').fill('පළමු')
-  await page.getByRole('link', { name: 'Practise මගේ පළමු ගීතය' }).click()
   await expect(page.getByTestId('expected-number')).toHaveText('10')
+
+  // Searching in Sinhala (the built-in G major exercise has a Sinhala title).
+  await page.goto('/songs')
+  await page.getByLabel('Search songs by title or artist').fill('පරිමාණය')
+  await page.getByRole('link', { name: 'Practise G මේජර් පරිමාණය – පුහුණුව' }).click()
+  await expect(page.getByTestId('expected-number')).toHaveText('30')
 })
 
 test('practice mode can be switched and is remembered', async ({ page }) => {

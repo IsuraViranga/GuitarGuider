@@ -216,3 +216,110 @@
     transform: none;
   }
 }
+
+/* Global set list | My songs: a pill switch like the practice mode switch. */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgb(245 165 36 / 0.4);
+  border-radius: 999px;
+  background: rgb(13 11 18 / 0.6);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  border-radius: 999px;
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+}
+
+.tab[aria-current='page'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--glow-accent);
+}
+
+.tab:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.artist {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+.where {
+  font-weight: 700;
+}
+
+.where_global {
+  background: rgb(59 130 246 / 0.18);
+  color: #9cc3ff;
+}
+
+.where_mine {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.where_device {
+  background: rgb(124 92 255 / 0.16);
+  color: #cdbfff;
+}
+
+/* "Keep your own songs": the sign-up invitation on My songs for guests. */
+.gate {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  border-color: rgb(245 165 36 / 0.35);
+}
+
+.gate h2,
+.gate p {
+  margin: 0;
+}
+
+.gatePick {
+  width: 40px;
+  height: 40px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 10px rgb(245 165 36 / 0.6));
+}
+
+.gateButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.move {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.move p {
+  margin: 0;
+}
+
+.deviceHeading {
+  margin: 0;
+  font-size: 1.2rem;
+}

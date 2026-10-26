@@ -1,8 +1,11 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { PageBanner } from '../components/decor/PageBanner'
-import { describeNote, songSourceLabel } from '../songs/describeNote'
+import { describeNote, scopeLabel } from '../songs/describeNote'
 import { getTuning } from '../music/tuning'
+import { useSongRepository } from '../songs/songRepository'
+import type { Song } from '../songs/types'
 import { useSong } from '../songs/useSong'
 import { validateSong } from '../songs/validation'
 import { SongStatus } from './SongStatus'
@@ -22,12 +25,15 @@ export function SongDetailPage() {
   return (
     <div className="page stack">
       <PageBanner kicker="Song" title={song.title} headingId="song-heading">
+        {song.artist && <p>{song.artist}</p>}
         {song.description && <p>{song.description}</p>}
       </PageBanner>
       <p className="muted">
-        {song.notes.length} notes · {getTuning(song.tuningId)?.name ?? song.tuningId}
-        {song.difficulty && ` · ${song.difficulty}`} · {songSourceLabel(song.source)}
+        <span aria-hidden="true">{scopeLabel(song.scope).icon} </span>
+        {scopeLabel(song.scope).text} · {song.notes.length} notes · {getTuning(song.tuningId)?.name ?? song.tuningId}
+        {song.difficulty && ` · ${song.difficulty}`}
       </p>
+      {song.canEdit && <SongActions song={song} />}
 
       {issues.length > 0 ? (
         <div className="error-box" role="alert">
@@ -82,6 +88,63 @@ export function SongDetailPage() {
           </table>
         </div>
       </section>
+    </div>
+  )
+}
+
+/** Edit and Delete, for the owner of a song (or the admin, for global songs). Deleting asks first. */
+function SongActions({ song }: { song: Song }) {
+  const repository = useSongRepository()
+  const navigate = useNavigate()
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function remove() {
+    setBusy(true)
+    setError(null)
+    try {
+      await repository.deleteSong(song.id)
+      navigate(song.scope === 'global' ? '/songs' : '/songs?list=mine', { replace: true })
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'The song could not be deleted.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="stack">
+      <div className="button-row">
+        <Link className="button" to={`/songs/${song.id}/edit`}>
+          Edit song
+        </Link>
+        {!confirming && (
+          <button type="button" className="button" onClick={() => setConfirming(true)}>
+            Delete song
+          </button>
+        )}
+      </div>
+      {confirming && (
+        <div className="error-box" role="alertdialog" aria-labelledby="delete-question">
+          <p id="delete-question">
+            <strong>Delete “{song.title}”?</strong>{' '}
+            {song.scope === 'global' ? 'It will be removed for everyone.' : 'This cannot be undone.'}
+          </p>
+          <div className="button-row">
+            <button type="button" className="button button-primary" onClick={remove} disabled={busy}>
+              {busy ? 'Deleting…' : 'Yes, delete it'}
+            </button>
+            <button type="button" className="button" onClick={() => setConfirming(false)} disabled={busy}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="error-box">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

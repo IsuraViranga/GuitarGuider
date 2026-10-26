@@ -4,7 +4,7 @@
 import { formatChordNumbers } from '../music/chords'
 import { describePosition, formatGuitarNumber } from '../music/guitarNumber'
 import { formatFrequency, midiToFrequency, midiToNoteName } from '../music/pitch'
-import type { Song, SongNote } from './types'
+import type { SongNote, SongScope } from './types'
 
 export type NoteText = {
   /** Instructor number, e.g. "13", or "?" when the position is unknown */
@@ -50,12 +50,14 @@ export function noteAccessibleLabel(note: SongNote, total: number): string {
   return `Note ${note.index + 1} of ${total}: ${text.number}, ${text.position}, ${text.noteName}`
 }
 
-const SOURCE_LABELS: Record<Song['source'], string> = {
-  library: 'Instructor library',
-  sample: 'Sample',
-  import: 'Imported',
+const SCOPE_LABELS: Record<SongScope, { icon: string; text: string }> = {
+  global: { icon: '🌍', text: 'Global' },
+  mine: { icon: '🎸', text: 'My song' },
+  device: { icon: '📱', text: 'On this phone' },
+  draft: { icon: '📝', text: 'Not saved' },
 }
 
-export function songSourceLabel(source: Song['source']): string {
-  return SOURCE_LABELS[source]
+/** Where a song lives, for badges: "🌍 Global", "🎸 My song", "📱 On this phone", "📝 Not saved". */
+export function scopeLabel(scope: SongScope = 'global'): { icon: string; text: string } {
+  return SCOPE_LABELS[scope]
 }

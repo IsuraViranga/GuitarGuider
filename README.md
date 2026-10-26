@@ -19,7 +19,8 @@ phone's microphone.
 | 4 – Chords and common song formats | 4.1–4.3 done (chord charts, chord checking); 4.4–4.5 next |
 | Extras | Spoken guidance, song sheets (Word/PDF), "What you played", same-note hint |
 | B1 – Accounts (server + database) | Done: sign up / in / out, admin accounts (see `backend/README.md`) |
-| B2–B5 – Shared songs, review, saved practice | Next |
+| B2 – Global songs, my songs, search | Done (see `docs/ARCHITECTURE.md` 8k) |
+| B3–B5 – Review requests, saved practice, password reset | Next |
 
 ## Requirements
 

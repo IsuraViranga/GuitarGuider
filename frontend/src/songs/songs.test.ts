@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { STANDARD_TUNING } from '../music/tuning'
 import { formatGuitarNumber } from '../music/guitarNumber'
 import { parseAsciiTab } from './parsers/asciiTab'
@@ -6,7 +6,7 @@ import { parseGuitarNumberText } from './parsers/guitarNumberText'
 import type { SongFileParseResult } from './parsers/types'
 import { SAMPLE_SONGS } from './sampleSongs'
 import { LIBRARY_ERRORS, LIBRARY_SONGS, loadLibrarySongs } from './librarySongs'
-import { LocalSongRepository } from './songRepository'
+import { AppSongRepository, DEVICE_SONGS_KEY, DRAFT_SONG_ID } from './songRepository'
 import type { Song } from './types'
 import { notesFromPositions, validateSong } from './validation'
 
@@ -191,29 +191,95 @@ describe('ASCII tab format', () => {
   })
 })
 
-describe('LocalSongRepository', () => {
-  it('lists samples and searches by title, case-insensitively', async () => {
-    const repo = new LocalSongRepository()
-    expect((await repo.listSongs()).length).toBe(SAMPLE_SONGS.length + LIBRARY_SONGS.length)
-    const found = await repo.listSongs('  ODE ')
-    expect(found.map((s) => s.title)).toEqual(['Ode to Joy (melody)'])
-    expect(await repo.listSongs('zzz')).toEqual([])
-  })
-
-  it('saves imported songs to storage and reads them back', async () => {
-    const repo = new LocalSongRepository()
-    const saved = await repo.saveImportedSong({
-      title: 'Mine',
-      tuningId: 'standard',
-      notes: notesFromPositions([{ position: { stringNumber: 2, fret: 1 } }], STANDARD_TUNING),
+describe('AppSongRepository', () => {
+  type Route = (body: unknown) => [number, unknown?]
+  /** Pretend server; unknown requests fail like a network error (offline). */
+  function serve(routes: Record<string, Route>) {
+    const calls: { key: string; body: unknown }[] = []
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const key = `${init?.method ?? 'GET'} ${String(input)}`
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      calls.push({ key, body })
+      const route = routes[key]
+      if (!route) throw new TypeError('Failed to fetch')
+      const [status, data] = route(body)
+      return status === 204 ? new Response(null, { status }) : new Response(JSON.stringify(data), { status })
     })
-    expect(saved.source).toBe('import')
-    expect(await new LocalSongRepository().getSong(saved.id)).toEqual(saved)
+    return calls
+  }
+  const apiSong = (id: string, title: string, extra: object = {}) => ({
+    id, title, artist: null, description: null, difficulty: null, scope: 'global', canEdit: false, noteCount: 1, chordCount: 0, ...extra,
+  })
+  const newSong = (title: string) => ({
+    title,
+    tuningId: 'standard',
+    sourceText: '21',
+    notes: notesFromPositions([{ position: { stringNumber: 2, fret: 1 } }], STANDARD_TUNING),
   })
 
-  it('ignores corrupted storage instead of crashing', async () => {
-    localStorage.setItem('guitar-practice:imported-songs:v1', '{not json')
-    expect((await new LocalSongRepository().listSongs()).length).toBe(SAMPLE_SONGS.length + LIBRARY_SONGS.length)
+  it('offline: shows the built-in songs at once and searches them by title, case-insensitively', async () => {
+    serve({})
+    const repo = new AppSongRepository()
+    expect(repo.cachedGlobalSongs()).toHaveLength(SAMPLE_SONGS.length + LIBRARY_SONGS.length)
+    expect((await repo.listSongs('global', '  ODE ')).map((s) => s.title)).toEqual(['Ode to Joy (melody)'])
+    expect(await repo.listSongs('global', 'zzz')).toEqual([])
+    expect((await repo.getSong('sample-first-frets'))?.title).toBe('First Frets on String 1')
+  })
+
+  it("the server's list replaces the copy on the phone, which is then used offline", async () => {
+    serve({ 'GET /api/songs?scope=global': () => [200, { songs: [apiSong('new-1', 'Malata Bambareku Se', { artist: 'Melantha' })] }] })
+    const repo = new AppSongRepository()
+    expect((await repo.listSongs('global')).map((s) => [s.title, s.artist, s.scope])).toEqual([['Malata Bambareku Se', 'Melantha', 'global']])
+    serve({})
+    expect((await new AppSongRepository().listSongs('global')).map((s) => s.title)).toEqual(['Malata Bambareku Se'])
+    expect(new AppSongRepository().cachedGlobalSongs('melantha')).toHaveLength(1)
+  })
+
+  it('a deleted song is "not found", and leaves the list on the phone', async () => {
+    serve({ 'GET /api/songs/sample-first-frets': () => [404, { detail: 'This song was not found.' }] })
+    const repo = new AppSongRepository()
+    expect(await repo.getSong('sample-first-frets')).toBeUndefined()
+    expect(repo.cachedGlobalSongs().some((s) => s.id === 'sample-first-frets')).toBe(false)
+  })
+
+  it('"My songs" needs an account', async () => {
+    serve({ 'GET /api/songs?scope=mine': () => [401, { detail: 'Please sign in to see your songs.' }] })
+    await expect(new AppSongRepository().listSongs('mine')).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('saves a song with only the fields the server accepts, and the chosen place', async () => {
+    const calls = serve({ 'POST /api/songs': (body) => [201, { ...apiSong('abc', 'Mine', { scope: 'mine', canEdit: true }), notes: (body as { notes: unknown }).notes, tuningId: 'standard', sourceText: '21' }] })
+    const saved = await new AppSongRepository().createSong({ ...newSong('Mine'), artist: '' })
+    expect(saved).toMatchObject({ id: 'abc', scope: 'mine', canEdit: true, sourceText: '21' })
+    expect(calls[0].body).toEqual({
+      title: 'Mine', artist: null, description: null, difficulty: null, tuningId: 'standard', sourceText: '21', notes: newSong('Mine').notes, scope: 'mine',
+    })
+  })
+
+  it('moves songs saved on this phone into the account, then forgets them here', async () => {
+    localStorage.setItem(DEVICE_SONGS_KEY, JSON.stringify([{ ...newSong('Old one'), id: 'import-1', source: 'import' }]))
+    const calls = serve({ 'POST /api/songs/move-from-device': () => [201, { songs: [] }] })
+    const repo = new AppSongRepository()
+    expect(repo.deviceSongs().map((s) => [s.title, s.scope])).toEqual([['Old one', 'device']])
+    expect((await repo.getSong('import-1'))?.title).toBe('Old one')
+    expect(await repo.moveDeviceSongs()).toBe(1)
+    expect((calls[0].body as { songs: { title: string }[] }).songs[0].title).toBe('Old one')
+    expect(repo.deviceSongs()).toEqual([])
+  })
+
+  it('ignores corrupted storage instead of crashing', () => {
+    localStorage.setItem(DEVICE_SONGS_KEY, '{not json')
+    localStorage.setItem('mga:global-songs:v1', '{not json')
+    const repo = new AppSongRepository()
+    expect(repo.deviceSongs()).toEqual([])
+    expect(repo.cachedGlobalSongs()).toHaveLength(SAMPLE_SONGS.length + LIBRARY_SONGS.length)
+  })
+
+  it('a guest can practise a checked song without saving it', async () => {
+    serve({})
+    const repo = new AppSongRepository()
+    repo.practiseWithoutSaving(newSong('Just trying'))
+    expect(await repo.getSong(DRAFT_SONG_ID)).toMatchObject({ title: 'Just trying', scope: 'draft' })
   })
 })
 
@@ -256,9 +322,7 @@ describe('instructor library', () => {
     expect(errors[0].issues[0]).toMatchObject({ line: 1, column: 4 })
   })
 
-  it('appears first in the song list', async () => {
-    const list = await new LocalSongRepository().listSongs()
-    expect(list[0].source).toBe('library')
-    expect(list[0].title).toBe('G මේජර් පරිමාණය – පුහුණුව')
+  it('appears first in the song list on the phone (before the server answers)', () => {
+    expect(new AppSongRepository().cachedGlobalSongs()[0].title).toBe('G මේජර් පරිමාණය – පුහුණුව')
   })
 })

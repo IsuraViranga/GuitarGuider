@@ -140,8 +140,10 @@ describe('accounts', () => {
   it('says "Waking up the server…" while a request is slow', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      let answer: (value: Response) => void = () => {}
-      vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise((resolve) => (answer = resolve)))
+      // Every request waits (the sleeping server) until answered below; the Songs page sends two.
+      const waiting: ((value: Response) => void)[] = []
+      const answer = (response: Response) => waiting.splice(0).forEach((resolve) => resolve(response.clone()))
+      vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise((resolve) => waiting.push(resolve)))
       const changes: boolean[] = []
       const stop = onWakingChange((waking) => changes.push(waking))
       renderApp('/songs')

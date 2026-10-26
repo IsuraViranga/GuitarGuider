@@ -23,7 +23,7 @@ test('a PDF song sheet is read into the box exactly and imported with its words'
   await expect(page.getByRole('heading', { name: '“Little Song”: 1 chord and 10 notes' })).toBeVisible()
   await expect(page.getByTestId('import-warnings')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Save and practise' }).click()
+  await page.getByRole('button', { name: 'Practise without saving' }).click()
   await expect(page.getByTestId('expected-number')).toHaveText('23')
   await expect(page.getByTestId('lyric')).toContainText('Twin')
 })

@@ -299,3 +299,52 @@
   border: 1px solid rgb(155 132 255 / 0.4);
   font-size: 0.95rem;
 }
+
+.twoFields {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.select {
+  min-height: var(--touch-target);
+  width: 100%;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0 var(--space-3);
+}
+
+/* Guests: save needs an account (or practise without saving). */
+.guestSave {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-accent-soft);
+  border: 1px solid rgb(245 165 36 / 0.5);
+}
+
+.guestSave p {
+  margin: 0;
+}
+
+.saveTo {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.saveTo label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  font-weight: 600;
+}
+
+@media (min-width: 600px) {
+  .twoFields {
+    grid-template-columns: 2fr 1fr;
+  }
+}

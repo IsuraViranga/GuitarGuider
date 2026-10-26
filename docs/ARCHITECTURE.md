@@ -574,6 +574,30 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - Tests: backend pytest on a real PostgreSQL (20), frontend unit tests with a fake server, and a
   full-stack browser test against the real API when it runs on localhost:8000.
 
+### 8k. Step B2: global songs, my songs, search
+
+- Table `songs` (Alembic `0002_songs`): scope `global` (owner empty; only the admin changes it) or
+  `private` (one owner); title, optional artist/description/difficulty, the text it was made from
+  (`source_text`, for editing), notes (JSONB, same shape as the app), counts, `search_text`
+  (title + artist, NFC, without zero-width joiners, lower case) with a pg_trgm index.
+- Every song is checked on the server: pitch = string + fret in standard tuning, chords on
+  different strings and pointing at the lowest, steps in order, ≤ 2000 steps, sizes limited,
+  unknown fields refused.
+- API: `GET /api/songs?scope=global|mine&q=` (global for everyone), `GET/PUT/DELETE /api/songs/{id}`,
+  `POST /api/songs` (scope `global` admin only), `POST /api/songs/move-from-device`. Someone else's
+  own song answers 404 (also for the admin).
+- Built-in songs: `npm run export:songs` writes `backend/app/seed/global_songs.json` with the app's
+  own converter; `python -m app.cli seed-songs` (run on every deploy) adds each once (`seed_log`), so
+  admin edits/deletions stay. A test fails if the JSON drifts from the app's songs.
+- Frontend `AppSongRepository`: server first; the global list and recently opened global songs are
+  kept on the phone (starting with the built-in songs), so the list shows instantly and practice
+  works offline or while the server wakes. Old phone-saved songs show as "📱 On this phone" with
+  "Move to my account". Guests can "Practise without saving" (`/songs/draft/practice`); the Add a
+  song draft survives signing up.
+- Pages: Songs tabs (🌍 Global set list | 🎸 My songs, `?list=mine`), search by title or artist
+  (debounced 300 ms), badges; Add a song: Artist and Difficulty (optional), admin "Save to"; edit
+  page `/songs/:id/edit` (the Add a song page filled in); detail page Edit / Delete (asks first).
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.
