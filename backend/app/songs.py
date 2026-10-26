@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from .auth import current_user, current_user_optional
 from .db import get_db
-from .models import Song, User
+from .models import ShareRequest, Song, User
 from .song_schemas import DeviceSongsIn, SongCreate, SongIn, SongOut, SongSummaryOut
 from .text import normalize_for_search
 
@@ -41,7 +41,7 @@ def _scope_for(song: Song) -> Literal["global", "mine"]:
     return "global" if song.scope == "global" else "mine"
 
 
-def summary(song: Song, user: User | None) -> SongSummaryOut:
+def summary(song: Song, user: User | None, share: ShareRequest | None = None) -> SongSummaryOut:
     return SongSummaryOut(
         id=song.id,
         title=song.title,
@@ -53,12 +53,28 @@ def summary(song: Song, user: User | None) -> SongSummaryOut:
         note_count=song.note_count,
         chord_count=song.chord_count,
         updated_at=song.updated_at,
+        share_status=share.status if share else None,
+        share_reason=share.reason if share else None,
     )
 
 
-def full(song: Song, user: User | None) -> SongOut:
+def latest_shares(db: Session, song_ids: list[str]) -> dict[str, ShareRequest]:
+    """The most recent share request of each of these songs."""
+    latest: dict[str, ShareRequest] = {}
+    if song_ids:
+        rows = db.scalars(select(ShareRequest).where(ShareRequest.song_id.in_(song_ids)).order_by(ShareRequest.created_at)).all()
+        for row in rows:
+            latest[row.song_id] = row
+    return latest
+
+
+def own_share(db: Session, song: Song) -> ShareRequest | None:
+    return latest_shares(db, [song.id]).get(song.id) if song.scope == "private" else None
+
+
+def full(song: Song, user: User | None, share: ShareRequest | None = None) -> SongOut:
     return SongOut(
-        **summary(song, user).model_dump(),
+        **summary(song, user, share).model_dump(),
         tuning_id=song.tuning_id,
         source_text=song.source_text,
         notes=song.notes,
@@ -113,12 +129,14 @@ def list_songs(
         escaped = needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         query = query.where(Song.search_text.like(f"%{escaped}%", escape="\\"))
     songs = db.scalars(query.limit(500)).all()
-    return {"songs": [summary(song, user) for song in songs]}
+    shares = latest_shares(db, [song.id for song in songs]) if scope == "mine" else {}
+    return {"songs": [summary(song, user, shares.get(song.id)) for song in songs]}
 
 
 @router.get("/{song_id}")
 def get_song(song_id: str, db: DbSession, user: MaybeUser) -> SongOut:
-    return full(_visible(db, song_id, user), user)
+    song = _visible(db, song_id, user)
+    return full(song, user, own_share(db, song))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -142,7 +160,7 @@ def update_song(song_id: str, body: SongIn, db: DbSession, user: SignedInUser) -
     song = _editable(db, song_id, user)
     apply(song, body)
     db.commit()
-    return full(song, user)
+    return full(song, user, own_share(db, song))
 
 
 @router.delete("/{song_id}", status_code=status.HTTP_204_NO_CONTENT)

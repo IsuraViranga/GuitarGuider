@@ -430,3 +430,105 @@
   }
 }
 
+
+/* Admin: three tabs (Global set list | My songs | Requests). */
+.tabs3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.tabs3 .tab {
+  font-size: 0.92rem;
+  padding: 0 var(--space-1);
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-incorrect);
+  color: var(--color-on-feedback);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+/* Sharing status on your own song: waiting (amber), shared (green), not accepted (red). */
+.share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.share p {
+  margin: 0;
+}
+
+.share_pending {
+  background: var(--color-accent-soft);
+  border: 1px solid rgb(245 165 36 / 0.45);
+  color: var(--color-accent-strong);
+}
+
+.share_approved {
+  background: var(--color-correct-soft);
+  border: 1px solid rgb(74 222 128 / 0.45);
+  color: var(--color-correct);
+}
+
+.share_rejected {
+  background: var(--color-incorrect-soft);
+  border: 1px solid rgb(255 122 122 / 0.45);
+  color: var(--color-incorrect);
+}
+
+.shareReason {
+  color: var(--color-text);
+}
+
+.shareHint {
+  color: var(--color-muted);
+}
+
+.linkButton {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.linkButton:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.shareButton:hover,
+.shareButton[aria-expanded='true'] {
+  color: #9cc3ff;
+  border-color: rgb(59 130 246 / 0.6);
+  background: rgb(59 130 246 / 0.12);
+}
+
+.confirmShare {
+  border-color: rgb(59 130 246 / 0.6);
+  background: rgb(59 130 246 / 0.1);
+}
+
+/* Small phones with three tabs: "Global" instead of "Global set list". */
+@media (max-width: 420px) {
+  .tabs3 .tabExtra {
+    display: none;
+  }
+}

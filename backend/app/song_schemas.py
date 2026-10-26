@@ -135,9 +135,38 @@ class SongSummaryOut(Camel):
     note_count: int
     chord_count: int
     updated_at: datetime
+    # Own songs only: the latest request to share it with everyone, if any.
+    share_status: Literal["pending", "approved", "rejected"] | None = None
+    share_reason: str | None = None
 
 
 class SongOut(SongSummaryOut):
     tuning_id: str
     source_text: str | None
     notes: list[dict]
+
+
+class RejectIn(Camel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class ShareRequestOut(Camel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, serialize_by_alias=True)
+
+    id: str
+    song_id: str
+    title: str
+    artist: str | None
+    requester_name: str
+    status: Literal["pending", "approved", "rejected"]
+    reason: str | None
+    note_count: int
+    chord_count: int
+    created_at: datetime
+    reviewed_at: datetime | None
+    global_song_id: str | None
+
+
+class ShareRequestDetailOut(ShareRequestOut):
+    # The song exactly as it was sent (same fields as a song).
+    song: dict

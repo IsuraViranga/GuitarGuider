@@ -1,0 +1,200 @@
+/* Requests tab and review page (admin). */
+.sectionTitle {
+  margin: 0;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.requestList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.request {
+  display: grid;
+  gap: var(--space-2);
+  border-color: rgb(245 165 36 / 0.3);
+}
+
+.request[data-status='pending'] {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.requestHead {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #9b84ff, #5236d6);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgb(124 92 255 / 0.5);
+}
+
+.requestText {
+  min-width: 0;
+}
+
+.requestTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.requestMeta {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.requestBadges {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.approved {
+  background: var(--color-correct-soft);
+  color: var(--color-correct);
+}
+
+.rejected {
+  background: var(--color-incorrect-soft);
+  color: var(--color-incorrect);
+}
+
+.reviewButton {
+  justify-self: start;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.empty p {
+  margin: 0;
+}
+
+.emptyPick {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--color-correct);
+  filter: drop-shadow(0 0 8px rgb(74 222 128 / 0.5));
+}
+
+.reviewed summary {
+  min-height: var(--touch-target);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--color-accent-strong);
+  font-weight: 700;
+}
+
+.reviewed[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.sharedNotice {
+  border-color: var(--color-correct);
+}
+
+/* Review page: the decision card. */
+.decision {
+  display: grid;
+  gap: var(--space-3);
+  border-color: rgb(245 165 36 / 0.4);
+}
+
+.decision p {
+  margin: 0;
+}
+
+.decisionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rejectButton:hover,
+.rejectButton[aria-expanded='true'] {
+  border-color: var(--color-incorrect);
+  color: var(--color-incorrect);
+}
+
+.rejectBox {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  border: 2px solid rgb(255 122 122 / 0.6);
+  background: var(--color-incorrect-soft);
+}
+
+.rejectConfirm {
+  border-color: var(--color-incorrect);
+  color: var(--color-incorrect);
+}
+
+/* After a decision. */
+.outcome {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.outcome p {
+  margin: 0;
+  max-width: 34rem;
+}
+
+.outcomeIcon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--color-on-feedback);
+}
+
+.outcomeApproved {
+  border-color: var(--color-correct);
+}
+
+.outcomeApproved .outcomeIcon {
+  background: var(--color-correct);
+  box-shadow: 0 0 24px rgb(74 222 128 / 0.5);
+}
+
+.outcomeRejected .outcomeIcon {
+  background: var(--color-incorrect);
+}
+
+.outcomeTitle {
+  margin: 0;
+  font-size: 1.8rem;
+  text-transform: uppercase;
+}

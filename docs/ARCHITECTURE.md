@@ -598,6 +598,21 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   (debounced 300 ms), badges; Add a song: Artist and Difficulty (optional), admin "Save to"; edit
   page `/songs/:id/edit` (the Add a song page filled in); detail page Edit / Delete (asks first).
 
+### 8l. Step B3: sharing a song with everyone (request → admin review)
+
+- Table `share_requests` (Alembic `0003`): song, requester, status pending/approved/rejected,
+  `snapshot` (the song exactly as sent), optional `reason`, reviewer, time, `global_song_id`.
+  A partial unique index allows one waiting request per song.
+- API: `POST/DELETE /api/songs/{id}/share` (owner: send / withdraw), admin `GET /api/share-requests`
+  (`state=pending|reviewed`), `GET /api/share-requests/{id}`, `POST …/approve` (optional corrected
+  song = edit and approve; checked like any song) and `POST …/reject` (optional reason). Approving
+  creates a NEW global song (owner empty, `created_by` = requester); the user's own song stays
+  theirs and later edits don't change the global copy. Own songs return `shareStatus`/`shareReason`.
+- App: on own song cards a 🌍 share icon (asks first), status strip (⏳ waiting + Withdraw,
+  ✓ shared, ✗ not accepted + admin's reason, share again); same on the song page. Admin: third tab
+  "📥 Requests" with a count, request cards (sender, time), review page (Approve, Edit and approve,
+  Reject with optional reason, Try it), pick shower on approval.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

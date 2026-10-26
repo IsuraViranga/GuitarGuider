@@ -89,3 +89,27 @@ class SeedLog(Base):
 
     song_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+SHARE_STATUSES = ("pending", "approved", "rejected")
+
+
+class ShareRequest(Base):
+    """A user asks for one of their songs to go into the global set list. The song is copied as it
+    was when sent (snapshot), so the admin reviews exactly what will be published."""
+
+    __tablename__ = "share_requests"
+    __table_args__ = (CheckConstraint("status in ('pending', 'approved', 'rejected')", name="share_requests_status_valid"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    song_id: Mapped[str] = mapped_column(ForeignKey("songs.id", ondelete="CASCADE"), index=True)
+    requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="pending")
+    snapshot: Mapped[dict] = mapped_column(JSONB)
+    reason: Mapped[str | None] = mapped_column(String(500))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    global_song_id: Mapped[str | None] = mapped_column(ForeignKey("songs.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    requester: Mapped[User] = relationship(foreign_keys=[requester_id])

@@ -110,6 +110,22 @@ function SongActions({ song }: { song: Song }) {
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [share, setShare] = useState(song.shareStatus)
+  const ownSong = song.scope === 'mine'
+
+  async function changeShare(action: 'send' | 'withdraw') {
+    setBusy(true)
+    setError(null)
+    try {
+      if (action === 'send') await repository.requestShare(song.id)
+      else await repository.withdrawShare(song.id)
+      setShare(action === 'send' ? 'pending' : undefined)
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function remove() {
     setBusy(true)
@@ -134,7 +150,36 @@ function SongActions({ song }: { song: Song }) {
             Delete song
           </button>
         )}
+        {ownSong && share !== 'pending' && (
+          <button type="button" className="button" onClick={() => changeShare('send')} disabled={busy}>
+            <span aria-hidden="true">🌍 </span>
+            {share === 'rejected' ? 'Share again' : 'Share with everyone'}
+          </button>
+        )}
       </div>
+      {ownSong && share && (
+        <p className={share === 'rejected' ? 'error-box' : 'notice'} role="status" data-testid="share-status">
+          {share === 'pending' && (
+            <>
+              ⏳ <strong>Waiting for the admin’s review.</strong>{' '}
+              <button type="button" className="button" onClick={() => changeShare('withdraw')} disabled={busy}>
+                Withdraw
+              </button>
+            </>
+          )}
+          {share === 'approved' && (
+            <>
+              ✓ <strong>Shared with everyone.</strong> A copy is in the global set list.
+            </>
+          )}
+          {share === 'rejected' && (
+            <>
+              ✗ <strong>Not accepted for the global set list.</strong>
+              {song.shareReason && <> Admin: “{song.shareReason}”</>} You can change it and share again.
+            </>
+          )}
+        </p>
+      )}
       {confirming && (
         <div className="error-box" role="alertdialog" aria-labelledby="delete-question">
           <p id="delete-question">

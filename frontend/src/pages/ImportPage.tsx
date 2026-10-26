@@ -68,9 +68,12 @@ function writeDraft(draft: Draft | null) {
   }
 }
 
-/** "Add a song" — or, with `editSong`, the same page for changing an existing song. */
-export function ImportPage({ editSong }: { editSong?: Song } = {}) {
-  usePageTitle(editSong ? `Edit ${editSong.title}` : 'Add a song')
+/**
+ * "Add a song" — or, with `editSong`, the same page for changing an existing song. With `review`
+ * (admin, "edit and approve"), saving publishes the corrected song from a share request.
+ */
+export function ImportPage({ editSong, review }: { editSong?: Song; review?: { requestId: string; requesterName: string } } = {}) {
+  usePageTitle(review ? `Edit and approve ${editSong?.title ?? ''}` : editSong ? `Edit ${editSong.title}` : 'Add a song')
   const repository = useSongRepository()
   const navigate = useNavigate()
   const auth = useAuth()
@@ -189,7 +192,10 @@ export function ImportPage({ editSong }: { editSong?: Song } = {}) {
     setSaving(true)
     setSaveError(null)
     try {
-      if (editSong) {
+      if (review) {
+        await repository.approveShareRequest(review.requestId, song)
+        navigate('/songs?list=requests', { state: { approved: song.title } })
+      } else if (editSong) {
         await repository.updateSong(editSong.id, song)
         navigate(`/songs/${editSong.id}`)
       } else {
@@ -220,8 +226,8 @@ export function ImportPage({ editSong }: { editSong?: Song } = {}) {
   return (
     <div className="page stack">
       <PageBanner
-        kicker={editSong ? (editSong.scope === 'global' ? 'Global set list' : 'My songs') : 'Bring your own songs'}
-        title={editSong ? 'Edit song' : 'Add a song'}
+        kicker={review ? `Share request from ${review.requesterName}` : editSong ? (editSong.scope === 'global' ? 'Global set list' : 'My songs') : 'Bring your own songs'}
+        title={review ? 'Edit and approve' : editSong ? 'Edit song' : 'Add a song'}
         headingId="import-heading"
       />
       <p className={styles.intro}>
@@ -469,16 +475,18 @@ export function ImportPage({ editSong }: { editSong?: Song } = {}) {
               )}
               <div className="button-row">
                 <button type="button" className="button button-primary" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving…' : editSong ? 'Save changes' : 'Save and practise'}
+                  {saving ? 'Saving…' : review ? 'Approve with these changes' : editSong ? 'Save changes' : 'Save and practise'}
                 </button>
                 {editSong && (
-                  <Link className="button" to={`/songs/${editSong.id}`}>
+                  <Link className="button" to={review ? `/requests/${review.requestId}` : `/songs/${editSong.id}`}>
                     Cancel
                   </Link>
                 )}
               </div>
               <p className="muted">
-                {editSong?.scope === 'global' || (isAdmin && saveTo === 'global' && !editSong)
+                {review
+                  ? 'Publishes this version in the global set list for everyone.'
+                  : editSong?.scope === 'global' || (isAdmin && saveTo === 'global' && !editSong)
                   ? 'Global songs are seen by everyone.'
                   : 'Saved in your account: open it from My songs on any phone.'}
               </p>
@@ -511,7 +519,7 @@ function previewLines(notes: readonly SongNote[]): SongNote[][] {
 }
 
 /** Every step as it will be practised: chord name or note, its guitar numbers, and the words. */
-function SongPreview({ notes }: { notes: readonly SongNote[] }) {
+export function SongPreview({ notes }: { notes: readonly SongNote[] }) {
   return (
     <div className={styles.preview}>
       {previewLines(notes).map((line) => (

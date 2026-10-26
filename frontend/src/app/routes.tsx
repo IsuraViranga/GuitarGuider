@@ -7,6 +7,7 @@ import { LibraryPage } from '../pages/LibraryPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { PracticePage } from '../pages/PracticePage'
 import { SongDetailPage } from '../pages/SongDetailPage'
+import { ApproveWithChangesPage, ReviewRequestPage } from '../pages/ShareRequests'
 import { Layout } from './Layout'
 
 export const routes: RouteObject[] = [
@@ -18,6 +19,8 @@ export const routes: RouteObject[] = [
       { path: '/songs/:songId', element: <SongDetailPage /> },
       { path: '/songs/:songId/practice', element: <PracticePage /> },
       { path: '/songs/:songId/edit', element: <EditSongPage /> },
+      { path: '/requests/:requestId', element: <ReviewRequestPage /> },
+      { path: '/requests/:requestId/edit', element: <ApproveWithChangesPage /> },
       { path: '/import', element: <ImportPage /> },
       { path: '/signin', element: <AuthPage mode="signin" /> },
       { path: '/signup', element: <AuthPage mode="signup" /> },

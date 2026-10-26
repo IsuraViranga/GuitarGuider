@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .auth import router as auth_router
+from .sharing import router as sharing_router
 from .songs import router as songs_router
 from .db import engine
 
@@ -54,3 +55,4 @@ def health_db() -> dict[str, str]:
 
 app.include_router(auth_router)
 app.include_router(songs_router)
+app.include_router(sharing_router)

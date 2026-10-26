@@ -12,9 +12,9 @@ import { apiRequest, ApiError } from '../api/client'
 import { LIBRARY_SONGS } from './librarySongs'
 import { SAMPLE_SONGS } from './sampleSongs'
 import { normalizeForSearch } from './text'
-import type { Difficulty, Song, SongNote, SongScope } from './types'
+import type { Difficulty, ShareStatus, Song, SongNote, SongScope } from './types'
 
-export type SongSummary = Pick<Song, 'id' | 'title' | 'artist' | 'description' | 'difficulty'> & {
+export type SongSummary = Pick<Song, 'id' | 'title' | 'artist' | 'description' | 'difficulty' | 'shareStatus' | 'shareReason'> & {
   scope: SongScope
   canEdit: boolean
   /** Steps in the song (single notes and chords). */
@@ -42,7 +42,35 @@ export interface SongRepository {
   moveDeviceSongs(): Promise<number>
   /** Keeps a checked song for practice without saving it (for guests). Its id is "draft". */
   practiseWithoutSaving(song: NewSong): Song
+  /** Asks the admin to put one of your songs in the global set list. */
+  requestShare(id: string): Promise<void>
+  /** Takes back a request that is still waiting. */
+  withdrawShare(id: string): Promise<void>
+  // Admin: review requests.
+  listShareRequests(state?: 'pending' | 'reviewed'): Promise<ShareRequest[]>
+  getShareRequest(id: string): Promise<ShareRequestDetail>
+  /** Publishes the song as sent, or `corrected` (edit and approve). */
+  approveShareRequest(id: string, corrected?: NewSong): Promise<ShareRequest>
+  rejectShareRequest(id: string, reason?: string): Promise<ShareRequest>
 }
+
+export type ShareRequest = {
+  id: string
+  songId: string
+  title: string
+  artist: string | null
+  requesterName: string
+  status: ShareStatus
+  reason: string | null
+  noteCount: number
+  chordCount: number
+  createdAt: string
+  reviewedAt: string | null
+  globalSongId: string | null
+}
+
+/** A request with the song as it was sent. */
+export type ShareRequestDetail = ShareRequest & { song: Song }
 
 export const DRAFT_SONG_ID = 'draft'
 const GLOBAL_CACHE_KEY = 'mga:global-songs:v1'
@@ -62,10 +90,17 @@ type ApiSong = {
   canEdit: boolean
   noteCount: number
   chordCount: number
+  shareStatus?: ShareStatus | null
+  shareReason?: string | null
   tuningId?: string
   sourceText?: string | null
   notes?: SongNote[]
 }
+
+const shareFields = (s: ApiSong) => ({
+  ...(s.shareStatus ? { shareStatus: s.shareStatus } : {}),
+  ...(s.shareReason ? { shareReason: s.shareReason } : {}),
+})
 
 type GlobalCache = { summaries: SongSummary[]; songs: Record<string, Song>; recent: string[] }
 
@@ -94,6 +129,7 @@ function fromApiSummary(s: ApiSong): SongSummary {
     canEdit: s.canEdit,
     noteCount: s.noteCount,
     chordCount: s.chordCount,
+    ...shareFields(s),
   }
 }
 
@@ -107,6 +143,7 @@ function fromApiSong(s: ApiSong): Song {
     tuningId: s.tuningId ?? 'standard',
     scope: s.scope,
     canEdit: s.canEdit,
+    ...shareFields(s),
     ...(s.sourceText ? { sourceText: s.sourceText } : {}),
     notes: s.notes ?? [],
   }
@@ -234,6 +271,51 @@ export class AppSongRepository implements SongRepository {
       throw new Error('This browser does not allow keeping the song for practice.')
     }
     return draft
+  }
+
+  async requestShare(id: string): Promise<void> {
+    await apiRequest(`/api/songs/${encodeURIComponent(id)}/share`, { method: 'POST' })
+  }
+
+  async withdrawShare(id: string): Promise<void> {
+    await apiRequest<void>(`/api/songs/${encodeURIComponent(id)}/share`, { method: 'DELETE' })
+  }
+
+  async listShareRequests(state: 'pending' | 'reviewed' = 'pending'): Promise<ShareRequest[]> {
+    const { requests } = await apiRequest<{ requests: ShareRequest[] }>(`/api/share-requests?state=${state}`)
+    return requests
+  }
+
+  async getShareRequest(id: string): Promise<ShareRequestDetail> {
+    const detail = await apiRequest<ShareRequest & { song: ApiSong }>(`/api/share-requests/${encodeURIComponent(id)}`)
+    const s = detail.song
+    const song: Song = {
+      id: `request-${detail.id}`,
+      title: s.title,
+      ...(s.artist ? { artist: s.artist } : {}),
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.difficulty ? { difficulty: s.difficulty } : {}),
+      tuningId: s.tuningId ?? 'standard',
+      ...(s.sourceText ? { sourceText: s.sourceText } : {}),
+      notes: s.notes ?? [],
+      scope: 'draft',
+      canEdit: false,
+    }
+    return { ...detail, song }
+  }
+
+  async approveShareRequest(id: string, corrected?: NewSong): Promise<ShareRequest> {
+    return apiRequest<ShareRequest>(`/api/share-requests/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      ...(corrected ? { body: toApiBody(corrected) } : {}),
+    })
+  }
+
+  async rejectShareRequest(id: string, reason?: string): Promise<ShareRequest> {
+    return apiRequest<ShareRequest>(`/api/share-requests/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+      body: { reason: reason?.trim() || null },
+    })
   }
 
   // ---------- kept on the phone ----------

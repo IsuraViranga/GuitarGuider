@@ -39,6 +39,8 @@ export type SongNote = {
  */
 export type SongScope = 'global' | 'mine' | 'device' | 'draft'
 
+export type ShareStatus = 'pending' | 'approved' | 'rejected'
+
 export type Song = {
   id: string
   title: string
@@ -53,6 +55,9 @@ export type Song = {
   canEdit?: boolean
   /** The text the song was made from, so it can be edited. */
   sourceText?: string
+  /** Own songs: the latest request to share it with everyone (and the admin's reason if not accepted). */
+  shareStatus?: ShareStatus
+  shareReason?: string
   notes: SongNote[]
 }
 
