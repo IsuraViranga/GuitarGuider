@@ -43,6 +43,21 @@ no Shell):
 DATABASE_URL="postgresql://…neon.tech/…?sslmode=require" .venv/Scripts/python -m app.cli create-admin --email you@example.com --name "Melantha"
 ```
 
+## Songs
+
+- `GET /api/songs?scope=global|mine&q=…`: the global set list (everyone) or your own songs; `q`
+  searches title and artist (Sinhala-safe).
+- `GET /api/songs/{id}`, `POST /api/songs` (`"scope": "global"` admin only), `PUT` and `DELETE`
+  (owner, or admin for global songs), `POST /api/songs/move-from-device`.
+- Every song is checked: each note must be exactly its string and fret in standard tuning.
+
+### Built-in songs
+
+`app/seed/global_songs.json` holds the app's built-in songs, made by the frontend
+(`npm run export:songs`, after adding or changing a file in `frontend/src/songs/library/`).
+`python -m app.cli seed-songs` adds each one to the global set list once (Render runs it on every
+deploy); songs the admin changed or deleted are left alone.
+
 ## How sign-in works
 
 - Passwords are stored only as argon2 hashes.

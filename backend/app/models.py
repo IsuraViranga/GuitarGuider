@@ -1,9 +1,10 @@
-"""Database tables for accounts. (Songs, review requests and saved practice come in later steps.)"""
+"""Database tables: accounts and songs. (Review requests and saved practice come in later steps.)"""
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -40,3 +41,51 @@ class AuthSession(Base):
     user_agent: Mapped[str | None] = mapped_column(String(200))
 
     user: Mapped[User] = relationship(back_populates="sessions")
+
+
+SCOPES = ("global", "private")
+DIFFICULTIES = ("beginner", "intermediate", "advanced")
+
+
+class Song(Base):
+    """A song. Global songs (owner_id empty) are for everyone and only the admin changes them;
+    private songs belong to one user."""
+
+    __tablename__ = "songs"
+    __table_args__ = (
+        CheckConstraint("scope in ('global', 'private')", name="songs_scope_valid"),
+        CheckConstraint(
+            "(scope = 'global' and owner_id is null) or (scope = 'private' and owner_id is not null)",
+            name="songs_owner_matches_scope",
+        ),
+        CheckConstraint("difficulty is null or difficulty in ('beginner', 'intermediate', 'advanced')", name="songs_difficulty_valid"),
+    )
+
+    # Built-in songs keep their old ids ("sample-first-frets"); new songs get a random UUID.
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(10))
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    artist: Mapped[str | None] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(String(500))
+    difficulty: Mapped[str | None] = mapped_column(String(12))
+    tuning_id: Mapped[str] = mapped_column(String(20))
+    # The text the song was made from (chord chart, song sheet, numbers…), so it can be edited.
+    source_text: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[list] = mapped_column(JSONB)
+    note_count: Mapped[int] = mapped_column(Integer)
+    chord_count: Mapped[int] = mapped_column(Integer)
+    # Title and artist, lower case, for search (Sinhala-safe: see app/text.py).
+    search_text: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SeedLog(Base):
+    """Built-in songs already added once. A built-in song the admin deletes is not added again."""
+
+    __tablename__ = "seed_log"
+
+    song_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

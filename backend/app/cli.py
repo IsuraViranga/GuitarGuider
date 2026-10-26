@@ -1,6 +1,7 @@
 """Admin tasks from the command line. Admin accounts are never created through the website.
 
     python -m app.cli create-admin --email you@example.com --name "Melantha"
+    python -m app.cli seed-songs        # add built-in songs to the global set list (run on deploy)
 
 The password is asked twice (not shown). For automation, put it in an environment variable and
 pass --password-env NAME. An existing account with that email is made admin (password unchanged
@@ -19,6 +20,7 @@ from .db import SessionLocal
 from .models import User
 from .schemas import SignUpIn
 from .security import hash_password
+from .seed import seed_global_songs
 
 
 def create_admin(email: str, name: str, password: str | None) -> str:
@@ -48,7 +50,14 @@ def main(argv: list[str] | None = None) -> int:
     admin.add_argument("--name", required=True)
     admin.add_argument("--password-env", help="read the password from this environment variable instead of asking")
     admin.add_argument("--keep-password", action="store_true", help="existing account: keep its password")
+    sub.add_parser("seed-songs", help="add built-in songs to the global set list (each only once)")
     args = parser.parse_args(argv)
+
+    if args.command == "seed-songs":
+        with SessionLocal() as db:
+            added = seed_global_songs(db)
+        print(f"Added {len(added)} built-in song(s) to the global set list." if added else "Built-in songs are up to date.")
+        return 0
 
     password: str | None
     if args.keep_password:

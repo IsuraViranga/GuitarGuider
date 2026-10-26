@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .auth import router as auth_router
+from .songs import router as songs_router
 from .db import engine
 
 app = FastAPI(title="Melantha Guitar Academy API", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
@@ -52,3 +53,4 @@ def health_db() -> dict[str, str]:
 
 
 app.include_router(auth_router)
+app.include_router(songs_router)

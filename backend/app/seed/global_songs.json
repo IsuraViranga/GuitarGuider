@@ -1,0 +1,1294 @@
+[
+  {
+    "id": "library-g-major-scale-practice",
+    "title": "G මේජර් පරිමාණය – පුහුණුව",
+    "description": "Example library file (an original scale exercise). Shows how the instructor adds songs.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "title: G මේජර් පරිමාණය – පුහුණුව\ndescription: Example library file (an original scale exercise). Shows how the instructor adds songs.\ndifficulty: beginner\n# G major scale up and down on strings 3, 2 and 1\n30 32 20 21 | 23 10 12 13 | 13 12 10 23 | 21 20 32 30\n",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 57,
+        "position": {
+          "stringNumber": 3,
+          "fret": 2
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 3
+      },
+      {
+        "index": 9,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "measure": 3
+      },
+      {
+        "index": 10,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 11,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 3
+      },
+      {
+        "index": 12,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 4
+      },
+      {
+        "index": 13,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 4
+      },
+      {
+        "index": 14,
+        "midi": 57,
+        "position": {
+          "stringNumber": 3,
+          "fret": 2
+        },
+        "measure": 4
+      },
+      {
+        "index": 15,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 4
+      }
+    ]
+  },
+  {
+    "id": "library-twinkle-twinkle",
+    "title": "Twinkle, twinkle",
+    "description": "Song sheet with words: each number has its syllable underneath.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "title: Twinkle, twinkle\ndescription: Song sheet with words: each number has its syllable underneath.\ndifficulty: beginner\n\n23      23    15     15    17   17   15\nTwin  kle,  twin  kle,  lit    tle   star,\n\n13      13    12      12    10       10    23\nHow   I      won   der    what  you   are!\n\n15     15   13      13    12        12   10\nUp      a    bove  the   world   so   high,\n\n15     15   13      13       12    12    10\nLike  a      dia    mond   in    the   sky,\n\n23      23    15     15    17   17   15\nTwin  kle,  twin  kle,  lit    tle   star,\n\n13      13    12      12    10       10    23\nHow   I      won   der    what  you   are!\n",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "Twin",
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "kle,",
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "twin",
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "kle,",
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "lyric": "lit",
+        "measure": 1
+      },
+      {
+        "index": 5,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "lyric": "tle",
+        "measure": 1
+      },
+      {
+        "index": 6,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "star,",
+        "measure": 1
+      },
+      {
+        "index": 7,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "How",
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "I",
+        "measure": 2
+      },
+      {
+        "index": 9,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "won",
+        "measure": 2
+      },
+      {
+        "index": 10,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "der",
+        "measure": 2
+      },
+      {
+        "index": 11,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "what",
+        "measure": 2
+      },
+      {
+        "index": 12,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "you",
+        "measure": 2
+      },
+      {
+        "index": 13,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "are!",
+        "measure": 2
+      },
+      {
+        "index": 14,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "Up",
+        "measure": 3
+      },
+      {
+        "index": 15,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "a",
+        "measure": 3
+      },
+      {
+        "index": 16,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "bove",
+        "measure": 3
+      },
+      {
+        "index": 17,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "the",
+        "measure": 3
+      },
+      {
+        "index": 18,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "world",
+        "measure": 3
+      },
+      {
+        "index": 19,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "so",
+        "measure": 3
+      },
+      {
+        "index": 20,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "high,",
+        "measure": 3
+      },
+      {
+        "index": 21,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "Like",
+        "measure": 4
+      },
+      {
+        "index": 22,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "a",
+        "measure": 4
+      },
+      {
+        "index": 23,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "dia",
+        "measure": 4
+      },
+      {
+        "index": 24,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "mond",
+        "measure": 4
+      },
+      {
+        "index": 25,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "in",
+        "measure": 4
+      },
+      {
+        "index": 26,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "the",
+        "measure": 4
+      },
+      {
+        "index": 27,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "sky,",
+        "measure": 4
+      },
+      {
+        "index": 28,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "Twin",
+        "measure": 5
+      },
+      {
+        "index": 29,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "kle,",
+        "measure": 5
+      },
+      {
+        "index": 30,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "twin",
+        "measure": 5
+      },
+      {
+        "index": 31,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "kle,",
+        "measure": 5
+      },
+      {
+        "index": 32,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "lyric": "lit",
+        "measure": 5
+      },
+      {
+        "index": 33,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "lyric": "tle",
+        "measure": 5
+      },
+      {
+        "index": 34,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "lyric": "star,",
+        "measure": 5
+      },
+      {
+        "index": 35,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "How",
+        "measure": 6
+      },
+      {
+        "index": 36,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "lyric": "I",
+        "measure": 6
+      },
+      {
+        "index": 37,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "won",
+        "measure": 6
+      },
+      {
+        "index": 38,
+        "midi": 66,
+        "position": {
+          "stringNumber": 1,
+          "fret": 2
+        },
+        "lyric": "der",
+        "measure": 6
+      },
+      {
+        "index": 39,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "what",
+        "measure": 6
+      },
+      {
+        "index": 40,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "lyric": "you",
+        "measure": 6
+      },
+      {
+        "index": 41,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "lyric": "are!",
+        "measure": 6
+      }
+    ]
+  },
+  {
+    "id": "sample-open-strings",
+    "title": "Open Strings Warm-up",
+    "description": "Play each open string from thickest to thinnest and back. No fretting needed.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "60 50 40 30 |\n20 10 10 20 |\n30 40 50 60",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 40,
+        "position": {
+          "stringNumber": 6,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 45,
+        "position": {
+          "stringNumber": 5,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 50,
+        "position": {
+          "stringNumber": 4,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 9,
+        "midi": 50,
+        "position": {
+          "stringNumber": 4,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 10,
+        "midi": 45,
+        "position": {
+          "stringNumber": 5,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 11,
+        "midi": 40,
+        "position": {
+          "stringNumber": 6,
+          "fret": 0
+        },
+        "measure": 3
+      }
+    ]
+  },
+  {
+    "id": "sample-first-frets",
+    "title": "First Frets on String 1",
+    "description": "Open, fret 1 and fret 3 on the thinnest string.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "10 11 13 11 |\n10 13 11 10",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      }
+    ]
+  },
+  {
+    "id": "sample-c-major-scale",
+    "title": "C Major Scale",
+    "description": "One octave up and back down, from C on string 5.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "53 40 42 43 |\n30 32 20 21 |\n21 20 32 30 |\n43 42 40 53",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 48,
+        "position": {
+          "stringNumber": 5,
+          "fret": 3
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 50,
+        "position": {
+          "stringNumber": 4,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 52,
+        "position": {
+          "stringNumber": 4,
+          "fret": 2
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 53,
+        "position": {
+          "stringNumber": 4,
+          "fret": 3
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 57,
+        "position": {
+          "stringNumber": 3,
+          "fret": 2
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 3
+      },
+      {
+        "index": 9,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 10,
+        "midi": 57,
+        "position": {
+          "stringNumber": 3,
+          "fret": 2
+        },
+        "measure": 3
+      },
+      {
+        "index": 11,
+        "midi": 55,
+        "position": {
+          "stringNumber": 3,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 12,
+        "midi": 53,
+        "position": {
+          "stringNumber": 4,
+          "fret": 3
+        },
+        "measure": 4
+      },
+      {
+        "index": 13,
+        "midi": 52,
+        "position": {
+          "stringNumber": 4,
+          "fret": 2
+        },
+        "measure": 4
+      },
+      {
+        "index": 14,
+        "midi": 50,
+        "position": {
+          "stringNumber": 4,
+          "fret": 0
+        },
+        "measure": 4
+      },
+      {
+        "index": 15,
+        "midi": 48,
+        "position": {
+          "stringNumber": 5,
+          "fret": 3
+        },
+        "measure": 4
+      }
+    ]
+  },
+  {
+    "id": "sample-morning-steps",
+    "title": "Morning Steps",
+    "description": "A short original melody on strings 1 and 2.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "21 23 10 11 |\n13 11 10 23 |\n21 23 20 21",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 3
+      },
+      {
+        "index": 9,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 3
+      },
+      {
+        "index": 10,
+        "midi": 59,
+        "position": {
+          "stringNumber": 2,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 11,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 3
+      }
+    ]
+  },
+  {
+    "id": "sample-ode-to-joy",
+    "title": "Ode to Joy (melody)",
+    "description": "Beethoven's melody (public domain), arranged for this app. Has repeated notes.",
+    "difficulty": "beginner",
+    "tuningId": "standard",
+    "sourceText": "10 10 11 13 |\n13 11 10 23 |\n21 21 23 10 |\n10 23 23",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 67,
+        "position": {
+          "stringNumber": 1,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 65,
+        "position": {
+          "stringNumber": 1,
+          "fret": 1
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 3
+      },
+      {
+        "index": 9,
+        "midi": 60,
+        "position": {
+          "stringNumber": 2,
+          "fret": 1
+        },
+        "measure": 3
+      },
+      {
+        "index": 10,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 3
+      },
+      {
+        "index": 11,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 3
+      },
+      {
+        "index": 12,
+        "midi": 64,
+        "position": {
+          "stringNumber": 1,
+          "fret": 0
+        },
+        "measure": 4
+      },
+      {
+        "index": 13,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 4
+      },
+      {
+        "index": 14,
+        "midi": 62,
+        "position": {
+          "stringNumber": 2,
+          "fret": 3
+        },
+        "measure": 4
+      }
+    ]
+  },
+  {
+    "id": "sample-up-the-neck",
+    "title": "Up the Neck",
+    "description": "Climb string 1 to fret 12 and back. Practises reading two-digit frets.",
+    "difficulty": "intermediate",
+    "tuningId": "standard",
+    "sourceText": "15 17 18 110 |\n112 110 18 17 |\n15",
+    "notes": [
+      {
+        "index": 0,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "measure": 1
+      },
+      {
+        "index": 1,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "measure": 1
+      },
+      {
+        "index": 2,
+        "midi": 72,
+        "position": {
+          "stringNumber": 1,
+          "fret": 8
+        },
+        "measure": 1
+      },
+      {
+        "index": 3,
+        "midi": 74,
+        "position": {
+          "stringNumber": 1,
+          "fret": 10
+        },
+        "measure": 1
+      },
+      {
+        "index": 4,
+        "midi": 76,
+        "position": {
+          "stringNumber": 1,
+          "fret": 12
+        },
+        "measure": 2
+      },
+      {
+        "index": 5,
+        "midi": 74,
+        "position": {
+          "stringNumber": 1,
+          "fret": 10
+        },
+        "measure": 2
+      },
+      {
+        "index": 6,
+        "midi": 72,
+        "position": {
+          "stringNumber": 1,
+          "fret": 8
+        },
+        "measure": 2
+      },
+      {
+        "index": 7,
+        "midi": 71,
+        "position": {
+          "stringNumber": 1,
+          "fret": 7
+        },
+        "measure": 2
+      },
+      {
+        "index": 8,
+        "midi": 69,
+        "position": {
+          "stringNumber": 1,
+          "fret": 5
+        },
+        "measure": 3
+      }
+    ]
+  }
+]

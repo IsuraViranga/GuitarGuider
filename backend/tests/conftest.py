@@ -33,7 +33,7 @@ def database():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as connection:
-        connection.execute(text("truncate auth_sessions, users cascade"))
+        connection.execute(text("truncate seed_log, songs, auth_sessions, users cascade"))
     signin_limiter.reset()
     yield
 
