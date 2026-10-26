@@ -2,7 +2,10 @@
 
 import asyncio
 import logging
+import os
+from functools import lru_cache
 
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -55,7 +58,7 @@ _database_turns = asyncio.Semaphore(MAX_CONNECTIONS)
 
 @app.middleware("http")
 async def one_turn_per_connection(request: Request, call_next):
-    if not request.url.path.startswith("/api/") or request.url.path == "/api/health":
+    if not request.url.path.startswith("/api/") or request.url.path in ("/api/health", "/api/health/live"):
         return await call_next(request)
     async with _database_turns:
         return await call_next(request)
@@ -81,6 +84,35 @@ async def friendly_validation_errors(_request: Request, exc: RequestValidationEr
 def health() -> dict[str, str]:
     """For the hosting service's health check. Does not touch the database, so the database can sleep."""
     return {"status": "ok"}
+
+
+@app.get("/api/health/live")
+def liveness() -> dict[str, str]:
+    """Liveness: the server is running and answering. Never touches the database, so checking it
+    often (the 5-minute check on Netlify) does not keep the database awake."""
+    return {"status": "alive"}
+
+
+@lru_cache
+def _latest_migration() -> str | None:
+    folder = os.path.join(os.path.dirname(__file__), "..", "alembic")
+    return ScriptDirectory(folder).get_current_head()
+
+
+@app.get("/api/health/ready")
+def readiness() -> JSONResponse:
+    """Readiness: the server can do real work: the database answers and has every table change
+    (migration) this version needs. 503 if not, with the reason. Wakes the database if it sleeps."""
+    try:
+        with engine.connect() as connection:
+            current = connection.execute(text("select version_num from alembic_version")).scalar()
+    except Exception:  # noqa: BLE001 - any database problem means "not ready"
+        logging.getLogger("app.health").exception("Readiness check: the database did not answer")
+        return JSONResponse({"status": "not ready", "database": "unreachable"}, status_code=503)
+    latest = _latest_migration()
+    if current != latest:
+        return JSONResponse({"status": "not ready", "database": "ok", "migration": current, "expected": latest}, status_code=503)
+    return JSONResponse({"status": "ready", "database": "ok", "migration": current})
 
 
 @app.get("/api/health/db")

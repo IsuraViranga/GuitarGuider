@@ -659,6 +659,16 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   far less CPU (0.1), so live times will be slower; test it there only on purpose
   (`--allow-remote`, a small number of users first).
 
+### 8o. Health checks (liveness and readiness)
+
+- `GET /api/health/live` (no database) and `GET /api/health/ready` (database answers and its
+  migration is the latest; otherwise 503 with the reason). Liveness skips the request queue.
+- Netlify scheduled function `frontend/netlify/functions/health-check.mts` (`*/5 * * * *`, UTC):
+  liveness every run, readiness every 6 hours (00:00, 06:00, 12:00, 18:00 UTC); 8 s limit per call (Netlify
+  stops scheduled functions after ~10 s; a call that times out has still started waking Render).
+  Free-plan budgets: Render 750 h/month (always awake ≈ 744 h), Neon 100 CU-h/month (always
+  awake ≈ 186 CU-h; readiness every 6 hours ≈ 4 CU-h).
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

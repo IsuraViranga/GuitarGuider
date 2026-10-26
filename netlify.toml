@@ -7,6 +7,10 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Netlify functions (relative to frontend/): health-check runs every 5 minutes, see the file.
+[functions]
+  directory = "netlify/functions"
+
 # The API server on Render, under the same address as the app (so the sign-in cookie stays on
 # this site). Must come before the single-page-app rule below. If Render gives the service
 # another address, change it here.

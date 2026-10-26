@@ -78,6 +78,25 @@ used from there). Set up once:
 Without a key the "Forgot password?" page says reset by email is not ready. On your own computer
 `EMAIL_LOG_LINKS=true` (in `.env`) prints the link in the server log instead of sending it.
 
+## Health checks
+
+| Address | Means | Uses the database |
+| --- | --- | --- |
+| `GET /api/health/live` | Liveness: the server runs and answers (`{"status":"alive"}`) | No |
+| `GET /api/health/ready` | Readiness: the database answers and has every table change; `503` with the reason if not | Yes (wakes it) |
+| `GET /api/health` | Render's own health check (unchanged) | No |
+| `GET /api/health/db` | Older database check (unchanged) | Yes |
+
+A Netlify scheduled function (`frontend/netlify/functions/health-check.mts`) calls liveness
+every 5 minutes and readiness every 6 hours (00:00, 06:00, 12:00, 18:00 UTC); results are in Netlify → Logs → Functions →
+health-check. The 5-minute calls keep Render's free server awake (no "Waking up the server…"
+wait). That uses about 744 of the 750 free Render hours a month, so it only fits if this is the
+only free Render service in the account. Readiness is every 6 hours, not every 5 minutes: each
+check keeps the Neon database awake for about 5 minutes (≈ 4 of the free plan's 100 compute
+hours a month at this pace), and an always-awake database would use more than the free plan
+allows. To stop the checks, delete the function file (or remove its
+`schedule`).
+
 ## Load test
 
 `loadtest/load_test.py` makes many pretend students use the API at once (sign up, songs, a song,

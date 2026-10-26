@@ -38,12 +38,14 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(160deg, #9b84ff, #5236d6);
-  color: #fff;
+  /* The sender's initial in an amber ring on the dark stage, like Melantha's photo and the account button. */
+  border: 2px solid var(--color-accent);
+  background: radial-gradient(circle at 50% 30%, rgb(245 165 36 / 0.28), rgb(13 11 18 / 0.9) 75%);
+  color: var(--color-accent-strong);
   font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
-  box-shadow: 0 0 14px rgb(124 92 255 / 0.5);
+  box-shadow: 0 0 14px rgb(245 165 36 / 0.35);
 }
 
 .requestText {

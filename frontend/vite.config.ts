@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'netlify/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
     css: { modules: { classNameStrategy: 'non-scoped' } },
   },
