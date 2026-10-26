@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import avatar from '../assets/brand/melantha-avatar.jpg'
+import { AuthProvider } from '../auth/AuthProvider'
+import { AccountButton } from '../components/account/AccountButton'
+import { StatusBanners } from '../components/account/StatusBanners'
 import { GuitarArt } from '../components/decor/GuitarArt'
 import { APP_NAME } from './usePageTitle'
 
@@ -24,7 +27,7 @@ export function Layout() {
   }, [location.pathname])
 
   return (
-    <>
+    <AuthProvider>
       {/* Stage decoration behind every page: a glowing guitar seen through the glass cards. */}
       <div className="stage-backdrop" aria-hidden="true">
         <GuitarArt className="stage-guitar" />
@@ -51,11 +54,13 @@ export function Layout() {
               </li>
             </ul>
           </nav>
+          <AccountButton />
         </div>
+        <StatusBanners />
       </header>
       <main id="main" ref={mainRef} tabIndex={-1}>
         <Outlet />
       </main>
-    </>
+    </AuthProvider>
   )
 }

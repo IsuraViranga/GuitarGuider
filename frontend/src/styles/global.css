@@ -219,6 +219,34 @@ textarea.mono {
   color: var(--color-accent-strong);
 }
 
+/* Header items keep to one row: brand, Songs, Import and the account button. */
+.site-header-inner {
+  flex-wrap: nowrap;
+}
+
+.site-nav {
+  margin-left: auto;
+}
+
+@media (max-width: 420px) {
+  .site-header-inner {
+    gap: var(--space-1);
+  }
+
+  /* On small phones: Melantha's name stays, the small "Guitar Academy" line goes. */
+  .brand-name span {
+    display: none;
+  }
+
+  .brand-name strong {
+    font-size: 1.1rem;
+  }
+
+  .site-nav a {
+    padding: 0 var(--space-2);
+  }
+}
+
 .site-nav a[aria-current='page'] {
   color: var(--color-accent-strong);
   text-decoration: underline;
@@ -355,6 +383,8 @@ fieldset legend {
 
 input[type='text'],
 input[type='search'],
+input[type='email'],
+input[type='password'],
 textarea {
   font: inherit;
   color: var(--color-text);

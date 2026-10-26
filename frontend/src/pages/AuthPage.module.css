@@ -1,0 +1,161 @@
+.page {
+  display: grid;
+  place-items: center;
+}
+
+/* A glass card on the stage, with Melantha's photo in a glowing ring at the top. */
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-6) var(--space-4) var(--space-5);
+  text-align: center;
+  border-color: rgb(245 165 36 / 0.3);
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: -40% -30% auto;
+  height: 60%;
+  background: radial-gradient(circle at 50% 100%, rgb(124 92 255 / 0.3), transparent 65%);
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+}
+
+.portrait {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto var(--space-3);
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(from 200deg, var(--color-accent-strong), var(--color-stage), var(--color-accent));
+  box-shadow: 0 0 30px rgb(245 165 36 / 0.35);
+}
+
+.portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-bg);
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-accent-strong);
+}
+
+.title {
+  margin: var(--space-1) 0 0;
+  font-size: 2rem;
+  text-transform: uppercase;
+}
+
+.lead {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--color-muted);
+}
+
+.benefits {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  text-align: left;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.benefitPick {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 6px rgb(245 165 36 / 0.5));
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.form input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+
+.form input[aria-invalid='true'] {
+  border-color: var(--color-incorrect);
+}
+
+.fieldError {
+  margin: var(--space-1) 0 0;
+  color: var(--color-incorrect);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.passwordRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.passwordRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.showButton {
+  min-width: 64px;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid rgb(245 165 36 / 0.45);
+  background: rgb(245 165 36 / 0.08);
+  color: var(--color-accent-strong);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.showButton:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.submit {
+  width: 100%;
+  justify-content: center;
+  min-height: 52px;
+  font-size: 1.1rem;
+}
+
+.switch {
+  margin: var(--space-4) 0 0;
+}
+
+.guest {
+  margin: var(--space-2) 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}

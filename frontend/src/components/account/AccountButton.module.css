@@ -1,0 +1,135 @@
+.placeholder {
+  display: inline-block;
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+/* Signed out: a round person icon (with "Sign in" text on wider screens). */
+.signIn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+  border-radius: 999px;
+  border: 1px solid rgb(245 165 36 / 0.5);
+  background: rgb(245 165 36 / 0.08);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+  justify-content: center;
+}
+
+.signIn:hover {
+  background: rgb(245 165 36 / 0.16);
+}
+
+.personIcon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.signInText {
+  /* On phones only the icon shows; the link's name is still "Sign in" for screen readers. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wrapper {
+  position: relative;
+}
+
+/* Signed in: the user's initials in an amber circle. */
+.avatar {
+  display: grid;
+  place-items: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-strong);
+  background: linear-gradient(160deg, var(--color-accent-strong), #c97a0c);
+  color: var(--color-on-accent);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--glow-accent);
+}
+
+.avatar:focus-visible,
+.signIn:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 10;
+  width: min(280px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgb(40 32 54 / 0.96), rgb(20 16 28 / 0.98));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(245 165 36 / 0.35);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.5), var(--glow-accent);
+}
+
+.name {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.adminBadge {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+
+.email {
+  margin: 2px 0 var(--space-3);
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  margin: 0 0 var(--space-2);
+  color: var(--color-incorrect);
+  font-size: 0.9rem;
+}
+
+.signOut {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 600px) {
+  .signIn {
+    padding: 0 var(--space-3) 0 var(--space-2);
+  }
+
+  .signInText {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+}

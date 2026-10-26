@@ -1,0 +1,90 @@
+.stack {
+  /* Floats just under the (sticky) header, whatever its height, without moving the page. */
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+  pointer-events: none;
+}
+
+.live:empty {
+  display: none;
+}
+
+.waking,
+.welcome {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 560px;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  font-size: 0.95rem;
+}
+
+.waking {
+  background: rgb(40 32 54 / 0.92);
+  border: 1px solid rgb(155 132 255 / 0.5);
+}
+
+.wakingPick {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+  animation: spin 1.4s linear infinite;
+}
+
+.welcome {
+  position: relative;
+  background: rgb(58 42 18 / 0.94);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+}
+
+.burst {
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.close {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:focus-visible {
+  outline: 3px solid var(--color-focus);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wakingPick {
+    animation: none;
+  }
+}

@@ -1,0 +1,19 @@
+# Render blueprint for the API server (free plan). The database is on Neon: paste its
+# connection string as DATABASE_URL when Render asks.
+services:
+  - type: web
+    name: melantha-guitar-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Applies any new database changes, then starts the server.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.2
+      - key: DATABASE_URL
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"

@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => ({
     // Listen on the local network too, so a phone on the same Wi-Fi can open the app.
     host: true,
     port: mode === 'phone' ? 5174 : 5173,
+    // The API server (backend/, "uvicorn app.main:app --reload") on this computer.
+    proxy: { '/api': 'http://localhost:8000' },
   },
   test: {
     environment: 'jsdom',

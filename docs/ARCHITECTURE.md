@@ -553,6 +553,27 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - Browser tests run with 2 workers: more overloaded the dev server on this laptop (pages timed out,
   also on older commits).
 
+### 8j. Step B1: accounts (server + database)
+
+- Plan (owner-approved, 2026-10-25): FastAPI + PostgreSQL. Frontend stays on Netlify, which
+  forwards `/api/*` to the API on Render (free plan; sleeps after 15 min, ~1 min to wake, app shows
+  "Waking up the server…"). Database on Neon (free). Steps: B1 accounts, B2 global + own songs and
+  search, B3 request → admin review (approve / reject / edit and approve), B4 saved practice (only
+  when the user saves; last 2 per song), B5 password reset + email check, load test (500 users).
+- Rules: guests practise global songs only; users manage only their own songs; only the admin
+  edits/deletes global songs; admin accounts only from the command line; sign-up asks name, email,
+  password; progress is private.
+- B1 as built (`backend/`): tables `users` and `auth_sessions` (Alembic `0001_accounts`); argon2
+  passwords; a random session key in an httpOnly / Secure / SameSite=Lax cookie (path /api), only
+  its SHA-256 stored, 30 days; every change needs `X-Requested-With: fetch`; 10 failed sign-ins per
+  email or address in 15 min → 429; friendly 422 messages per field; `python -m app.cli create-admin`.
+  Neon pooled connections: psycopg prepared statements off.
+- Frontend: `api/client.ts` (header, timeouts, waking notice), `AuthProvider`/`useAuth`,
+  `/signin` and `/signup` pages (glass card with Melantha), header account button (initials, panel
+  with Sign out, Admin badge), welcome banner with a pick burst. Header stays one row down to 320 px.
+- Tests: backend pytest on a real PostgreSQL (20), frontend unit tests with a fake server, and a
+  full-stack browser test against the real API when it runs on localhost:8000.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.
