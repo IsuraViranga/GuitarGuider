@@ -192,7 +192,13 @@ function PracticeView({ song }: { song: Song }) {
         <>
           Then:{' '}
           <strong>
-            {upcoming.map((n, i) => shortLabel(n) + (i === 0 && shortLabel(n) === shortLabel(note) ? ' again' : '')).join(' · ')}
+            {upcoming.map((n, i) => (
+              <span key={n.index}>
+                {i > 0 && ' · '}
+                {shortLabel(n) + (i === 0 && shortLabel(n) === shortLabel(note) ? ' again' : '')}
+                {n.lyric && <span className={styles.upcomingWord}> {n.lyric}</span>}
+              </span>
+            ))}
           </strong>
         </>
       ) : (

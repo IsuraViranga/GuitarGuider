@@ -85,3 +85,18 @@
 .skipped {
   border-style: dashed;
 }
+
+/* The word sung on this note (long phrases are shortened with "…"). */
+.lyric {
+  max-width: 7.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--color-accent-strong);
+}
+
+.current .lyric {
+  color: var(--color-on-accent);
+}

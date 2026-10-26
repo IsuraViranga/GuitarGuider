@@ -495,3 +495,10 @@
   font-size: 0.9rem;
   text-align: left;
 }
+
+/* "Then: 23 Twin · 15 kle": the word sung on each coming note. */
+.upcomingWord {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--color-accent-strong);
+}

@@ -247,7 +247,7 @@ test('a pasted chord chart becomes a chord song that can be practised', async ({
   await expect(page.getByTestId('expected-chord-numbers')).toHaveText('[53 42 30 21 10]')
   await expect(page.getByTestId('lyric')).toHaveText('♪ first')
   await expect(page.getByRole('img', { name: /Strum C: .* Do not play string 6\./ })).toBeVisible()
-  await expect(page.getByTestId('upcoming')).toHaveText('Then: G · Am · F')
+  await expect(page.getByTestId('upcoming')).toHaveText('Then: G words · Am second · F words')
 
   // A recording of the four chords strummed (strings 15 ms apart), one chord per second.
   const chords = [

@@ -132,3 +132,13 @@
 .now {
   box-shadow: 0 0 0 2px var(--color-accent), var(--glow-accent);
 }
+
+.lyric {
+  max-width: 6.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--color-muted);
+}

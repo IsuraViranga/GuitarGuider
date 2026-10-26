@@ -208,3 +208,24 @@ describe('PlayedStrip (what you played)', () => {
     expect(screen.getByRole('button', { name: /^Note 3 of 4: 21.*, skipped$/ })).toBeInTheDocument()
   })
 })
+
+describe('song words next to the numbers', () => {
+  const notes = notesFromPositions(
+    [
+      { position: { stringNumber: 2, fret: 3 }, lyric: 'Twin' },
+      { position: { stringNumber: 2, fret: 3 }, lyric: 'kle,' },
+    ],
+    STANDARD_TUNING,
+  )
+
+  it('the All notes list shows each word under its number', () => {
+    render(<NoteTimeline notes={notes} currentIndex={0} onSelect={() => {}} />)
+    expect(screen.getByRole('button', { name: /^Note 1 of 2: 23.*, words: Twin$/ })).toHaveTextContent('Twin')
+    expect(screen.getByRole('button', { name: /^Note 2 of 2: 23.*, words: kle,$/ })).toHaveTextContent('kle,')
+  })
+
+  it('What you played shows the word too', () => {
+    render(<PlayedStrip notes={notes} record={[{ wrong: [], result: 'correct' }, { wrong: [], result: null }]} currentIndex={1} completed={false} onSelect={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Note 1, 23 (Twin): right first time' })).toHaveTextContent('Twin')
+  })
+})

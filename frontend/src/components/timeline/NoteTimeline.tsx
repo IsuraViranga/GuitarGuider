@@ -55,6 +55,7 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
           <>
             <span className="visually-hidden">
               {noteAccessibleLabel(note, notes.length)}
+              {note.lyric ? `, words: ${note.lyric}` : ''}
               {result ? `, ${RESULT_WORDS[result]}` : ''}
             </span>
             <span className={styles.position} aria-hidden="true">
@@ -64,6 +65,11 @@ export function NoteTimeline({ notes, currentIndex, onSelect, record }: NoteTime
             <span className={styles.number} aria-hidden="true">
               {shortLabel(note)}
             </span>
+            {note.lyric && (
+              <span className={styles.lyric} aria-hidden="true" title={note.lyric}>
+                {note.lyric}
+              </span>
+            )}
             <span className={styles.noteName} aria-hidden="true">
               {note.chord ? 'chord' : text.noteName}
             </span>

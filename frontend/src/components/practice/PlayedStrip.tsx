@@ -87,10 +87,15 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
                   type="button"
                   className={`${styles.chip} ${styles[status]} ${note.index === currentIndex && !completed ? styles.now : ''}`}
                   onClick={() => onSelect(note.index)}
-                  aria-label={`Note ${note.index + 1}, ${label}: ${describeStep(step, status)}`}
+                  aria-label={`Note ${note.index + 1}, ${label}${note.lyric ? ` (${note.lyric})` : ''}: ${describeStep(step, status)}`}
                   data-status={status}
                 >
                   <span className={styles.number}>{label}</span>
+                  {note.lyric && (
+                    <span className={styles.lyric} title={note.lyric}>
+                      {note.lyric}
+                    </span>
+                  )}
                   <span className={styles.mark} aria-hidden="true">
                     {status === 'right' && '✓'}
                     {status === 'mistake' && `✗${step.wrong.length}`}
