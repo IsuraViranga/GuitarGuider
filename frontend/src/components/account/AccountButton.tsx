@@ -37,7 +37,7 @@ export function AccountButton() {
   if (auth.status === 'loading') return <span className={styles.placeholder} aria-hidden="true" />
 
   if (auth.status === 'signedOut' || !auth.user) {
-    const onAuthPage = location.pathname === '/signin' || location.pathname === '/signup'
+    const onAuthPage = ['/signin', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname)
     return (
       <Link
         to="/signin"
@@ -75,6 +75,14 @@ export function AccountButton() {
             {user.role === 'admin' && <span className={styles.adminBadge}>Admin</span>}
           </p>
           <p className={styles.email}>{user.email}</p>
+          <nav className={styles.links} aria-label="Your account">
+            <Link to="/songs?list=mine" className={styles.link}>
+              <span aria-hidden="true">🎸</span> My songs
+            </Link>
+            <Link to="/progress" className={styles.link}>
+              <span aria-hidden="true">📈</span> My progress
+            </Link>
+          </nav>
           {error && (
             <p role="alert" className={styles.error}>
               {error}

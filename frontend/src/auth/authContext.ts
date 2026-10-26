@@ -9,6 +9,8 @@ export type AuthState = {
   signIn: (email: string, password: string) => Promise<User>
   signUp: (name: string, email: string, password: string) => Promise<User>
   signOut: () => Promise<void>
+  /** Sets a new password with the emailed link's key, and signs in. */
+  resetPassword: (token: string, password: string) => Promise<User>
   /** "Welcome, Isura!" after signing in or up, until it is dismissed. */
   welcome: string | null
   dismissWelcome: () => void

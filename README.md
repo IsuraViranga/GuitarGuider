@@ -21,7 +21,8 @@ phone's microphone.
 | B1 – Accounts (server + database) | Done: sign up / in / out, admin accounts (see `backend/README.md`) |
 | B2 – Global songs, my songs, search | Done (see `docs/ARCHITECTURE.md` 8k) |
 | B3 – Share requests and admin review | Done (see `docs/ARCHITECTURE.md` 8l) |
-| B4–B5 – Saved practice, password reset | Next |
+| B4 – Saved practice and My progress | Done (see `docs/ARCHITECTURE.md` 8m) |
+| B5 – Password reset by email, load test | Done (see `docs/ARCHITECTURE.md` 8n; email needs a Brevo key, see `backend/README.md`) |
 
 ## Requirements
 

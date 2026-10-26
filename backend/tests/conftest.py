@@ -4,6 +4,8 @@ import os
 
 os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "postgresql://postgres@localhost:55432/guitar_test")
 os.environ["COOKIE_SECURE"] = "false"  # the test client talks plain http
+os.environ["EMAIL_API_KEY"] = ""
+os.environ["EMAIL_LOG_LINKS"] = "true"  # emails are captured by the tests, never sent
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -11,7 +13,7 @@ from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from app.auth import signin_limiter  # noqa: E402
+from app.auth import reset_limiter, signin_limiter  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -33,8 +35,9 @@ def database():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as connection:
-        connection.execute(text("truncate share_requests, seed_log, songs, auth_sessions, users cascade"))
+        connection.execute(text("truncate password_resets, practice_saves, share_requests, seed_log, songs, auth_sessions, users cascade"))
     signin_limiter.reset()
+    reset_limiter.reset()
     yield
 
 

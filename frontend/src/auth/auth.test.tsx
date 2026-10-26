@@ -134,7 +134,9 @@ describe('accounts', () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
     renderApp('/songs/sample-first-frets/practice')
     expect(await screen.findByTestId('expected-number')).toHaveTextContent('10')
-    expect(await screen.findByRole('link', { name: 'Sign in' })).toBeInTheDocument()
+    // The header's Sign in, and the invitation to sign in to save the practice.
+    expect(await screen.findAllByRole('link', { name: 'Sign in' })).toHaveLength(2)
+    expect(screen.getByText(/to save your practice and see your progress/)).toBeInTheDocument()
   })
 
   it('says "Waking up the server…" while a request is slow', async () => {

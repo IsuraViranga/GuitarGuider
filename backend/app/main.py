@@ -1,14 +1,17 @@
 """The API server. Run locally: uvicorn app.main:app --reload (from the backend folder)."""
 
+import asyncio
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .auth import router as auth_router
+from .progress import router as progress_router
 from .sharing import router as sharing_router
 from .songs import router as songs_router
-from .db import engine
+from .db import MAX_CONNECTIONS, engine
 
 app = FastAPI(title="Melantha Guitar Academy API", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
@@ -32,6 +35,20 @@ async def never_store(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
     return response
+
+
+# Requests beyond the database's connections wait here, before they take a worker thread. Without
+# this, under load every worker thread could be waiting for a connection while the requests that
+# hold one wait for a free thread to finish, and everything stalls (found by loadtest/load_test.py).
+_database_turns = asyncio.Semaphore(MAX_CONNECTIONS)
+
+
+@app.middleware("http")
+async def one_turn_per_connection(request: Request, call_next):
+    if not request.url.path.startswith("/api/") or request.url.path == "/api/health":
+        return await call_next(request)
+    async with _database_turns:
+        return await call_next(request)
 
 
 @app.exception_handler(RequestValidationError)
@@ -66,3 +83,4 @@ def health_db() -> dict[str, str]:
 app.include_router(auth_router)
 app.include_router(songs_router)
 app.include_router(sharing_router)
+app.include_router(progress_router)

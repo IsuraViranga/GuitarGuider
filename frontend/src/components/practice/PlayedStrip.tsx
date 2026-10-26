@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import { midiToNoteName } from '../../music/pitch'
 import type { StepRecord, WrongTry } from '../../practice/practiceReducer'
 import { shortLabel } from '../../songs/describeNote'
@@ -12,8 +12,10 @@ type PlayedStripProps = {
   record: readonly StepRecord[]
   currentIndex: number
   completed: boolean
-  /** Jump to a note (to practise a red one again). */
-  onSelect: (index: number) => void
+  /** Jump to a note (to practise a red one again). Without it the notes are only shown (My progress). */
+  onSelect?: (index: number) => void
+  /** Shown under the heading (the practice page puts "Save this practice" here). */
+  children?: ReactNode
 }
 
 type Status = 'right' | 'mistake' | 'skipped' | 'current'
@@ -45,7 +47,7 @@ function describeStep(step: StepRecord, status: Status): string {
  * The student's own playing, step by step: green when right first time, red when there was a
  * mistake (with what was played instead), grey when skipped. Kept after the song is complete.
  */
-export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }: PlayedStripProps) {
+export function PlayedStrip({ notes, record, currentIndex, completed, onSelect, children }: PlayedStripProps) {
   const listRef = useRef<HTMLOListElement>(null)
   const shown = notes
     .map((note) => ({ note, step: record[note.index], status: stepStatus(record[note.index], !completed && note.index === currentIndex) }))
@@ -76,6 +78,7 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
           </p>
         )}
       </div>
+      {children}
       {!started ? (
         <p className={styles.empty}>Your notes appear here as you play: green when right, red when there was a mistake.</p>
       ) : (
@@ -90,12 +93,11 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
               <Fragment key={note.index}>
               {newLine && <LineBreak line={note.line!} className={styles.lineBreak} />}
               <li className={newMeasure ? styles.lineStart : undefined}>
-                <button
-                  type="button"
-                  className={`${styles.chip} ${styles[status]} ${note.index === currentIndex && !completed ? styles.now : ''}`}
-                  onClick={() => onSelect(note.index)}
-                  aria-label={`Note ${note.index + 1}, ${label}${note.lyric ? ` (${note.lyric})` : ''}: ${describeStep(step, status)}`}
-                  data-status={status}
+                <Chip
+                  className={`${styles.chip} ${styles[status]} ${note.index === currentIndex && !completed ? styles.now : ''} ${onSelect ? '' : styles.readOnly}`}
+                  onSelect={onSelect ? () => onSelect(note.index) : undefined}
+                  label={`Note ${note.index + 1}, ${label}${note.lyric ? ` (${note.lyric})` : ''}: ${describeStep(step, status)}`}
+                  status={status}
                 >
                   <span className={styles.number}>{label}</span>
                   {note.lyric && (
@@ -115,14 +117,30 @@ export function PlayedStrip({ notes, record, currentIndex, completed, onSelect }
                       {heardLabels(step.wrong).length > 2 ? '…' : ''}
                     </span>
                   )}
-                </button>
+                </Chip>
               </li>
               </Fragment>
             )
           })}
         </ol>
       )}
-      {mistakes > 0 && <p className={styles.hint}>Tap a red note to practise it again.</p>}
+      {mistakes > 0 && onSelect && <p className={styles.hint}>Tap a red note to practise it again.</p>}
     </section>
+  )
+}
+
+/** A note chip: a button that jumps to the note, or (read-only) a labelled box. */
+function Chip({ className, onSelect, label, status, children }: { className: string; onSelect?: () => void; label: string; status: Status; children: ReactNode }) {
+  if (onSelect) {
+    return (
+      <button type="button" className={className} onClick={onSelect} aria-label={label} data-status={status}>
+        {children}
+      </button>
+    )
+  }
+  return (
+    <span className={className} role="img" aria-label={label} data-status={status}>
+      {children}
+    </span>
   )
 }

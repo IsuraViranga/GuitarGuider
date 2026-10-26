@@ -150,3 +150,7 @@
 .lineBreak {
   font-size: 0.7rem;
 }
+
+.readOnly {
+  cursor: default;
+}

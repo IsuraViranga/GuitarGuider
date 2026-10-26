@@ -1,11 +1,13 @@
 import type { RouteObject } from 'react-router-dom'
 import { AuthPage } from '../pages/AuthPage'
+import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages'
 import { EditSongPage } from '../pages/EditSongPage'
 import { HomePage } from '../pages/HomePage'
 import { ImportPage } from '../pages/ImportPage'
 import { LibraryPage } from '../pages/LibraryPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { PracticePage } from '../pages/PracticePage'
+import { ProgressPage } from '../pages/ProgressPage'
 import { SongDetailPage } from '../pages/SongDetailPage'
 import { ApproveWithChangesPage, ReviewRequestPage } from '../pages/ShareRequests'
 import { Layout } from './Layout'
@@ -22,8 +24,11 @@ export const routes: RouteObject[] = [
       { path: '/requests/:requestId', element: <ReviewRequestPage /> },
       { path: '/requests/:requestId/edit', element: <ApproveWithChangesPage /> },
       { path: '/import', element: <ImportPage /> },
+      { path: '/progress', element: <ProgressPage /> },
       { path: '/signin', element: <AuthPage mode="signin" /> },
       { path: '/signup', element: <AuthPage mode="signup" /> },
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

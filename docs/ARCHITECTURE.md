@@ -613,6 +613,52 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   "📥 Requests" with a count, request cards (sender, time), review page (Approve, Edit and approve,
   Reject with optional reason, Try it), pick shower on approval.
 
+### 8m. Step B4: saving practice and My progress
+
+- Table `practice_saves` (Alembic `0004`): user, song (deleted with the song), mode, completed,
+  right/wrong/skipped counts, best streak, rating (1–3 picks, finished songs only) and `record`
+  (JSONB, what was played at each step). **One per user and song** (unique constraint): saving
+  again replaces it. Private: only the student sees it (the admin cannot).
+- Rating, worked out on the server: finished with 0 wrong notes = 3 picks, up to 3 wrong = 2,
+  more = 1; not finished = no picks (My progress shows how far, e.g. 50%).
+- API `/api/progress`: `GET` (my saves, newest first), `GET /{songId}` (with record; 404 if none),
+  `PUT /{songId}` (save/replace; the record must have one step per note of the song, else 422 so
+  a save never belongs to an older version of the song), `DELETE /{songId}`.
+- App: saving only when the student chooses, under "What you played" on the practice page
+  (💾 Save this practice; ready once something is played, glows when the song is finished; asks
+  before replacing; guests are invited to sign in; phone-only and unsaved songs say why they
+  can't be saved). `/progress` (account menu → 📈 My progress): summary chips, a card per song
+  (picks or %, numbers, Practise again, What you played read-only, remove with confirm).
+
+### 8n. Step B5: password reset by email, and a load test
+
+- Table `password_resets` (Alembic `0005`): only a SHA-256 hash of the link's random key, expiry
+  (30 min), used time. `POST /api/auth/forgot-password` answers the same for every email (no way
+  to find out who has an account), at most 3 emails per account per hour and 10 requests per
+  address per hour; the email is sent after answering. `POST /api/auth/reset-password/check`
+  (is the link still good? → the account's email) and `POST /api/auth/reset-password` (new
+  password: same rules as sign-up; ends every older link and every signed-in browser, then signs
+  in). The key travels after `#` in the link, so it never reaches server logs.
+- Email: Brevo HTTP API (`app/email.py`; Render's free plan blocks SMTP). `EMAIL_API_KEY` and
+  `EMAIL_FROM` on Render; without them the page says reset by email is not ready.
+  `EMAIL_LOG_LINKS=true` prints links in the log on your own computer.
+- App: "Forgot password?" on Sign in → `/forgot-password` (Check your email, Spam tip, Send again
+  after 30 s) → emailed link `/reset-password#key` (whose account, new password with Show) →
+  signed in with "Your new password is saved". Old/used links say so and offer a new one.
+- Load test (`backend/loadtest/load_test.py`, 500 pretend students at once: sign up, songs, a
+  song, save practice, My progress). It found two real problems, now fixed:
+  1. Under load every worker thread could wait for a database connection while the requests
+     holding one waited for a thread: everything stalled (85 % of requests failed). Now at most
+     20 requests use the database at once (`app/main.py`), the rest wait without a thread.
+  2. Each password hash (argon2) takes ~64 MB: a burst of sign-ins could exhaust the free
+     server's 512 MB. Now at most 2 hashes at once, and the database connection is given back
+     while hashing.
+  Result on a PC (8 cores), 500 students: 9 496 requests, 4 failed (0.04 %, dropped test
+  connections, none logged by the server); pages ~1.1-1.5 s each at the busiest moment; 500
+  sign-ups within 20 s wait up to 20 s (hashing is slow on purpose). Render's free server has
+  far less CPU (0.1), so live times will be slower; test it there only on purpose
+  (`--allow-remote`, a small number of users first).
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

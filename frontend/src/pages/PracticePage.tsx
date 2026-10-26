@@ -10,6 +10,7 @@ import { LevelBars } from '../components/decor/LevelBars'
 import { PickBurst } from '../components/decor/PickBurst'
 import { FeedbackBanner } from '../components/practice/FeedbackBanner'
 import { PlayedStrip } from '../components/practice/PlayedStrip'
+import { SavePractice } from '../components/practice/SavePractice'
 import { NoteTimeline } from '../components/timeline/NoteTimeline'
 import { STANDARD_TUNING, getTuning } from '../music/tuning'
 import { describeNote, noteAccessibleLabel, shortLabel } from '../songs/describeNote'
@@ -286,12 +287,12 @@ function PracticeView({ song }: { song: Song }) {
 
         <div className={styles.noteRow}>
           <div className={styles.spotlight}>
-            {practice.feedback.kind === 'correct' && <PickBurst key={practice.feedbackId} />}
+            {practice.feedback.kind === 'correct' && <PickBurst key={`burst-${practice.feedbackId}`} />}
             <h2 id="target-heading" className={styles.targetHeading}>
               {practice.completed ? 'Last note' : 'Play next'}
             </h2>
             <p
-              key={practice.positionVersion}
+              key={`number-${practice.positionVersion}`}
               className={`${styles.number} ${bigLabel.length > 3 ? styles.numberLong : ''}`}
               data-testid="expected-number"
             >
@@ -395,7 +396,9 @@ function PracticeView({ song }: { song: Song }) {
           currentIndex={practice.currentIndex}
           completed={practice.completed}
           onSelect={(index) => dispatch({ type: 'jumpTo', index })}
-        />
+        >
+          <SavePractice song={song} practice={practice} />
+        </PlayedStrip>
       </div>
 
       <fieldset className={styles.mode}>

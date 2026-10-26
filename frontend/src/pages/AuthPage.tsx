@@ -165,6 +165,11 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 {showPassword ? 'Hide' : 'Show'}
               </button>
             </div>
+            {mode === 'signin' && (
+              <Link className={styles.forgot} to="/forgot-password" state={{ email: email.trim() }}>
+                Forgot password?
+              </Link>
+            )}
             {mode === 'signup' && (
               <p id={ids.passwordHelp} className="muted">
                 At least {MIN_PASSWORD} characters.

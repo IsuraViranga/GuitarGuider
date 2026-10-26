@@ -1,9 +1,9 @@
-"""Database tables: accounts and songs. (Review requests and saved practice come in later steps.)"""
+"""Database tables: accounts, songs, share requests, saved practice and password resets."""
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -113,3 +113,45 @@ class ShareRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     requester: Mapped[User] = relationship(foreign_keys=[requester_id])
+
+
+class PracticeSave(Base):
+    """A practice the student chose to save: one per user and song (saving again replaces it)."""
+
+    __tablename__ = "practice_saves"
+    __table_args__ = (
+        UniqueConstraint("user_id", "song_id", name="practice_saves_one_per_song"),
+        CheckConstraint("mode in ('strict', 'flow')", name="practice_saves_mode_valid"),
+        CheckConstraint("rating is null or rating between 1 and 3", name="practice_saves_rating_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    song_id: Mapped[str] = mapped_column(ForeignKey("songs.id", ondelete="CASCADE"), index=True)
+    mode: Mapped[str] = mapped_column(String(10))
+    completed: Mapped[bool] = mapped_column(Boolean)
+    # Steps played right, wrong tries, best run of right notes in a row, steps skipped.
+    right_count: Mapped[int] = mapped_column(Integer)
+    wrong_count: Mapped[int] = mapped_column(Integer)
+    best_streak: Mapped[int] = mapped_column(Integer)
+    skipped_count: Mapped[int] = mapped_column(Integer)
+    # 1-3 picks, only for a finished song (3 = no mistakes, 2 = up to 3, 1 = more).
+    rating: Mapped[int | None] = mapped_column(Integer)
+    # "What you played": one entry per step of the song.
+    record: Mapped[list] = mapped_column(JSONB)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PasswordReset(Base):
+    """A "forgot password" link. Only a hash of its random key is stored; it works once, for a short time."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship()

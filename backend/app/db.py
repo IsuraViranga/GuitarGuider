@@ -12,10 +12,13 @@ class Base(DeclarativeBase):
     pass
 
 
+# At most this many requests use the database at the same moment (app/main.py waits the others).
+MAX_CONNECTIONS = 20
+
 engine = create_engine(
     get_settings().sqlalchemy_url,
-    pool_size=5,
-    max_overflow=5,
+    pool_size=10,
+    max_overflow=MAX_CONNECTIONS - 10,
     pool_pre_ping=True,  # Neon closes idle connections; check before use
     pool_recycle=300,
     # Neon's pooled address shares connections between users (PgBouncer), where psycopg's

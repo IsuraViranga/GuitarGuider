@@ -1,0 +1,251 @@
+/* My progress: summary chips, then one card per saved practice. */
+.results {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.summary {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.summary li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  border: 1px solid rgb(245 165 36 / 0.45);
+  color: var(--color-accent-strong);
+  font-size: 0.95rem;
+}
+
+.summaryPick {
+  width: 16px;
+  height: 16px;
+  color: var(--color-accent);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-3);
+  border-color: rgb(245 165 36 / 0.25);
+}
+
+.head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+/* Picks earned (finished) or how far the student got (not finished). */
+.result {
+  display: grid;
+  place-items: center;
+  min-width: 72px;
+  min-height: 56px;
+  padding: var(--space-2);
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 30%, rgb(245 165 36 / 0.22), transparent 70%), rgb(13 11 18 / 0.6);
+  border: 1px solid rgb(245 165 36 / 0.4);
+}
+
+.unfinished {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #b9a6ff;
+}
+
+.headText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.title a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: rgb(245 165 36 / 0.55);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.meta {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.stats li {
+  padding: 2px var(--space-3);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.stats strong {
+  color: var(--color-text);
+}
+
+.right strong {
+  color: var(--color-correct);
+}
+
+.wrong strong {
+  color: var(--color-incorrect);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4) 0 var(--space-1);
+  border-radius: 999px;
+  border: 1px solid rgb(245 165 36 / 0.45);
+  background: rgb(245 165 36 / 0.08);
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.playIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.8rem;
+  padding-left: 2px;
+}
+
+.toggle {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border-radius: 999px;
+  border: 1px solid rgb(155 132 255 / 0.5);
+  background: rgb(124 92 255 / 0.12);
+  color: #cdbfff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.remove {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.05);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.remove svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.remove:hover {
+  color: var(--color-incorrect);
+  border-color: rgb(255 122 122 / 0.6);
+}
+
+.play:focus-visible,
+.toggle:focus-visible,
+.remove:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  border: 2px solid var(--color-incorrect);
+  background: var(--color-incorrect-soft);
+}
+
+.confirm p {
+  margin: 0;
+}
+
+.confirmButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.confirmButtons :global(.button) {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: 999px;
+  font-size: 0.95rem;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.empty p {
+  margin: 0;
+}
+
+.emptyPick {
+  width: 40px;
+  height: 40px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 10px rgb(245 165 36 / 0.6));
+}

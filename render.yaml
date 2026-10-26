@@ -17,3 +17,10 @@ services:
         sync: false
       - key: COOKIE_SECURE
         value: "true"
+      # Password reset emails (Brevo, free: 300 a day). Links in emails point to the website.
+      - key: APP_URL
+        value: https://melantha-guitar-academy.netlify.app
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

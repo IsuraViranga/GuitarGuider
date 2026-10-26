@@ -16,6 +16,22 @@ class Settings(BaseSettings):
     # Sign-in attempts allowed per email (and per address) in the window below.
     signin_attempts: int = 10
     signin_window_seconds: int = 15 * 60
+    # The website's address, for links in emails (password reset).
+    app_url: str = "http://localhost:5173"
+    # Emails are sent with Brevo's HTTP API (Render's free plan blocks SMTP). Without a key, no email
+    # can be sent; EMAIL_LOG_LINKS=true prints the link in the server log instead (own computer only).
+    email_api_key: str = ""
+    email_from: str = ""
+    email_from_name: str = "Melantha Guitar Academy"
+    email_log_links: bool = False
+    reset_minutes: int = 30
+    # Reset emails per account per hour (and requests per address per hour).
+    reset_per_hour: int = 3
+    reset_requests_per_address: int = 10
+
+    @property
+    def email_ready(self) -> bool:
+        return bool(self.email_api_key and self.email_from) or self.email_log_links
 
     @property
     def sqlalchemy_url(self) -> str:

@@ -12,10 +12,20 @@ MAX_PASSWORD = 128
 
 def _clean_email(value: str) -> str:
     try:
-        # No internet check here: whether the mailbox really exists is checked by email later (step B5).
+        # No internet check here: a mistyped address simply gets no emails (e.g. no password reset link).
         return validate_email(value.strip(), check_deliverability=False).normalized.lower()
     except EmailNotValidError:
         raise ValueError("Please enter a valid email address, like name@example.com.") from None
+
+
+def _check_password(value: str) -> str:
+    if len(value) < MIN_PASSWORD:
+        raise ValueError(f"Please use at least {MIN_PASSWORD} characters for your password.")
+    if len(value) > MAX_PASSWORD:
+        raise ValueError(f"Please use a password of {MAX_PASSWORD} characters or less.")
+    if not value.strip():
+        raise ValueError("A password cannot be only spaces.")
+    return value
 
 
 class SignUpIn(BaseModel):
@@ -41,13 +51,7 @@ class SignUpIn(BaseModel):
     @field_validator("password")
     @classmethod
     def password_ok(cls, value: str) -> str:
-        if len(value) < MIN_PASSWORD:
-            raise ValueError(f"Please use at least {MIN_PASSWORD} characters for your password.")
-        if len(value) > MAX_PASSWORD:
-            raise ValueError(f"Please use a password of {MAX_PASSWORD} characters or less.")
-        if not value.strip():
-            raise ValueError("A password cannot be only spaces.")
-        return value
+        return _check_password(value)
 
 
 class SignInIn(BaseModel):
@@ -58,6 +62,28 @@ class SignInIn(BaseModel):
     @classmethod
     def email_ok(cls, value: str) -> str:
         return _clean_email(value)
+
+
+class ForgotPasswordIn(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def email_ok(cls, value: str) -> str:
+        return _clean_email(value)
+
+
+class ResetLinkIn(BaseModel):
+    token: str
+
+
+class ResetPasswordIn(ResetLinkIn):
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_ok(cls, value: str) -> str:
+        return _check_password(value)
 
 
 class UserOut(BaseModel):

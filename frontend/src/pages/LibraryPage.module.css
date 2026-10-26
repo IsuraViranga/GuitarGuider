@@ -424,6 +424,14 @@
   gap: var(--space-2);
 }
 
+/* Compact pills inside the card (still a full-height touch target). */
+.confirmButtons :global(.button) {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: 999px;
+  font-size: 0.95rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chevron {
     transition: none;

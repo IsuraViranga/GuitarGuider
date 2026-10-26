@@ -58,9 +58,43 @@ DATABASE_URL="postgresql://…neon.tech/…?sslmode=require" .venv/Scripts/pytho
 `python -m app.cli seed-songs` adds each one to the global set list once (Render runs it on every
 deploy); songs the admin changed or deleted are left alone.
 
+## Password reset by email
+
+"Forgot password?" on the sign-in page emails a link (`/reset-password#key`). The link works
+once, for 30 minutes; using it sets the new password, signs out every other browser and signs in.
+At most 3 emails per account per hour, and the answer is the same whether or not an account
+uses the email (so nobody can find out who has an account).
+
+Emails go through **Brevo**'s HTTP API (Render's free plan blocks SMTP, so Gmail/SMTP cannot be
+used from there). Set up once:
+
+1. Create a free account at brevo.com (300 emails a day).
+2. **Senders, domains & dedicated IPs → Senders → Add a sender**: the address emails come from
+   (e.g. your Gmail); Brevo sends it a confirmation email.
+3. **SMTP & API → API keys → Generate a new API key**.
+4. On Render (service → Environment) add `EMAIL_API_KEY` (the key) and `EMAIL_FROM` (the sender
+   address), and check `APP_URL` is the website's address. Never put the key in the code or chat.
+
+Without a key the "Forgot password?" page says reset by email is not ready. On your own computer
+`EMAIL_LOG_LINKS=true` (in `.env`) prints the link in the server log instead of sending it.
+
+## Load test
+
+`loadtest/load_test.py` makes many pretend students use the API at once (sign up, songs, a song,
+save practice, My progress) and prints the time per request and any errors:
+
+```bash
+.venv/Scripts/python loadtest/load_test.py --users 500
+```
+
+It refuses a server that is not on this computer unless `--allow-remote` is given (it creates
+real accounts). Results (October 2026) are in `docs/ARCHITECTURE.md` (8n).
+
 ## How sign-in works
 
-- Passwords are stored only as argon2 hashes.
+- Passwords are stored only as argon2 hashes. At most two are worked out at the same moment
+  (each takes about 64 MB of memory; the free server has 512 MB), and the database connection is
+  given back while hashing.
 - Signing in creates a random session key in an `httpOnly`, `Secure`, `SameSite=Lax` cookie
   (path `/api`); the database stores only its SHA-256 hash, so signing out ends it for good.
   Sessions last 30 days.

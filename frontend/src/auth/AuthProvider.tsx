@@ -48,6 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [signedIn],
   )
 
+  const resetPassword = useCallback(
+    async (token: string, password: string) => {
+      const me = await apiRequest<User>('/api/auth/reset-password', { method: 'POST', body: { token, password } })
+      return signedIn(me, `Your new password is saved. Welcome back, ${me.name}!`)
+    },
+    [signedIn],
+  )
+
   const signOut = useCallback(async () => {
     try {
       await apiRequest<void>('/api/auth/signout', { method: 'POST' })
@@ -61,8 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthState>(
-    () => ({ status, user, signIn, signUp, signOut, welcome, dismissWelcome: () => setWelcome(null) }),
-    [status, user, signIn, signUp, signOut, welcome],
+    () => ({ status, user, signIn, signUp, signOut, resetPassword, welcome, dismissWelcome: () => setWelcome(null) }),
+    [status, user, signIn, signUp, signOut, resetPassword, welcome],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
