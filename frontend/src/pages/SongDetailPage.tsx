@@ -150,7 +150,7 @@ function SongActions({ song }: { song: Song }) {
             Delete song
           </button>
         )}
-        {ownSong && share !== 'pending' && (
+        {ownSong && share !== 'pending' && share !== 'approved' && (
           <button type="button" className="button" onClick={() => changeShare('send')} disabled={busy}>
             <span aria-hidden="true">🌍 </span>
             {share === 'rejected' ? 'Share again' : 'Share with everyone'}

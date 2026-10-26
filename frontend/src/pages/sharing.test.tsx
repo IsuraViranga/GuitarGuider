@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ADMIN, apiSong, fakeServer, signedInAs, USER } from '../test/fakeServer'
 import { renderApp } from '../test/renderApp'
 import { timeAgo } from './ShareRequests'
@@ -75,6 +75,8 @@ describe('a user shares their song', () => {
     renderApp('/songs?list=mine')
     const shared = (await screen.findByRole('link', { name: 'Shared One' })).closest('li')!
     expect(within(shared).getByTestId('share-status')).toHaveTextContent('Shared with everyone')
+    // Already shared: no Share button (sharing again would make a second global copy).
+    expect(within(shared).queryByRole('button', { name: /Share .* with everyone/ })).not.toBeInTheDocument()
     const refused = screen.getByRole('link', { name: 'Refused One' }).closest('li')!
     expect(within(refused).getByTestId('share-status')).toHaveTextContent('Not accepted for the global set list. Admin: “Please add the words.” You can change it and share again.')
     expect(within(refused).getByRole('button', { name: 'Share Refused One with everyone' })).toBeInTheDocument()
@@ -196,5 +198,19 @@ describe('timeAgo', () => {
     expect(timeAgo('2026-10-27T11:55:00Z', now)).toBe('5 minutes ago')
     expect(timeAgo('2026-10-27T11:00:00Z', now)).toBe('1 hour ago')
     expect(timeAgo('2026-10-25T12:00:00Z', now)).toBe('2 days ago')
+  })
+})
+
+describe('always the latest from the server', () => {
+  it('every request asks for a fresh copy (never an old one from the browser cache)', async () => {
+    const calls: RequestInit[] = []
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      calls.push(init ?? {})
+      return new Response(JSON.stringify({ songs: [] }), { status: 200 })
+    })
+    renderApp('/songs')
+    await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2)) // who is signed in + the song list
+    expect(calls.every((init) => init.cache === 'no-store')).toBe(true)
+    spy.mockRestore()
   })
 })

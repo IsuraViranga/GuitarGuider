@@ -140,6 +140,9 @@
   white-space: nowrap;
   font-size: 0.72rem;
   font-style: italic;
+  /* Tall enough for Sinhala marks above and below letters (ි ් ු ූ). */
+  line-height: 1.9;
+  padding: 0 2px;
   color: var(--color-muted);
 }
 

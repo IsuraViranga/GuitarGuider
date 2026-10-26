@@ -24,6 +24,16 @@ async def require_app_header(request: Request, call_next):
     return await call_next(request)
 
 
+@app.middleware("http")
+async def never_store(request: Request, call_next):
+    """Song lists, sign-in state and requests change all the time: no browser or Netlify edge copy,
+    so a song shared or changed a moment ago always shows without refreshing."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
 @app.exception_handler(RequestValidationError)
 async def friendly_validation_errors(_request: Request, exc: RequestValidationError) -> JSONResponse:
     """{"detail": first message, "fields": {field: message}}, with Pydantic's prefixes removed."""

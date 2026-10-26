@@ -53,6 +53,8 @@ export async function apiRequest<T>(path: string, { method = 'GET', body }: Opti
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
+      // Always the latest (never an old copy from the browser cache).
+      cache: 'no-store',
       headers: { 'X-Requested-With': 'fetch', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,

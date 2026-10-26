@@ -19,7 +19,7 @@ from .auth import current_user, require_admin
 from .db import get_db
 from .models import ShareRequest, Song, User
 from .song_schemas import RejectIn, ShareRequestDetailOut, ShareRequestOut, SongIn, SongSummaryOut
-from .songs import _visible, apply, own_share, summary
+from .songs import _visible, apply, own_share, shared_copy_gone, summary
 
 router = APIRouter(prefix="/api", tags=["sharing"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -95,6 +95,9 @@ def request_share(song_id: str, db: DbSession, user: SignedInUser) -> SongSummar
     current = own_share(db, song)
     if current is not None and current.status == "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_WAITING)
+    if current is not None and current.status == "approved" and not shared_copy_gone(current):
+        # Sharing again would put a second copy in the global set list.
+        raise HTTPException(status.HTTP_409_CONFLICT, "This song is already shared with everyone.")
     request = ShareRequest(song_id=song.id, requester_id=user.id, status="pending", snapshot=snapshot_of(song))
     db.add(request)
     try:

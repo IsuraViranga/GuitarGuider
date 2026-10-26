@@ -135,3 +135,20 @@ def test_deleting_the_own_song_removes_its_waiting_request():
     isura.post(f"/api/songs/{mine}/share")
     isura.delete(f"/api/songs/{mine}")
     assert pending(admin) == []
+
+
+def test_a_shared_song_cannot_be_shared_again_unless_the_admin_removed_the_global_copy():
+    isura, _rasika, admin, mine = setup_people()
+    isura.post(f"/api/songs/{mine}/share")
+    global_id = admin.post(f"/api/share-requests/{pending(admin)[0]['id']}/approve").json()["globalSongId"]
+    again = isura.post(f"/api/songs/{mine}/share")
+    assert again.status_code == 409 and again.json()["detail"] == "This song is already shared with everyone."
+    # The admin deletes the global copy: the song is no longer shared and may be shared again.
+    admin.delete(f"/api/songs/{global_id}")
+    assert isura.get(f"/api/songs/{mine}").json()["shareStatus"] is None
+    assert isura.post(f"/api/songs/{mine}/share").status_code == 201
+
+
+def test_api_answers_are_never_stored_by_browsers_or_netlify():
+    assert guest().get("/api/songs").headers["cache-control"] == "no-store"
+    assert guest().get("/api/health").headers["cache-control"] == "no-store"

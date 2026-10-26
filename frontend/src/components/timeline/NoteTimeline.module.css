@@ -94,6 +94,9 @@
   white-space: nowrap;
   font-size: 0.8rem;
   font-style: italic;
+  /* Tall enough for Sinhala marks above and below letters (ි ් ු ූ), which would otherwise be cut. */
+  line-height: 1.9;
+  padding: 0 2px;
   color: var(--color-accent-strong);
 }
 

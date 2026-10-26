@@ -53,9 +53,14 @@ def summary(song: Song, user: User | None, share: ShareRequest | None = None) ->
         note_count=song.note_count,
         chord_count=song.chord_count,
         updated_at=song.updated_at,
-        share_status=share.status if share else None,
-        share_reason=share.reason if share else None,
+        share_status=share.status if share and not shared_copy_gone(share) else None,
+        share_reason=share.reason if share and not shared_copy_gone(share) else None,
     )
+
+
+def shared_copy_gone(share: ShareRequest) -> bool:
+    """Approved, but the admin has since deleted the global copy: the song is no longer shared."""
+    return share.status == "approved" and share.global_song_id is None
 
 
 def latest_shares(db: Session, song_ids: list[str]) -> dict[str, ShareRequest]:

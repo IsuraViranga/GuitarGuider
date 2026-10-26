@@ -83,8 +83,9 @@ function SongCard({ song, number, onChanged }: { song: SongSummary; number: numb
   const [confirming, setConfirming] = useState<'delete' | 'share' | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Your own songs can be offered to the global set list (unless one request is already waiting).
-  const canShare = song.scope === 'mine' && song.canEdit && song.shareStatus !== 'pending'
+  // Your own songs can be offered to the global set list, unless a request is waiting or it is
+  // already shared (sharing again would make a second global copy).
+  const canShare = song.scope === 'mine' && song.canEdit && song.shareStatus !== 'pending' && song.shareStatus !== 'approved'
 
   async function run(action: () => Promise<void>, failure: string) {
     setBusy(true)
