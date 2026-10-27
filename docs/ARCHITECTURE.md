@@ -703,6 +703,16 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   judged right both ways, 26 for 11 caught 6 of 8 (2 disturbed, unsure), no correctly played note
   ever called wrong; 20/34 not checked. To confirm on another day: the client records each open
   string 3× and the pairs 5× each with "Record this practice".
+- Wound strings (2026-10-27, setup recording `recordings/guitarStringTrack/`, "Record this setup",
+  up to 5 min): strings 3 and 6 were never learned. Their B was steady (string 3: 3.6–4.7, string 6:
+  17.5–19.7) but their overtones fit the curve less regularly (string 3 ≈ 2.5 c, string 6 ≈ 1.6 c,
+  plain strings 0.3 c; disturbed plucks 3.9–11 c), so one fixed 1.5 c limit rejected them. Now the
+  setup accepts plucks up to 3.5 c (`MAX_STRING_MISFIT`) and learns each string's usual misfit
+  (`StringSetup.misfit`); a pluck is judged against the limit of the string it is judged as
+  (1.4 × usual, at least 1.5, at most 3.5). Setups saved earlier have no misfit: 1.5 for all (do
+  the setup again). Learned on that guitar (×10⁻⁵): 1.7, 4.2, 3.7, 6.4, 11.5, 17.6; neighbouring
+  pairs 1–2, 3–4, 4–5, 5–6 checked, 2–3 too alike. With it, the 2026-10-24 pair recordings: no
+  correct note called wrong, 10/25 and 13/28 caught in both directions.
 
 ## 9. Later phases (unchanged from the brief, condensed)
 

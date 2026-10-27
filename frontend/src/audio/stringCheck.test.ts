@@ -11,6 +11,7 @@ const E4 = midiToFrequency(64)
 const ROOM = 0.0008
 /** The client's guitar (×10⁻⁵): string 1 open 1.7, string 2 open 4.5. */
 const OPEN = { 1: 1.7e-5, 2: 4.5e-5 }
+const STRINGS = { open: OPEN }
 
 /** The newest STIFFNESS_WINDOW samples ending `ms` after the start of `signal`. */
 const windowAt = (signal: Float32Array, ms: number) => {
@@ -50,23 +51,23 @@ describe('stiffness measurement', () => {
 
 describe('which positions can be checked', () => {
   it('10 can be told from 25 (strings 1 and 2 differ about 4×); 39 is skipped while string 3 is not measured', () => {
-    const check = planStringCheck({ stringNumber: 1, fret: 0 }, OPEN, STANDARD_TUNING)!
+    const check = planStringCheck({ stringNumber: 1, fret: 0 }, STRINGS, STANDARD_TUNING)!
     expect(check.others.map((o) => o.position)).toEqual([{ stringNumber: 2, fret: 5 }])
   })
 
   it('nothing to check when the other strings sound too alike (20 and 34 on the client guitar)', () => {
     // String 3 (wound) open about 2.9: at fret 4 that is 4.6, next to string 2 open at 4.5.
-    expect(planStringCheck({ stringNumber: 2, fret: 0 }, { 2: 4.5e-5, 3: 2.9e-5 }, STANDARD_TUNING)).toBeNull()
+    expect(planStringCheck({ stringNumber: 2, fret: 0 }, { open: { 2: 4.5e-5, 3: 2.9e-5 } }, STANDARD_TUNING)).toBeNull()
   })
 
   it('nothing to check without a setup for the string, or for a note only one string has', () => {
-    expect(planStringCheck({ stringNumber: 3, fret: 0 }, OPEN, STANDARD_TUNING)).toBeNull()
-    expect(planStringCheck({ stringNumber: 6, fret: 0 }, { 6: 2e-4 }, STANDARD_TUNING)).toBeNull()
+    expect(planStringCheck({ stringNumber: 3, fret: 0 }, STRINGS, STANDARD_TUNING)).toBeNull()
+    expect(planStringCheck({ stringNumber: 6, fret: 0 }, { open: { 6: 2e-4 } }, STANDARD_TUNING)).toBeNull()
   })
 })
 
 describe('string verdicts', () => {
-  const check = planStringCheck({ stringNumber: 1, fret: 0 }, OPEN, STANDARD_TUNING)! // 10: 1.7, 25: 8.0
+  const check = planStringCheck({ stringNumber: 1, fret: 0 }, STRINGS, STANDARD_TUNING)! // 10: 1.7, 25: 8.0
 
   it('the expected string', () => {
     expect(judgeString(check, clean(1.8e-5))).toEqual({ result: 'expected' })
@@ -83,6 +84,34 @@ describe('string verdicts', () => {
     expect(judgeString(check, clean(7.7e-5, 8))).toEqual({ result: 'unsure' }) // few overtones
     expect(judgeString(check, clean(3.6e-5))).toEqual({ result: 'unsure' }) // between the two
     expect(judgeString(check, clean(40e-5))).toEqual({ result: 'unsure' }) // matches neither
+  })
+
+  describe('each string judged against how regular it normally is (learned in the setup)', () => {
+    // A real guitar: string 3 (wound) usually fits within 2.5 cents, string 4 within 0.6.
+    const strings = { open: { 3: 3.7e-5, 4: 6.4e-5 }, misfit: { 3: 2.5, 4: 0.6 } }
+    const at30 = planStringCheck({ stringNumber: 3, fret: 0 }, strings, STANDARD_TUNING)! // 30: 3.7, 45: 11.4
+    const wound = (b: number, misfit: number): Stiffness => ({ b, overtones: 24, misfit })
+
+    it('a normal pluck of a wound string counts, though less regular than a plain one', () => {
+      expect(at30.expected.maxMisfit).toBe(3.5) // 1.4 × 2.5
+      expect(judgeString(at30, wound(3.9e-5, 2.9))).toEqual({ result: 'expected' })
+    })
+
+    it('the other string must fit as well as it normally does', () => {
+      expect(at30.others[0].maxMisfit).toBe(1.5) // string 4: 1.4 × 0.6 is below the floor
+      expect(judgeString(at30, wound(11e-5, 0.9))).toEqual({ result: 'other', heard: { stringNumber: 4, fret: 5 } })
+      expect(judgeString(at30, wound(11e-5, 2.9))).toEqual({ result: 'unsure' }) // too irregular for string 4
+    })
+
+    it('never trusted above 3.5 cents (disturbed plucks measured 3.9–11)', () => {
+      const loose = planStringCheck({ stringNumber: 3, fret: 0 }, { ...strings, misfit: { 3: 3.4, 4: 3.4 } }, STANDARD_TUNING)!
+      expect(loose.expected.maxMisfit).toBe(3.5)
+      expect(judgeString(loose, wound(11e-5, 3.9))).toEqual({ result: 'unsure' })
+    })
+
+    it('setups saved before this keep the plain-string limit', () => {
+      expect(planStringCheck({ stringNumber: 3, fret: 0 }, { open: strings.open }, STANDARD_TUNING)!.expected.maxMisfit).toBe(1.5)
+    })
   })
 })
 
@@ -135,12 +164,17 @@ describe('string check in the live tracker', () => {
 describe('guitar setup', () => {
   it('keeps a string once 3 clean plucks agree (within 15%)', () => {
     expect(settledStiffness([clean(4.5e-5), clean(4.6e-5)])).toBeNull()
-    expect(settledStiffness([clean(4.5e-5), clean(4.6e-5), clean(4.2e-5)])).toBe(4.5e-5)
+    expect(settledStiffness([clean(4.5e-5), clean(4.6e-5), clean(4.2e-5)])).toEqual({ b: 4.5e-5, misfit: 0.3 })
   })
 
   it('ignores disturbed plucks and waits while plucks disagree', () => {
-    expect(settledStiffness([clean(4.5e-5), { b: 7e-4, overtones: 21, misfit: 5.4 }, clean(4.6e-5), null, clean(4.4e-5)])).toBe(4.5e-5)
+    expect(settledStiffness([clean(4.5e-5), { b: 7e-4, overtones: 21, misfit: 5.4 }, clean(4.6e-5), null, clean(4.4e-5)])).toEqual({ b: 4.5e-5, misfit: 0.3 })
     expect(settledStiffness([clean(4.5e-5), clean(9e-5), clean(4.4e-5)])).toBeNull()
+  })
+
+  it('learns a wound string, whose overtones are less regular, and how regular it is', () => {
+    const g = (b: number, misfit: number): Stiffness => ({ b, overtones: 24, misfit })
+    expect(settledStiffness([g(3.68e-5, 2.81), g(3.6e-5, 2.17), g(4.06e-5, 2.46)])).toEqual({ b: 3.68e-5, misfit: 2.46 })
   })
 
   it('tells which neighbouring strings it can check', () => {

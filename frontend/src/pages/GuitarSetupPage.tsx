@@ -96,7 +96,7 @@ export function GuitarSetupPage() {
   useEffect(() => {
     if (!done) return
     stop()
-    if (Object.keys(setup.open).length > 0) save({ open: setup.open, savedAt: new Date().toISOString() })
+    if (Object.keys(setup.open).length > 0) save({ open: setup.open, misfit: setup.misfit, savedAt: new Date().toISOString() })
     // Save once when the setup finishes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])

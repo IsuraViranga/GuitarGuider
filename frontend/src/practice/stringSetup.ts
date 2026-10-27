@@ -3,32 +3,49 @@
 // New strings or another guitar: do the setup again (it takes about 30 seconds).
 
 import { useState } from 'react'
-import { CHECKABLE_RATIO, isClean, predictStiffness, type OpenStringStiffness, type Stiffness } from '../audio/stringCheck'
+import {
+  CHECKABLE_RATIO,
+  isClean,
+  MAX_STRING_MISFIT,
+  predictStiffness,
+  type GuitarStrings,
+  type OpenStringStiffness,
+  type Stiffness,
+} from '../audio/stringCheck'
 import { STRING_NUMBERS, type StringNumber, type Tuning } from '../music/tuning'
 
-/** Clean plucks of one open string that must agree before its stiffness is kept. */
+/** Clear plucks of one open string that must agree before its stiffness is kept. */
 export const SETUP_PLUCKS = 3
 /** They agree when each is within this fraction of their middle value. */
 const AGREEMENT = 0.15
 
 const STORAGE_KEY = 'guitar-practice:string-setup'
 
-export type StringSetup = {
-  /** Stiffness (B) of each open string that was measured. */
-  open: OpenStringStiffness
-  savedAt: string
+/** Each measured open string's stiffness (B) and usual misfit (see GuitarStrings). */
+export type StringSetup = GuitarStrings & { savedAt: string }
+
+/**
+ * A pluck clear enough for the setup. Wound strings fit their curve less regularly than plain
+ * ones (string 3 about 2.5 cents on a real guitar), so anything up to MAX_STRING_MISFIT counts;
+ * plucks disturbed by another string or a buzz measured above it.
+ */
+export function isClearPluck(stiffness: Stiffness | null): stiffness is Stiffness {
+  return isClean(stiffness, MAX_STRING_MISFIT)
 }
 
 /**
- * The stiffness to keep for a string from its plucks so far: the middle of the newest
- * SETUP_PLUCKS clean ones, once they agree; otherwise null (keep plucking).
+ * What to keep for a string from its plucks so far, once the newest SETUP_PLUCKS clear ones agree:
+ * their middle B and their middle misfit (how regular this string's overtones normally are).
+ * Otherwise null (keep plucking).
  */
-export function settledStiffness(plucks: readonly (Stiffness | null)[]): number | null {
-  const clean = plucks.filter(isClean).map((s) => s.b)
-  if (clean.length < SETUP_PLUCKS) return null
-  const newest = clean.slice(-SETUP_PLUCKS).sort((a, b) => a - b)
-  const middle = newest[newest.length >> 1]
-  return newest.every((b) => Math.abs(b - middle) <= AGREEMENT * middle) ? middle : null
+export function settledStiffness(plucks: readonly (Stiffness | null)[]): { b: number; misfit: number } | null {
+  const clear = plucks.filter(isClearPluck)
+  if (clear.length < SETUP_PLUCKS) return null
+  const newest = clear.slice(-SETUP_PLUCKS)
+  const middle = (values: number[]) => [...values].sort((a, b) => a - b)[values.length >> 1]
+  const b = middle(newest.map((s) => s.b))
+  if (!newest.every((s) => Math.abs(s.b - b) <= AGREEMENT * b)) return null
+  return { b, misfit: middle(newest.map((s) => s.misfit)) }
 }
 
 export function loadStringSetup(): StringSetup | null {
@@ -37,11 +54,16 @@ export function loadStringSetup(): StringSetup | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StringSetup>
     const open: OpenStringStiffness = {}
+    const misfit: NonNullable<GuitarStrings['misfit']> = {}
     for (const string of STRING_NUMBERS) {
       const b = parsed.open?.[string]
       if (typeof b === 'number' && b > 0 && b < 0.01) open[string] = b
+      const m = parsed.misfit?.[string]
+      if (typeof m === 'number' && m >= 0 && m <= MAX_STRING_MISFIT) misfit[string] = m
     }
-    return Object.keys(open).length > 0 && typeof parsed.savedAt === 'string' ? { open, savedAt: parsed.savedAt } : null
+    if (Object.keys(open).length === 0 || typeof parsed.savedAt !== 'string') return null
+    // Setups saved before the misfit was learned have none: plain-string limits apply.
+    return Object.keys(misfit).length > 0 ? { open, misfit, savedAt: parsed.savedAt } : { open, savedAt: parsed.savedAt }
   } catch {
     return null
   }
@@ -79,6 +101,7 @@ export type SetupState = {
   /** Measurements of the current string so far (null = not clear enough to measure). */
   tries: readonly (Stiffness | null)[]
   open: OpenStringStiffness
+  misfit: NonNullable<GuitarStrings['misfit']>
   /** Strings skipped by the student or left out because they gave no clear measurement. */
   left: readonly StringNumber[]
   /** What happened on the last pluck, for the message under the picks. */
@@ -87,37 +110,33 @@ export type SetupState = {
 
 export type SetupAction = { type: 'pluck'; stiffness: Stiffness | null } | { type: 'skip' } | { type: 'restart' }
 
-export const INITIAL_SETUP: SetupState = { index: 0, tries: [], open: {}, left: [], last: null }
+export const INITIAL_SETUP: SetupState = { index: 0, tries: [], open: {}, misfit: {}, left: [], last: null }
 
 export function setupString(state: SetupState): StringNumber | null {
   return SETUP_ORDER[state.index] ?? null
 }
 
-/** Clean plucks shown as filled picks for the current string (at most SETUP_PLUCKS). */
+/** Clear plucks shown as filled picks for the current string (at most SETUP_PLUCKS). */
 export function countedPlucks(state: SetupState): number {
-  return Math.min(state.tries.filter(isClean).length, SETUP_PLUCKS)
+  return Math.min(state.tries.filter(isClearPluck).length, SETUP_PLUCKS)
 }
 
 export function setupReducer(state: SetupState, action: SetupAction): SetupState {
   if (action.type === 'restart') return INITIAL_SETUP
   const string = setupString(state)
   if (string === null) return state
-  const next = (open: OpenStringStiffness, left: readonly StringNumber[], last: SetupState['last']): SetupState => ({
-    index: state.index + 1,
-    tries: [],
-    open,
-    left,
-    last,
-  })
-  if (action.type === 'skip') return next(state.open, [...state.left, string], null)
+  const next = (changes: Partial<SetupState>): SetupState => ({ ...state, index: state.index + 1, tries: [], ...changes })
+  if (action.type === 'skip') return next({ left: [...state.left, string], last: null })
 
   const tries = [...state.tries, action.stiffness]
   const settled = settledStiffness(tries)
-  if (settled !== null) return next({ ...state.open, [string]: settled }, state.left, 'kept')
-  if (tries.length >= MAX_SETUP_TRIES) return next(state.open, [...state.left, string], 'left-out')
+  if (settled !== null) {
+    return next({ open: { ...state.open, [string]: settled.b }, misfit: { ...state.misfit, [string]: settled.misfit }, last: 'kept' })
+  }
+  if (tries.length >= MAX_SETUP_TRIES) return next({ left: [...state.left, string], last: 'left-out' })
   let last: SetupState['last'] = 'counted'
-  if (!isClean(action.stiffness)) last = 'unclear'
-  else if (tries.filter(isClean).length >= SETUP_PLUCKS) last = 'not-same'
+  if (!isClearPluck(action.stiffness)) last = 'unclear'
+  else if (tries.filter(isClearPluck).length >= SETUP_PLUCKS) last = 'not-same'
   return { ...state, tries, last }
 }
 

@@ -133,7 +133,7 @@ function PracticeView({ song }: { song: Song }) {
   // String check: only for a single note that another string can also play, when this guitar's
   // setup can tell those strings apart. The detector then measures the string of that note.
   const stringCheck =
-    !practice.completed && note.position && !note.chord && stringSetup ? planStringCheck(note.position, stringSetup.open, tuning) : null
+    !practice.completed && note.position && !note.chord && stringSetup ? planStringCheck(note.position, stringSetup, tuning) : null
   const probeMidi = stringCheck ? note.midi : null
   useEffect(() => {
     stringCheckRef.current = stringCheck
