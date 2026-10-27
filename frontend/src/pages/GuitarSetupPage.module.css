@@ -175,6 +175,10 @@
   border-color: rgb(74 222 128 / 0.45);
 }
 
+.recorder {
+  font-size: 0.95rem;
+}
+
 .pairs {
   margin: 0;
   padding-left: var(--space-4);

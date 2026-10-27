@@ -23,7 +23,17 @@ function formatSeconds(total: number): string {
  * the real guitar. Only runs when the student taps it. The files go to the student's own
  * computer (or are downloaded); nothing is uploaded anywhere else.
  */
-export function PracticeRecorder({ listening }: { listening: ListeningState }) {
+export function PracticeRecorder({
+  listening,
+  title = 'Practice recording (for testing)',
+  playHint = 'Play the song as you normally would.',
+  startLabel = 'Record this practice',
+}: {
+  listening: ListeningState
+  title?: string
+  playHint?: string
+  startLabel?: string
+}) {
   const [state, setState] = useState<State>({ step: 'idle' })
   const [elapsed, setElapsed] = useState(0)
   const { status, recording, startRecording, stopRecording } = listening
@@ -76,12 +86,12 @@ export function PracticeRecorder({ listening }: { listening: ListeningState }) {
 
   return (
     <div className={styles.recorder}>
-      <h3 className={styles.recorderTitle}>Practice recording (for testing)</h3>
+      <h3 className={styles.recorderTitle}>{title}</h3>
       {state.step === 'recording' ? (
         <>
           <p role="status">
             <span className={styles.recDot} aria-hidden="true" /> Recording {formatSeconds(elapsed)} of{' '}
-            {formatSeconds(MAX_RECORDING_SECONDS)}. Play the song as you normally would.
+            {formatSeconds(MAX_RECORDING_SECONDS)}. {playHint}
           </p>
           <button type="button" className="button button-primary" onClick={() => void finish()}>
             <span aria-hidden="true">■</span> Stop and save
@@ -94,7 +104,7 @@ export function PracticeRecorder({ listening }: { listening: ListeningState }) {
             The files are saved on your computer only.
           </p>
           <button type="button" className="button" onClick={begin} disabled={!canStart || state.step === 'sending'}>
-            <span aria-hidden="true">⏺</span> Record this practice
+            <span aria-hidden="true">⏺</span> {startLabel}
           </button>
         </>
       )}

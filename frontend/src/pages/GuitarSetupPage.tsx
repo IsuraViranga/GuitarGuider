@@ -9,6 +9,7 @@ import { GuitarPick } from '../components/decor/GuitarPick'
 import { LevelBars } from '../components/decor/LevelBars'
 import { PickBurst } from '../components/decor/PickBurst'
 import { Fretboard } from '../components/fretboard/Fretboard'
+import { PracticeRecorder } from '../components/listening/PracticeRecorder'
 import { midiToNoteName } from '../music/pitch'
 import { STANDARD_TUNING, type StringNumber } from '../music/tuning'
 import { useMicBoostSetting } from '../practice/usePracticeSettings'
@@ -58,6 +59,8 @@ export function GuitarSetupPage() {
   /** A note that was not the open string asked for (MIDI), to say what was heard. */
   const [otherNote, setOtherNote] = useState<number | null>(null)
   const [pluckId, setPluckId] = useState(0)
+  /** Once the microphone was started, the test recorder stays (a recording must outlive the last string). */
+  const [micUsed, setMicUsed] = useState(false)
 
   const handleEvents = useCallback((events: DetectedEvent[]) => {
     for (const event of events) {
@@ -184,7 +187,14 @@ export function GuitarSetupPage() {
                   {MICROPHONE_ERROR_MESSAGES[listening.error]}
                 </p>
               )}
-              <button type="button" className="button button-primary" onClick={() => listening.start({ boost })}>
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={() => {
+                  setMicUsed(true)
+                  listening.start({ boost })
+                }}
+              >
                 <span aria-hidden="true">🎤</span> {setup.index === 0 ? 'Start' : 'Continue'}
               </button>
             </>
@@ -210,6 +220,18 @@ export function GuitarSetupPage() {
           )
         })}
       </ol>
+
+      {micUsed && (
+        // For testing: the sound and every measurement, to check the setup on a real guitar.
+        <section className={`card ${styles.recorder}`} aria-label="Setup recording">
+          <PracticeRecorder
+            listening={listening}
+            title="Setup recording (for testing)"
+            playHint="Pluck each string as the app asks."
+            startLabel="Record this setup"
+          />
+        </section>
+      )}
 
       {done && (
         <section className={`card ${styles.result}`} aria-labelledby="setup-done" data-testid="setup-result">
