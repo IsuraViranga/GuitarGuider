@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { describePosition, formatGuitarNumber } from '../../music/guitarNumber'
 import { formatFrequency, midiToFrequency, midiToNoteName } from '../../music/pitch'
 import { describeNote } from '../../songs/describeNote'
 import type { SongNote } from '../../songs/types'
@@ -97,6 +98,21 @@ export function FeedbackBanner({ practice, notes, listening, onRestart }: Feedba
       <>
         <strong>Not this chord.</strong> Expected {expected.chord?.name ?? describeNote(expected).number}
         {feedback.heard ? `, heard ${feedback.heard}` : ''}. Check your fingers and strum again.
+      </>
+    )
+  } else if (feedback.kind === 'wrong-string') {
+    kind = 'incorrect'
+    symbol = '✗'
+    const expected = notes[feedback.noteIndex]
+    const where = expected.position ? `${describeNote(expected).number} on ${describePosition(expected.position)}` : describeNote(expected).number
+    const heard = `${formatGuitarNumber(feedback.heard)} (${describePosition(feedback.heard)})`
+    message = feedback.movedOn ? (
+      <>
+        <strong>Wrong string.</strong> That sounded like {heard}. Next time play {where}.
+      </>
+    ) : (
+      <>
+        <strong>Right note, wrong string.</strong> That sounded like {heard}. Play {where}.
       </>
     )
   } else if (feedback.kind === 'incorrect') {

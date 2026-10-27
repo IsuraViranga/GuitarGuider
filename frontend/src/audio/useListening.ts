@@ -30,6 +30,8 @@ export type ListeningState = {
   setTargets: (midis: readonly number[]) => void
   /** Tells the detector which chords may be strummed next (null for single-note steps). */
   setChordTargets: (chords: readonly (readonly number[] | null)[]) => void
+  /** String check: notes at this pitch (MIDI) come with their string's stiffness; null = off. */
+  setStiffnessProbe: (midi: number | null) => void
   /** Plays the wrong-note sound (and pauses detection while it plays). False if not listening. */
   playErrorSound: () => boolean
   /** Spoken guidance is talking (true) or finished (false): detection pauses meanwhile. */
@@ -118,6 +120,7 @@ export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): L
     (chords: readonly (readonly number[] | null)[]) => getSession().setChordTargets(chords),
     [getSession],
   )
+  const setStiffnessProbe = useCallback((midi: number | null) => getSession().setStiffnessProbe(midi), [getSession])
   const playErrorSound = useCallback(() => sessionRef.current?.playErrorSound() ?? false, [])
   const setSpeaking = useCallback((speaking: boolean) => sessionRef.current?.setSpeaking(speaking), [])
   const resetNotes = useCallback((options?: { requireFreshOnset?: boolean }) => sessionRef.current?.resetNotes(options), [])
@@ -139,6 +142,7 @@ export function useListening(onNoteEvents: (events: DetectedEvent[]) => void): L
     resetNotes,
     setTargets,
     setChordTargets,
+    setStiffnessProbe,
     playErrorSound,
     setSpeaking,
   }

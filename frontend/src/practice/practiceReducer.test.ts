@@ -247,3 +247,50 @@ describe('what you played (the record of each step)', () => {
     expect(state.record.every((step) => step.wrong.length === 0 && step.result === null)).toBe(true)
   })
 })
+
+describe('string check (the right note on the wrong string)', () => {
+  const at25 = { result: 'other', heard: { stringNumber: 2, fret: 5 } } as const
+  /** A played note with the string check's verdict, as the practice page dispatches it. */
+  const playedWith = (midi: number, string: NonNullable<Extract<PracticeAction, { type: 'noteEvent' }>['string']>, id = nextId++): PracticeAction[] => [
+    { type: 'noteEvent', event: { type: 'noteStart', noteId: id, midi, time: 0 }, string },
+    { type: 'noteEvent', event: { type: 'noteConfirmed', noteId: id, midi, time: 50 }, string },
+  ]
+
+  it('note by note: 25 played for 10 is wrong, told on the confirmation, and the note stays', () => {
+    const start = createPracticeState([E4, F4], [1, 1])
+    const afterStart = practiceReducer(start, playedWith(E4, at25)[0])
+    expect(afterStart).toBe(start) // not accepted, and no message from the quick first reading
+    const state = playedWith(E4, at25).reduce(practiceReducer, start)
+    expect(state.currentIndex).toBe(0)
+    expect(state.feedback).toEqual({ kind: 'wrong-string', noteIndex: 0, heard: { stringNumber: 2, fret: 5 }, movedOn: false })
+    expect(state.wrongCount).toBe(1)
+    expect(state.streak).toBe(0)
+    expect(state.record[0]).toEqual({ wrong: [{ heardMidi: E4, heardPosition: { stringNumber: 2, fret: 5 } }], result: null })
+    // Then played on the right string: correct, and the step stays marked.
+    const fixed = playedWith(E4, { result: 'expected' }).reduce(practiceReducer, state)
+    expect(fixed.currentIndex).toBe(1)
+    expect(fixed.record[0].result).toBe('correct')
+  })
+
+  it('the expected string, or not sure: correct as before', () => {
+    expect(run([E4, F4], ...playedWith(E4, { result: 'expected' })).feedback.kind).toBe('correct')
+    expect(run([E4, F4], ...playedWith(E4, { result: 'unsure' })).feedback.kind).toBe('correct')
+  })
+
+  it('a wrong note is still a wrong note (the verdict only matters for the right note)', () => {
+    expect(run([E4, F4], ...playedWith(G4, at25)).feedback.kind).toBe('incorrect')
+  })
+
+  it('play through: the song moves on, and the note is marked as a mistake', () => {
+    const state = playedWith(E4, at25).reduce(practiceReducer, createPracticeState([E4, F4], [1, 1], 'flow'))
+    expect(state.currentIndex).toBe(1)
+    expect(state.feedback).toEqual({ kind: 'wrong-string', noteIndex: 0, heard: { stringNumber: 2, fret: 5 }, movedOn: true })
+    expect(state.wrongCount).toBe(1)
+    expect(state.record[0].wrong).toEqual([{ heardMidi: E4, heardPosition: { stringNumber: 2, fret: 5 } }])
+  })
+
+  it('play through on the last note: the song completes', () => {
+    const state = playedWith(E4, at25).reduce(practiceReducer, createPracticeState([E4], [1], 'flow'))
+    expect(state.completed).toBe(true)
+  })
+})

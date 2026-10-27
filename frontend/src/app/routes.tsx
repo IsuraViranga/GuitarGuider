@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom'
 import { AuthPage } from '../pages/AuthPage'
 import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages'
 import { EditSongPage } from '../pages/EditSongPage'
+import { GuitarSetupPage } from '../pages/GuitarSetupPage'
 import { HomePage } from '../pages/HomePage'
 import { ImportPage } from '../pages/ImportPage'
 import { LibraryPage } from '../pages/LibraryPage'
@@ -25,6 +26,7 @@ export const routes: RouteObject[] = [
       { path: '/requests/:requestId/edit', element: <ApproveWithChangesPage /> },
       { path: '/import', element: <ImportPage /> },
       { path: '/progress', element: <ProgressPage /> },
+      { path: '/guitar-setup', element: <GuitarSetupPage /> },
       { path: '/signin', element: <AuthPage mode="signin" /> },
       { path: '/signup', element: <AuthPage mode="signup" /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },

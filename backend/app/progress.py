@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from .auth import current_user
 from .db import get_db
 from .models import PracticeSave, Song, User
-from .song_schemas import Camel
+from .song_schemas import Camel, Position
 from .songs import _visible
 
 router = APIRouter(prefix="/api/progress", tags=["progress"])
@@ -32,6 +32,8 @@ MAX_COUNT = 1_000_000
 
 class HeardNote(Camel):
     heard_midi: float = Field(ge=0, le=140)
+    # The string check heard the right note on another string: where it was played.
+    heard_position: Position | None = None
 
 
 class HeardChord(Camel):
@@ -133,7 +135,8 @@ def save_progress(song_id: str, body: PracticeIn, db: DbSession, user: SignedInU
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "This practice does not match the song any more (it may have been changed). Please practise it again.",
         )
-    record = [step.model_dump(by_alias=True) for step in body.record]
+    # Only what was sent is stored (a try without a position stays exactly as before).
+    record = [step.model_dump(by_alias=True, exclude_unset=True) for step in body.record]
     values = {
         "mode": body.mode,
         "completed": body.completed,

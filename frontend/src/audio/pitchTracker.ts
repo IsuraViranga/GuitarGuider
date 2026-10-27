@@ -11,6 +11,7 @@ import { ChordRecognizer, type ChordEvent } from './chordRecognizer'
 import { CHORD_FRAME_SIZE, createChordChecker, heardChordName, verifyChord, type ChordVerdict } from './chroma'
 import { DEFAULT_RECOGNIZER_CONFIG, NoteRecognizer, type NoteEvent, type RecognizerConfig } from './noteRecognizer'
 import { createPitchDetector, DEFAULT_YIN_OPTIONS, type PitchDetector, type PitchMatch, type YinOptions } from './pitchDetector'
+import { createStiffnessMeter, STIFFNESS_WINDOW, STRING_CHECK_DELAY_MS, type Stiffness } from './stringCheck'
 
 export type TrackerConfig = {
   yin: YinOptions
@@ -118,6 +119,13 @@ export class PitchTracker {
   private lastOnset = -Infinity
   /** The pluck (onset time) that has been shown to bring in an expected note, and which one. */
   private targetPluck: { onset: number; midi: number } | null = null
+  /** String check: notes at this pitch (MIDI) get their string's stiffness measured; null = off. */
+  private stiffnessProbe: number | null = null
+  private measureStiffness: ReturnType<typeof createStiffnessMeter> | null = null
+  /** A note held back until its stiffness can be measured (STRING_CHECK_DELAY_MS after its pluck). */
+  private held: { noteId: number; onset: number; events: NoteEvent[] } | null = null
+  /** The last measured note: its later events carry the same measurement. */
+  private measured: { noteId: number; stiffness: Stiffness | null } | null = null
 
   constructor(sampleRate: number, frameSize: number, config: TrackerConfig = DEFAULT_TRACKER_CONFIG) {
     this.sampleRate = sampleRate
@@ -164,6 +172,14 @@ export class PitchTracker {
       strengthBeforeOnset: 0,
     }))
     this.targetPluck = null
+  }
+
+  /**
+   * String check (see stringCheck.ts): notes played at this pitch (MIDI) are reported about
+   * 100 ms later than usual, with the measured stiffness of the string. Null switches it off.
+   */
+  setStiffnessProbe(midi: number | null) {
+    this.stiffnessProbe = midi
   }
 
   /**
@@ -244,7 +260,7 @@ export class PitchTracker {
       reading.midi !== null &&
       reading.clarity >= STRONG_MATCH &&
       this.targets.some((target) => Math.abs(reading.midi! - target.midi) * 100 <= DEFAULT_MATCH_CONFIG.acceptCents)
-    const events = this.recognizer.push({ time, midi: reading.midi, rms: frame.rms, onset, strong })
+    const events = this.withStiffness(this.recognizer.push({ time, midi: reading.midi, rms: frame.rms, onset, strong }), input, time)
     const chordEvents: ChordEvent[] = []
     if (this.chordTargets.some(Boolean) && input.length >= CHORD_FRAME_SIZE) {
       this.checkChord ??= createChordChecker(this.sampleRate)
@@ -294,10 +310,46 @@ export class PitchTracker {
     return found
   }
 
-  /** See NoteRecognizer.reset. */
+  /**
+   * String check: a note at the probed pitch is held back until STRING_CHECK_DELAY_MS after its
+   * pluck, then released with the stiffness measured on the newest samples (past the attack,
+   * while the overtones are still strong). Every other note passes straight through.
+   */
+  private withStiffness(events: NoteEvent[], input: Float32Array, time: number): NoteEvent[] {
+    const out: NoteEvent[] = []
+    // A new pluck before the measurement: the held note was too short to measure.
+    if (this.held && this.lastOnset > this.held.onset) out.push(...this.releaseHeld(null))
+    for (const event of events) {
+      const probed =
+        event.type === 'noteStart' &&
+        this.stiffnessProbe !== null &&
+        Math.abs(event.midi - this.stiffnessProbe) * 100 <= DEFAULT_MATCH_CONFIG.acceptCents &&
+        input.length >= STIFFNESS_WINDOW
+      if (this.held?.noteId === event.noteId) this.held.events.push(event)
+      else if (this.measured?.noteId === event.noteId) out.push({ ...event, stiffness: this.measured.stiffness })
+      else if (probed) this.held = { noteId: event.noteId, onset: this.lastOnset, events: [event] }
+      else out.push(event)
+    }
+    if (this.held && time - this.held.onset >= STRING_CHECK_DELAY_MS) {
+      this.measureStiffness ??= createStiffnessMeter(this.sampleRate)
+      out.push(...this.releaseHeld(this.measureStiffness(input, midiToFrequency(this.held.events[0].midi))))
+    }
+    return out
+  }
+
+  private releaseHeld(stiffness: Stiffness | null): NoteEvent[] {
+    const held = this.held!
+    this.held = null
+    this.measured = { noteId: held.noteId, stiffness }
+    return held.events.map((event) => ({ ...event, stiffness }))
+  }
+
+  /** See NoteRecognizer.reset. A note held for the string check is dropped. */
   resetNotes(options?: { requireFreshOnset?: boolean }) {
     this.recognizer.reset(options)
     this.chordRecognizer.reset()
+    this.held = null
+    this.measured = null
   }
 }
 

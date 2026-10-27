@@ -87,6 +87,7 @@ export class ListeningSession {
   private tracker: PitchTracker | null = null
   private targets: readonly number[] = []
   private chordTargets: readonly (readonly number[] | null)[] = []
+  private stiffnessProbe: number | null = null
   /** Where the sound comes from: the microphone, or an audio file being played (test mode). */
   private source: AudioNode | null = null
   private fileSource: AudioBufferSourceNode | null = null
@@ -197,6 +198,7 @@ export class ListeningSession {
     this.tracker = tracker
     tracker.setTargets(this.targets)
     tracker.setChordTargets(this.chordTargets)
+    tracker.setStiffnessProbe(this.stiffnessProbe)
     const buffer = new Float32Array(CHORD_FRAME_SIZE)
     this.lastAudioTime = -1
     this.timer = setInterval(() => this.analyse(analyser, buffer), ANALYSIS_INTERVAL_MS)
@@ -358,6 +360,12 @@ export class ListeningSession {
     this.tracker?.setChordTargets(chords)
   }
 
+  /** String check: notes at this pitch (MIDI) are reported with their string's stiffness; null = off. */
+  setStiffnessProbe(midi: number | null): void {
+    this.stiffnessProbe = midi
+    this.tracker?.setStiffnessProbe(midi)
+  }
+
   /** Forget pending note detection, e.g. after the student jumps to another note. */
   resetNotes(options?: { requireFreshOnset?: boolean }): void {
     this.tracker?.resetNotes(options)
@@ -395,7 +403,12 @@ export class ListeningSession {
         matchedTarget: r.matchedTarget,
         target: this.targets[0] ?? null,
       })
-      for (const event of result.events) this.logEventAt(r.time, event.type, { noteId: event.noteId, midi: round(event.midi, 2) })
+      for (const event of result.events) {
+        const measured = event.stiffness
+        // String check: B in units of 1e-5, the overtones used and the fit (cents), for checking later.
+        const stiffness = measured === undefined ? {} : { stiffness: measured && { b: round(measured.b * 1e5, 2), overtones: measured.overtones, misfit: round(measured.misfit, 2) } }
+        this.logEventAt(r.time, event.type, { noteId: event.noteId, midi: round(event.midi, 2), ...stiffness })
+      }
       for (const event of result.chordEvents) this.logEventAt(r.time, event.type, { ...event })
     }
 

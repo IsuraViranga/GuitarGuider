@@ -23,6 +23,10 @@ describe('spoken guidance', () => {
     const chord = { index: 0, midi: 48, chord: { name: 'C', tones: [] } } as unknown as SongNote
     expect(correctionToSpeech(chord, { kind: 'wrong-chord', noteIndex: 0, heard: 'G' })).toBe('Wrong chord. Play C major.')
     expect(correctionToSpeech(single(1, 0, 64), { kind: 'none' })).toBeNull()
+    // The string check heard 25 instead of 10.
+    expect(correctionToSpeech(single(1, 0, 64), { kind: 'wrong-string', noteIndex: 0, heard: { stringNumber: 2, fret: 5 }, movedOn: false })).toBe(
+      'Wrong string. Play string 1, open.',
+    )
   })
 
   it('says chord names the way a teacher would', () => {

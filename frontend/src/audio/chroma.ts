@@ -14,32 +14,36 @@ const HARMONIC_WEIGHTS = [1, 0.6, 0.4, 0.3, 0.2, 0.15]
 
 export type Chroma = Float64Array // 12 values, C = 0 … B = 11, normalised to length 1
 
-/** Real FFT magnitudes via an in-place radix-2 complex FFT (size must be a power of two). */
-export function createSpectrum(size: number) {
-  const levels = Math.log2(size)
-  if (!Number.isInteger(levels)) throw new Error('FFT size must be a power of two.')
+/**
+ * Real FFT magnitudes via an in-place radix-2 complex FFT (sizes must be powers of two). `size`
+ * samples are windowed; with a larger `fftSize` they are padded with zeros, which gives finer
+ * frequency steps (used to measure overtones precisely, see stringCheck.ts).
+ */
+export function createSpectrum(size: number, fftSize = size) {
+  const levels = Math.log2(fftSize)
+  if (!Number.isInteger(levels) || !Number.isInteger(Math.log2(size)) || fftSize < size) throw new Error('FFT size must be a power of two.')
   const window = new Float64Array(size).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (size - 1))) // Hann
-  const reverse = new Uint32Array(size)
-  for (let i = 0; i < size; i++) {
+  const reverse = new Uint32Array(fftSize)
+  for (let i = 0; i < fftSize; i++) {
     let r = 0
     for (let b = 0; b < levels; b++) r = (r << 1) | ((i >> b) & 1)
     reverse[i] = r
   }
-  const cos = new Float64Array(size / 2).map((_, i) => Math.cos((2 * Math.PI * i) / size))
-  const sin = new Float64Array(size / 2).map((_, i) => -Math.sin((2 * Math.PI * i) / size))
-  const re = new Float64Array(size)
-  const im = new Float64Array(size)
-  const magnitudes = new Float64Array(size / 2)
+  const cos = new Float64Array(fftSize / 2).map((_, i) => Math.cos((2 * Math.PI * i) / fftSize))
+  const sin = new Float64Array(fftSize / 2).map((_, i) => -Math.sin((2 * Math.PI * i) / fftSize))
+  const re = new Float64Array(fftSize)
+  const im = new Float64Array(fftSize)
+  const magnitudes = new Float64Array(fftSize / 2)
 
   return (samples: Float32Array): Float64Array => {
-    for (let i = 0; i < size; i++) {
-      re[reverse[i]] = samples[i] * window[i]
+    for (let i = 0; i < fftSize; i++) {
+      re[reverse[i]] = i < size ? samples[i] * window[i] : 0
       im[reverse[i]] = 0
     }
-    for (let width = 2; width <= size; width *= 2) {
+    for (let width = 2; width <= fftSize; width *= 2) {
       const half = width / 2
-      const step = size / width
-      for (let start = 0; start < size; start += width) {
+      const step = fftSize / width
+      for (let start = 0; start < fftSize; start += width) {
         for (let k = 0; k < half; k++) {
           const a = start + k
           const b = a + half
@@ -52,7 +56,7 @@ export function createSpectrum(size: number) {
         }
       }
     }
-    for (let k = 0; k < size / 2; k++) magnitudes[k] = Math.hypot(re[k], im[k])
+    for (let k = 0; k < fftSize / 2; k++) magnitudes[k] = Math.hypot(re[k], im[k])
     return magnitudes
   }
 }

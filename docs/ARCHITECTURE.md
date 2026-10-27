@@ -537,11 +537,10 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   with "you: G4"), grey = skipped (play-through catch-up or Next). Tapping a chip jumps there; the
   "All notes" timeline shows the same marks. Kept until Restart.
 - Same note on different strings (client finding, e.g. 10 = 25 = E4, 20 = 34 = B3, 11 = 26 = F4):
-  identical pitch, so detection cannot tell which string was used. The practice card now says so
+  identical pitch, so pitch alone cannot tell which string was used. The practice card says so
   ("25 and 39 sound the same… play it on string 1 as shown", `samePitchPositions`, up to fret 12),
-  feedback says "Correct note!" / "Correct chord!", and Home explains it. String detection from
-  timbre (inharmonicity, per-guitar calibration) is only to be tried after measuring it on the
-  client's recordings of these pairs.
+  feedback says "Correct note!" / "Correct chord!", and Home explains it. Since 8p the string check
+  tells these apart after a guitar setup, where the strings allow it.
 - Song sheets (`songs/parsers/songSheet.ts`, format `song-sheet`): numbers lines with the words line
   underneath, words matched by count; mismatches become preview warnings (`ImportResult.warnings`),
   never guesses. `detectFormat`: numbers lines mixed with text → song sheet.
@@ -668,6 +667,42 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   stops scheduled functions after ~10 s; a call that times out has still started waking Render).
   Free-plan budgets: Render 750 h/month (always awake ≈ 744 h), Neon 100 CU-h/month (always
   awake ≈ 186 CU-h; readiness every 6 hours ≈ 4 CU-h).
+
+### 8p. String check: the same note on another string (10 vs 25)
+
+- Client finding again: 25 played for 10 counted as correct. Research: tablature AI models (TabCNN,
+  FretNet; an in-browser MFCC network, Fretiq 2026: 97% on its own data, 87% on a new session) do
+  not transfer well enough to blame a student. String physics does: a string's overtones are
+  slightly sharp, `f_k = k·f0·√(1 + B·k²)`, and the stiffness B differs per string and doubles every
+  6 frets, `B(s, f) = B(s, 0)·2^(f/6)` (Barbancho 2012; Hjerrild & Christensen 2019, ~1.5% error
+  calibrated on one fret per string; Bastas 2022, 95–100% on isolated notes).
+- Measured on the client's phone recordings (`recordings/same-pitch/`, ×10⁻⁵): 10 → 1.7, 25 → 7.7,
+  13 → 2.4, 28 → 11, 26 → 8.7, 20 → 4.5, each within a few percent and as predicted from the open
+  strings. 34 (wound string 3) scatters and is too close to 20; the 11 plucks were disturbed.
+- `audio/stringCheck.ts`: `createStiffnessMeter` (newest 8192 samples, Hann, zero-padded FFT 65536,
+  25 overtones found where expected, median-of-slopes fit of (f_k/k)² against k², plus `misfit`:
+  median distance of the overtones from the curve in cents). `planStringCheck` (other strings with
+  the note up to fret 12 whose predicted B differs ≥ 2.5×) and `judgeString`: "other" only when the
+  fit is clean (misfit ≤ 1.5 c; clean plucks measured 0.1–0.8 c, disturbed 2–8 c), ≥ 12 overtones,
+  within 1.6× of the other string and ≥ 2.2× from the expected one. Otherwise "expected"/"unsure",
+  and the note counts as before.
+- Tracker: `setStiffnessProbe(midi)`. A note at that pitch is held until 200 ms after its pluck
+  (about 100 ms later than before, only for checked notes), then released with `stiffness`; a new
+  pluck first releases it with null; `resetNotes` drops it. Practice recordings log B, overtones
+  and misfit for each event.
+- Guitar setup (`/guitar-setup`, `practice/stringSetup.ts`, saved in this browser): each open string
+  is plucked until 3 clean plucks agree within 15% (another note: "That was G4…"; a string that
+  stays unclear after 8 tries is left out). The summary says which neighbouring strings can be
+  told apart. Linked from the practice card's same-sound hint and from Home.
+- Practice (`practiceReducer`, feedback `wrong-string`): Note by note: judged on the confirmation,
+  red "Right note, wrong string. That sounded like 25 (string 2, fret 5). Play 10 on string 1,
+  open.", error sound, spoken "Wrong string. Play string 1, open.", counts as a mistake, stays on
+  the note. Play through: moves on, marked as a mistake. "What you played" shows "you: 25"; saved
+  practices keep `heardPosition` (backend `HeardNote.heard_position`, optional; stored only when sent).
+- Results on the recordings (`stringCheck.real.test.ts`, skipped without them): 10↔25 and 13↔28 all
+  judged right both ways, 26 for 11 caught 6 of 8 (2 disturbed, unsure), no correctly played note
+  ever called wrong; 20/34 not checked. To confirm on another day: the client records each open
+  string 3× and the pairs 5× each with "Record this practice".
 
 ## 9. Later phases (unchanged from the brief, condensed)
 

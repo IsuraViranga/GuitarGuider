@@ -1,0 +1,192 @@
+/* Guitar setup for the string check: one open string at a time, three picks to fill. */
+.layout {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 640px;
+}
+
+.header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.lead {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.lead code {
+  color: var(--color-accent-strong);
+}
+
+.saved,
+.step,
+.result {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.saved {
+  border-color: rgb(74 222 128 / 0.45);
+}
+
+.saved p,
+.step p,
+.result p {
+  margin: 0;
+}
+
+.step {
+  border-color: rgb(245 165 36 / 0.4);
+  justify-items: start;
+}
+
+.tip {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+}
+
+.stringName {
+  color: var(--color-accent-strong);
+}
+
+.stepNote {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--color-muted);
+}
+
+/* Three picks: filled amber as each clear pluck is heard. */
+.picks {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.pick {
+  width: 44px;
+  height: 44px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 10px rgb(245 165 36 / 0.45));
+}
+
+.message {
+  min-height: 3em;
+  font-weight: 600;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+}
+
+.board {
+  width: 100%;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.error {
+  color: var(--color-incorrect);
+}
+
+/* The six strings, with what is known about each. */
+.strings {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--fb-wood-edge), var(--fb-wood) 30%, var(--fb-wood) 70%, var(--fb-wood-edge));
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stringRow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  color: var(--fb-nut);
+}
+
+.stringNumber {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.35);
+  border: 1px solid var(--fb-fret);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.stringStatus {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.now .stringNumber {
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent-strong);
+  box-shadow: 0 0 12px rgb(245 165 36 / 0.5);
+}
+
+.now .stringStatus {
+  color: var(--color-accent-strong);
+}
+
+.kept .stringNumber {
+  background: var(--color-correct);
+  border-color: var(--color-correct);
+  color: var(--color-on-feedback);
+}
+
+.kept .stringStatus {
+  color: var(--color-correct);
+}
+
+.left {
+  opacity: 0.7;
+}
+
+.result {
+  border-color: rgb(74 222 128 / 0.45);
+}
+
+.pairs {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.pairs li[data-status='checked'] span {
+  color: var(--color-correct);
+}
+
+.note {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}

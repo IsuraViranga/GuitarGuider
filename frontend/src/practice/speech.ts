@@ -57,6 +57,10 @@ export function correctionToSpeech(expected: SongNote, feedback: Feedback): stri
   if (feedback.kind === 'wrong-chord') {
     return expected.chord?.name ? `Wrong chord. Play ${chordToSpeech(expected.chord.name)}.` : 'Wrong chord. Try again.'
   }
+  if (feedback.kind === 'wrong-string') {
+    const what = noteToSpeech(expected)
+    return `Wrong string. Play ${what[0].toLowerCase()}${what.slice(1)}`
+  }
   if (feedback.kind !== 'incorrect') return null
   const string = expected.position?.stringNumber
   if (string === 1 && feedback.heardMidi === expected.midi - 24) return 'Wrong string. Use string 1, the thinnest string.'

@@ -25,6 +25,17 @@ def test_save_a_practice_and_see_it_in_my_progress():
     assert detail["record"][1] == {"wrong": [{"heardMidi": 67.0}], "result": "correct"}
 
 
+def test_a_wrong_string_try_keeps_where_it_was_played():
+    seed()
+    isura = person("Isura", "isura@example.com")
+    wrong_string = {"heardMidi": 64.1, "heardPosition": {"stringNumber": 2, "fret": 5}}
+    assert isura.put(f"/api/progress/{FIRST_FRETS}", json=practice(wrong={0: [wrong_string, {"heardMidi": 65}]})).status_code == 200
+    detail = isura.get(f"/api/progress/{FIRST_FRETS}").json()
+    assert detail["record"][0]["wrong"] == [wrong_string, {"heardMidi": 65.0}]
+    bad = {"heardMidi": 64, "heardPosition": {"stringNumber": 7, "fret": 5}}
+    assert isura.put(f"/api/progress/{FIRST_FRETS}", json=practice(wrong={0: [bad]})).status_code == 422
+
+
 def test_only_one_saved_practice_per_song_saving_again_replaces_it():
     seed()
     isura = person("Isura", "isura@example.com")

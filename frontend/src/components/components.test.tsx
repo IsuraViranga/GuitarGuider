@@ -110,6 +110,22 @@ describe('FeedbackBanner', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Correct note! 13 (G4). Now play it again.')
   })
 
+  it('the right note on the wrong string: says where it was played and where to play it', () => {
+    const e4 = notesFromPositions([{ position: { stringNumber: 1, fret: 0 } }, { position: { stringNumber: 1, fret: 3 } }], STANDARD_TUNING)
+    const heard = { stringNumber: 2, fret: 5 } as const
+    let state = createPracticeState(e4.map((n) => n.midi), [1, 1])
+    for (const type of ['noteStart', 'noteConfirmed'] as const) {
+      state = practiceReducer(state, { type: 'noteEvent', event: { type, noteId: 1, midi: 64, time: 0 }, string: { result: 'other', heard } })
+    }
+    const { unmount } = render(<FeedbackBanner practice={state} notes={e4} listening onRestart={() => {}} />)
+    expect(screen.getByTestId('feedback')).toHaveAttribute('data-kind', 'incorrect')
+    expect(screen.getByRole('status')).toHaveTextContent('Right note, wrong string. That sounded like 25 (string 2, fret 5). Play 10 on string 1, open.')
+    unmount()
+    const moved = { ...state, feedback: { kind: 'wrong-string', noteIndex: 0, heard, movedOn: true } as const }
+    render(<FeedbackBanner practice={moved} notes={e4} listening onRestart={() => {}} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Wrong string. That sounded like 25 (string 2, fret 5). Next time play 10 on string 1, open.')
+  })
+
   it('offers Play again when the song is complete', async () => {
     const onRestart = vi.fn()
     let state = heard(67)
@@ -182,6 +198,20 @@ describe('PlayedStrip (what you played)', () => {
 
     await userEvent.click(corrected)
     expect(onSelect).toHaveBeenCalledWith(1)
+  })
+
+  it('a wrong string shows where it was played', () => {
+    render(
+      <PlayedStrip
+        notes={notes}
+        record={[{ wrong: [{ heardMidi: 64, heardPosition: { stringNumber: 2, fret: 5 } }], result: 'correct' }, ...notes.slice(1).map(() => ({ wrong: [], result: null }))]}
+        currentIndex={1}
+        completed={false}
+        onSelect={() => {}}
+      />,
+    )
+    const chip = screen.getByRole('button', { name: 'Note 1, 10: wrong 1 time (played 25), then right' })
+    expect(chip).toHaveTextContent('you: 25')
   })
 
   it('explains itself before anything is played', () => {

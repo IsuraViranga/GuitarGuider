@@ -181,7 +181,8 @@ export function HomePage() {
           <span aria-hidden="true">👂 </span>
           <strong>Good to know:</strong> the app checks the note you play by its sound. Some notes sound exactly the
           same on two strings: <code>10</code> and <code>25</code> are both E4. So always play on the string the
-          fretboard shows.
+          fretboard shows. After a 30-second <Link to="/guitar-setup">guitar setup</Link>, the app also checks which string
+          you used.
         </p>
       </section>
 

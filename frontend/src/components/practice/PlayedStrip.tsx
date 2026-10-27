@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, type ReactNode } from 'react'
+import { formatGuitarNumber } from '../../music/guitarNumber'
 import { midiToNoteName } from '../../music/pitch'
 import type { StepRecord, WrongTry } from '../../practice/practiceReducer'
 import { shortLabel } from '../../songs/describeNote'
@@ -28,9 +29,15 @@ export function stepStatus(step: StepRecord, isCurrent: boolean): Status | null 
   return isCurrent ? 'current' : null
 }
 
-/** What was heard instead, e.g. "G4" or, for a chord, "G" ("?" if it could not be named). */
+/**
+ * What was heard instead, e.g. "G4", "25" (the right note on another string) or, for a chord,
+ * "G" ("?" if it could not be named).
+ */
 export function heardLabels(wrong: readonly WrongTry[]): string[] {
-  const labels = wrong.map((w) => ('heardMidi' in w ? midiToNoteName(Math.round(w.heardMidi)).label : (w.heardChord ?? '?')))
+  const labels = wrong.map((w) => {
+    if (!('heardMidi' in w)) return w.heardChord ?? '?'
+    return w.heardPosition ? formatGuitarNumber(w.heardPosition) : midiToNoteName(Math.round(w.heardMidi)).label
+  })
   return [...new Set(labels)]
 }
 

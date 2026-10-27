@@ -496,6 +496,14 @@
   text-align: left;
 }
 
+/* "Set up the string check (30 s)" inside the same-sound hint. */
+.setupLink {
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* "Then: 23 Twin · 15 kle": the word sung on each coming note. */
 .upcomingWord {
   font-weight: 400;

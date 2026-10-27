@@ -110,3 +110,27 @@ export function perform(notes: PlayedNote[], seconds: number, { amplitude = 0.3,
   })
   return out
 }
+
+/**
+ * A plucked string that is slightly stiff, like a real one: overtone k sits at
+ * k · f · √(1 + B·k²) (see stringCheck.ts), each overtone a little weaker and fading faster.
+ * A short noise burst at the start stands in for the pick's attack.
+ */
+export function stiffPluck(frequency: number, seconds: number, { b = 0, amplitude = 0.3, overtones = 30, seed = 3 } = {}): Float32Array {
+  const out = new Float32Array(Math.round(seconds * SAMPLE_RATE))
+  const random = seededRandom(seed)
+  for (let k = 1; k <= overtones; k++) {
+    const hz = k * frequency * Math.sqrt(1 + b * k * k)
+    if (hz >= SAMPLE_RATE / 2) break
+    const level = (amplitude / k) * (0.6 + 0.4 * random())
+    const fade = 2 + 0.6 * k // per second
+    const phase = random() * 2 * Math.PI
+    for (let i = 0; i < out.length; i++) {
+      const t = i / SAMPLE_RATE
+      out[i] += level * Math.exp(-fade * t) * Math.sin(2 * Math.PI * hz * t + phase)
+    }
+  }
+  const attack = Math.round(0.004 * SAMPLE_RATE)
+  for (let i = 0; i < attack && i < out.length; i++) out[i] += amplitude * (random() * 2 - 1) * (1 - i / attack)
+  return out
+}

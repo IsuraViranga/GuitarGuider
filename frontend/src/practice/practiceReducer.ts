@@ -15,6 +15,8 @@
 
 import type { ChordEvent } from '../audio/chordRecognizer'
 import type { NoteEvent } from '../audio/noteRecognizer'
+import type { StringVerdict } from '../audio/stringCheck'
+import type { GuitarPosition } from '../music/guitarNumber'
 import { compareToTarget } from './matching'
 
 export type Feedback =
@@ -22,6 +24,11 @@ export type Feedback =
   | { kind: 'correct'; noteIndex: number; heardMidi: number; cents: number; inTune: boolean; skipped: number }
   | { kind: 'incorrect'; noteIndex: number; targetMidi: number; detectedMidi: number; heardMidi: number; octaveOff: boolean }
   | { kind: 'wrong-chord'; noteIndex: number; heard: string | null }
+  /**
+   * The right note, clearly on another string (string check): it was played at `heard`.
+   * `movedOn` in play-through mode, where the song does not stop for it.
+   */
+  | { kind: 'wrong-string'; noteIndex: number; heard: GuitarPosition; movedOn: boolean }
 
 /**
  * strict = note by note: stays on a note until it is played (the brief's rule).
@@ -32,8 +39,11 @@ export type PracticeMode = 'strict' | 'flow'
 
 export type ChordTarget = { midi: number; string: number }
 
-/** One wrong try at a step: the note that was heard, or for chords the chord heard (null if unknown). */
-export type WrongTry = { heardMidi: number } | { heardChord: string | null }
+/**
+ * One wrong try at a step: the note that was heard (with the place it was played, when the string
+ * check heard the right note on another string), or for chords the chord heard (null if unknown).
+ */
+export type WrongTry = { heardMidi: number; heardPosition?: GuitarPosition } | { heardChord: string | null }
 
 /**
  * What the student did at one step, kept for the whole session ("What you played"): every wrong
@@ -82,7 +92,8 @@ export type PracticeAction =
   | { type: 'previous' }
   | { type: 'jumpTo'; index: number }
   | { type: 'reset' }
-  | { type: 'noteEvent'; event: NoteEvent }
+  /** `string`: the string check's verdict for this note, when its string was checked. */
+  | { type: 'noteEvent'; event: NoteEvent; string?: StringVerdict }
   | { type: 'chordEvent'; event: ChordEvent }
   | { type: 'setMode'; mode: PracticeMode }
 
@@ -233,14 +244,44 @@ function acceptStep(state: PracticeState, index: number, skipped: number): Pract
   }
 }
 
-function handleNote(state: PracticeState, event: NoteEvent): PracticeState {
+/**
+ * The right note, clearly played on another string (string check). Note by note: like a wrong
+ * note, told only on the stricter confirmation, and the student plays it again on the right
+ * string. Play through: the song moves on, and the note is marked as a mistake.
+ */
+function wrongString(state: PracticeState, index: number, event: NoteEvent, heard: GuitarPosition): PracticeState {
+  const mistake = {
+    feedbackId: state.feedbackId + 1,
+    handledNoteId: event.noteId,
+    wrongCount: state.wrongCount + 1,
+    streak: 0,
+    record: recordWrong(state.record, index, { heardMidi: event.midi, heardPosition: heard }),
+  }
+  if (state.mode === 'flow') {
+    const isLast = index >= state.targets.length - 1
+    return {
+      ...state,
+      ...mistake,
+      currentIndex: isLast ? index : index + 1,
+      completed: isLast,
+      feedback: { kind: 'wrong-string', noteIndex: index, heard, movedOn: true },
+      positionVersion: state.positionVersion + 1,
+    }
+  }
+  if (event.type !== 'noteConfirmed') return state
+  return { ...state, ...mistake, feedback: { kind: 'wrong-string', noteIndex: index, heard, movedOn: false } }
+}
+
+function handleNote(state: PracticeState, event: NoteEvent, string?: StringVerdict): PracticeState {
   if (state.completed || event.noteId === state.handledNoteId) return state
   // Chord steps are judged by the whole strum (chord events), not by single notes.
   if (state.targetChords[state.currentIndex]) return state
 
   const noteIndex = state.currentIndex
   const current = judge(state, noteIndex, event.midi)
-  if (current.result === 'correct') return accept(state, noteIndex, event, 0)
+  if (current.result === 'correct') {
+    return string?.result === 'other' ? wrongString(state, noteIndex, event, string.heard) : accept(state, noteIndex, event, 0)
+  }
 
   // Play-through mode: the student may already be on one of the next notes (the app missed a
   // note while they played on). Catch up instead of holding everything back.
@@ -287,7 +328,7 @@ export function practiceReducer(state: PracticeState, action: PracticeAction): P
     case 'setMode':
       return { ...state, mode: action.mode }
     case 'noteEvent':
-      return handleNote(state, action.event)
+      return handleNote(state, action.event, action.string)
     case 'chordEvent':
       return handleChord(state, action.event)
   }

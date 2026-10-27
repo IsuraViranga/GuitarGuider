@@ -9,6 +9,8 @@
 // - "noteStart" comes first (fast; used to accept a correct note); "noteConfirmed" follows
 //   after a few more steady readings (stricter; used before calling a note wrong).
 
+import type { Stiffness } from './stringCheck'
+
 export type RecognizerConfig = {
   /** Steady readings needed before "noteStart". */
   stableFrames: number
@@ -56,6 +58,11 @@ export type NoteEvent = {
   /** Fractional MIDI pitch (median of the steady readings). */
   midi: number
   time: number
+  /**
+   * String check only (see stringCheck.ts): the string's measured stiffness, or null when it could
+   * not be measured. Absent when no string check was asked for.
+   */
+  stiffness?: Stiffness | null
 }
 
 type Run = {

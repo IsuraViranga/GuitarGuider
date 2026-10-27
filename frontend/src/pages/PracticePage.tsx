@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { Fretboard } from '../components/fretboard/Fretboard'
 import type { DetectedEvent } from '../audio/pitchTracker'
+import { judgeString, planStringCheck, type StringCheck } from '../audio/stringCheck'
 import { useListening } from '../audio/useListening'
 import { ListeningPanel } from '../components/listening/ListeningPanel'
 import { Celebration } from '../components/decor/Celebration'
@@ -23,8 +24,10 @@ import {
   isFirstNote,
   isLastNote,
   practiceReducer,
+  type Feedback,
 } from '../practice/practiceReducer'
 import { canSpeak, correctionToSpeech, noteToSpeech, speak, stopSpeaking } from '../practice/speech'
+import { useStringSetup } from '../practice/stringSetup'
 import {
   useErrorSoundSetting,
   useMicBoostSetting,
@@ -59,6 +62,11 @@ export function PracticePage() {
   return <PracticeView key={song.id} song={song} />
 }
 
+/** Results that get the error sound and a spoken correction. */
+function isMistake(feedback: Feedback): feedback is Extract<Feedback, { kind: 'incorrect' | 'wrong-chord' | 'wrong-string' }> {
+  return feedback.kind === 'incorrect' || feedback.kind === 'wrong-chord' || feedback.kind === 'wrong-string'
+}
+
 /** At most one error sound in this period, even if several wrong notes are played quickly. */
 const ERROR_SOUND_COOLDOWN_MS = 800
 /** Play through with Voice on: "Wrong" is said fast, and not again within this time. */
@@ -82,15 +90,25 @@ function PracticeView({ song }: { song: Song }) {
   const [errorSound, setErrorSound] = useErrorSoundSetting()
   const [boost, setBoost] = useMicBoostSetting()
   const [speakNotes, setSpeakNotes] = useSpeakNotesSetting()
+  const [stringSetup] = useStringSetup()
+  const location = useLocation()
 
+  // String check (after the guitar setup): the current note's plan, read when a note arrives.
+  const stringCheckRef = useRef<StringCheck | null>(null)
   const handleNoteEvents = useCallback((events: DetectedEvent[]) => {
     for (const event of events) {
-      if (event.type === 'chordStart' || event.type === 'chordWrong') dispatch({ type: 'chordEvent', event })
-      else dispatch({ type: 'noteEvent', event })
+      if (event.type === 'chordStart' || event.type === 'chordWrong') {
+        dispatch({ type: 'chordEvent', event })
+        continue
+      }
+      // A note that was held for the string check carries its string's stiffness.
+      const check = stringCheckRef.current
+      const string = check && event.stiffness !== undefined ? judgeString(check, event.stiffness) : undefined
+      dispatch({ type: 'noteEvent', event, string })
     }
   }, [])
   const listening = useListening(handleNoteEvents)
-  const { resetNotes, setTargets, setChordTargets, playErrorSound } = listening
+  const { resetNotes, setTargets, setChordTargets, setStiffnessProbe, playErrorSound } = listening
   const isListening = listening.status === 'listening' || listening.status === 'calibrating'
   const micActive = isListening || listening.status === 'starting'
 
@@ -110,6 +128,20 @@ function PracticeView({ song }: { song: Song }) {
     setChordTargets(JSON.parse(expectedChords) as (number[] | null)[])
   }, [practice.positionVersion, expected, expectedChords, resetNotes, setTargets, setChordTargets])
 
+  const tuning = getTuning(song.tuningId) ?? STANDARD_TUNING
+  const note = song.notes[practice.currentIndex]
+  // String check: only for a single note that another string can also play, when this guitar's
+  // setup can tell those strings apart. The detector then measures the string of that note.
+  const stringCheck =
+    !practice.completed && note.position && !note.chord && stringSetup ? planStringCheck(note.position, stringSetup.open, tuning) : null
+  const probeMidi = stringCheck ? note.midi : null
+  useEffect(() => {
+    stringCheckRef.current = stringCheck
+  })
+  useEffect(() => {
+    setStiffnessProbe(probeMidi)
+  }, [probeMidi, setStiffnessProbe])
+
   // Practice decisions go into a diagnostic practice recording, if one is running.
   const { logEvent } = listening
   useEffect(() => {
@@ -119,6 +151,7 @@ function PracticeView({ song }: { song: Song }) {
       target: targetMidi,
       feedback: feedback.kind,
       ...(feedback.kind === 'incorrect' ? { heard: Number(feedback.detectedMidi.toFixed(2)), octaveOff: feedback.octaveOff } : {}),
+      ...(feedback.kind === 'wrong-string' ? { heardPosition: formatGuitarNumber(feedback.heard) } : {}),
       ...(feedback.kind === 'correct' ? { cents: Math.round(feedback.cents) } : {}),
       completed: practice.completed,
     })
@@ -126,19 +159,16 @@ function PracticeView({ song }: { song: Song }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practice.feedbackId, practice.positionVersion])
 
-  // One short sound per confirmed wrong note. Never a sound for correct notes.
+  // One short sound per confirmed wrong note (or wrong string). Never a sound for correct notes.
   const lastErrorSound = useRef(-Infinity)
   useEffect(() => {
-    if ((practice.feedback.kind !== 'incorrect' && practice.feedback.kind !== 'wrong-chord') || !errorSound) return
+    if (!isMistake(practice.feedback) || !errorSound) return
     const now = performance.now()
     if (now - lastErrorSound.current < ERROR_SOUND_COOLDOWN_MS) return
     if (playErrorSound()) lastErrorSound.current = now
     // Only a new feedback (feedbackId) should trigger the sound.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practice.feedbackId])
-
-  const tuning = getTuning(song.tuningId) ?? STANDARD_TUNING
-  const note = song.notes[practice.currentIndex]
 
   // Spoken guidance: say each new note aloud (note-by-note mode only: in play-through the song
   // moves on faster than speech). The microphone is ignored while the phone talks.
@@ -161,7 +191,7 @@ function PracticeView({ song }: { song: Song }) {
   const lastQuickWrong = useRef(-Infinity)
   useEffect(() => {
     const { feedback } = practice
-    if (!speechAvailable || !speakNotes || (feedback.kind !== 'incorrect' && feedback.kind !== 'wrong-chord')) return
+    if (!speechAvailable || !speakNotes || !isMistake(feedback)) return
     const muteWhileTalking = { onStart: () => setSpeaking(true), onEnd: () => setSpeaking(false) }
     if (practice.mode === 'strict') {
       const correction = correctionToSpeech(song.notes[feedback.noteIndex], feedback)
@@ -343,8 +373,25 @@ function PracticeView({ song }: { song: Song }) {
         {samePitch.length > 0 && note.position && (
           <p className={styles.samePitch} data-testid="same-pitch">
             <span aria-hidden="true">👂 </span>
-            {samePitch.map(formatGuitarNumber).join(' and ')} {samePitch.length === 1 ? 'sounds' : 'sound'} the same. The app
-            hears the note, not the string, so play it on <strong>string {note.position.stringNumber}</strong> as shown.
+            {samePitch.map(formatGuitarNumber).join(' and ')} {samePitch.length === 1 ? 'sounds' : 'sound'} the same.{' '}
+            {stringCheck ? (
+              <>
+                The string check listens for the string, so play it on <strong>string {note.position.stringNumber}</strong> as
+                shown.
+              </>
+            ) : (
+              <>
+                The app hears the note, not the string, so play it on <strong>string {note.position.stringNumber}</strong> as
+                shown.{' '}
+                {stringSetup ? (
+                  'Your guitar setup cannot check these strings (they sound too alike, or one was skipped).'
+                ) : (
+                  <Link to="/guitar-setup" state={{ from: location.pathname }} className={styles.setupLink}>
+                    Set up the string check (30 s)
+                  </Link>
+                )}
+              </>
+            )}
           </p>
         )}
 
