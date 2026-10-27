@@ -27,6 +27,9 @@ import {
 } from '../practice/stringSetup'
 import styles from './GuitarSetupPage.module.css'
 
+/** A whole setup, with strings that need many tries, fits easily (≈ 58 MB at 48 kHz). */
+const SETUP_RECORDING_SECONDS = 300
+
 const STRING_HINTS: Partial<Record<StringNumber, string>> = { 1: 'the thinnest', 6: 'the thickest' }
 
 const LAST_MESSAGES: Record<NonNullable<SetupState['last']>, string> = {
@@ -229,6 +232,7 @@ export function GuitarSetupPage() {
             title="Setup recording (for testing)"
             playHint="Pluck each string as the app asks."
             startLabel="Record this setup"
+            maxSeconds={SETUP_RECORDING_SECONDS}
           />
         </section>
       )}

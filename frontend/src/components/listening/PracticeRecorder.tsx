@@ -28,11 +28,14 @@ export function PracticeRecorder({
   title = 'Practice recording (for testing)',
   playHint = 'Play the song as you normally would.',
   startLabel = 'Record this practice',
+  maxSeconds = MAX_RECORDING_SECONDS,
 }: {
   listening: ListeningState
   title?: string
   playHint?: string
   startLabel?: string
+  /** Longest recording; each minute takes about 11.5 MB of the phone's memory. */
+  maxSeconds?: number
 }) {
   const [state, setState] = useState<State>({ step: 'idle' })
   const [elapsed, setElapsed] = useState(0)
@@ -69,14 +72,14 @@ export function PracticeRecorder({
     const timer = setInterval(() => {
       const seconds = (performance.now() - state.startedAt) / 1000
       setElapsed(seconds)
-      if (seconds >= MAX_RECORDING_SECONDS) void finish()
+      if (seconds >= maxSeconds) void finish()
     }, 250)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, recording])
 
   function begin() {
-    if (startRecording(MAX_RECORDING_SECONDS)) {
+    if (startRecording(maxSeconds)) {
       setElapsed(0)
       setState({ step: 'recording', startedAt: performance.now() })
     }
@@ -91,7 +94,7 @@ export function PracticeRecorder({
         <>
           <p role="status">
             <span className={styles.recDot} aria-hidden="true" /> Recording {formatSeconds(elapsed)} of{' '}
-            {formatSeconds(MAX_RECORDING_SECONDS)}. {playHint}
+            {formatSeconds(maxSeconds)}. {playHint}
           </p>
           <button type="button" className="button button-primary" onClick={() => void finish()}>
             <span aria-hidden="true">■</span> Stop and save
