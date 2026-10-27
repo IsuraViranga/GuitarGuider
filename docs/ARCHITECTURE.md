@@ -713,6 +713,13 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   the setup again). Learned on that guitar (×10⁻⁵): 1.7, 4.2, 3.7, 6.4, 11.5, 17.6; neighbouring
   pairs 1–2, 3–4, 4–5, 5–6 checked, 2–3 too alike. With it, the 2026-10-24 pair recordings: no
   correct note called wrong, 10/25 and 13/28 caught in both directions.
+- Strings 2 and 3 (20/34 …): almost as stiff, but string 3's overtones are far less regular (every
+  pluck as measured by the app: string 2 0.15–0.81 cents, string 3 1.18–4.83). `regularityRange`:
+  when two strings' usual misfits differ ≥ 4× (the regular one ≤ 1 cent), a pluck whose stiffness
+  matches the other position and whose misfit is clearly on that string's side of the geometric
+  mean (×1.25 / ÷1.25; above it, at most 3.5) is "the other string"; the gap between is never
+  judged so. On the recordings: 34 for 20 caught 3 of 6 (rest unsure), 20 for 34 caught 5 of 6;
+  no correct note called wrong. All neighbouring pairs are now checked on that guitar.
 
 ## 9. Later phases (unchanged from the brief, condensed)
 

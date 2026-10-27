@@ -113,6 +113,39 @@ describe('string verdicts', () => {
       expect(planStringCheck({ stringNumber: 3, fret: 0 }, { open: strings.open }, STANDARD_TUNING)!.expected.maxMisfit).toBe(1.5)
     })
   })
+
+  describe('strings as stiff as each other, told apart by how regular they are (20 and 34)', () => {
+    // A real guitar: plain string 2 (usual misfit 0.3) and wound string 3 (2.5) are almost as stiff.
+    const strings = { open: { 2: 4.2e-5, 3: 3.7e-5 }, misfit: { 2: 0.31, 3: 2.46 } }
+    const at20 = planStringCheck({ stringNumber: 2, fret: 0 }, strings, STANDARD_TUNING)!
+    const at34 = planStringCheck({ stringNumber: 3, fret: 4 }, strings, STANDARD_TUNING)!
+    const pluck = (b: number, misfit: number): Stiffness => ({ b, overtones: 24, misfit })
+
+    it('plans the check, with an undecided gap between the two (0.70–1.09 cents here)', () => {
+      expect(at20.others[0].position).toEqual({ stringNumber: 3, fret: 4 })
+      expect(at20.others[0].misfitRange![0]).toBeCloseTo(1.09, 2)
+      expect(at34.others[0].misfitRange![1]).toBeCloseTo(0.7, 2)
+    })
+
+    it('34 played for 20 (irregular overtones), and 20 played for 34 (regular ones)', () => {
+      expect(judgeString(at20, pluck(4.6e-5, 1.18))).toEqual({ result: 'other', heard: { stringNumber: 3, fret: 4 } })
+      expect(judgeString(at34, pluck(4.5e-5, 0.34))).toEqual({ result: 'other', heard: { stringNumber: 2, fret: 0 } })
+    })
+
+    it('the right string, the gap, and disturbed or odd plucks are never called the other string', () => {
+      expect(judgeString(at20, pluck(4.3e-5, 0.4))).toEqual({ result: 'expected' })
+      expect(judgeString(at20, pluck(4.3e-5, 0.9)).result).not.toBe('other') // in the gap: counts as right
+      expect(judgeString(at20, pluck(4.3e-5, 4.8))).toEqual({ result: 'unsure' }) // disturbed (above 3.5)
+      expect(judgeString(at20, pluck(15e-5, 2.3))).toEqual({ result: 'unsure' }) // stiffness fits neither
+      expect(judgeString(at20, { b: 4.6e-5, overtones: 9, misfit: 2 })).toEqual({ result: 'unsure' }) // too few overtones
+      expect(judgeString(at34, pluck(5.9e-5, 2.33))).toEqual({ result: 'expected' }) // a normal pluck of string 3
+    })
+
+    it('only when the regularities clearly differ (learned in the setup)', () => {
+      expect(planStringCheck({ stringNumber: 2, fret: 0 }, { open: strings.open }, STANDARD_TUNING)).toBeNull()
+      expect(planStringCheck({ stringNumber: 2, fret: 0 }, { ...strings, misfit: { 2: 0.9, 3: 2.46 } }, STANDARD_TUNING)).toBeNull()
+    })
+  })
 })
 
 describe('string check in the live tracker', () => {
@@ -178,7 +211,7 @@ describe('guitar setup', () => {
   })
 
   it('tells which neighbouring strings it can check', () => {
-    expect(neighbourPairs({ 1: 1.7e-5, 2: 4.5e-5, 3: 2.9e-5 }, STANDARD_TUNING).slice(0, 3)).toEqual([
+    expect(neighbourPairs({ open: { 1: 1.7e-5, 2: 4.5e-5, 3: 2.9e-5 } }, STANDARD_TUNING).slice(0, 3)).toEqual([
       { strings: [1, 2], status: 'checked' },
       { strings: [2, 3], status: 'too-alike' },
       { strings: [3, 4], status: 'not-measured' },

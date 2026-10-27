@@ -8,6 +8,7 @@ import {
   isClean,
   MAX_STRING_MISFIT,
   predictStiffness,
+  regularityRange,
   type GuitarStrings,
   type OpenStringStiffness,
   type Stiffness,
@@ -143,16 +144,20 @@ export function setupReducer(state: SetupState, action: SetupAction): SetupState
 export type PairStatus = 'checked' | 'too-alike' | 'not-measured'
 
 /**
- * Whether the app can tell neighbouring strings apart on this guitar (for the setup summary).
- * For two strings the stiffness ratio of the same note is the same at every fret.
+ * Whether the app can tell neighbouring strings apart on this guitar (for the setup summary): by
+ * stiffness (the ratio for the same note is the same at every fret) or by how regular they are.
  */
-export function neighbourPairs(open: OpenStringStiffness, tuning: Tuning): Array<{ strings: [StringNumber, StringNumber]; status: PairStatus }> {
+export function neighbourPairs(strings: GuitarStrings, tuning: Tuning): Array<{ strings: [StringNumber, StringNumber]; status: PairStatus }> {
   return STRING_NUMBERS.slice(0, -1).map((thinner) => {
     const thicker = (thinner + 1) as StringNumber
     const gap = tuning.openStringMidi[thinner] - tuning.openStringMidi[thicker]
-    const a = predictStiffness(open, { stringNumber: thinner, fret: 0 })
-    const b = predictStiffness(open, { stringNumber: thicker, fret: gap })
-    const status: PairStatus = a === null || b === null ? 'not-measured' : Math.max(a / b, b / a) >= CHECKABLE_RATIO ? 'checked' : 'too-alike'
+    const a = predictStiffness(strings.open, { stringNumber: thinner, fret: 0 })
+    const b = predictStiffness(strings.open, { stringNumber: thicker, fret: gap })
+    let status: PairStatus = 'not-measured'
+    if (a !== null && b !== null) {
+      const apart = Math.max(a / b, b / a) >= CHECKABLE_RATIO || regularityRange(strings, thinner, thicker) !== null
+      status = apart ? 'checked' : 'too-alike'
+    }
     return { strings: [thinner, thicker], status }
   })
 }

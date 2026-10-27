@@ -54,6 +54,8 @@ function measureAll(): Record<string, Array<Stiffness | null>> {
 }
 
 const measured = available ? measureAll() : {}
+/** How many verdicts said "played at `played`". */
+const count = (list: StringVerdict[], played: string) => list.filter((v) => v.result === 'other' && formatGuitarNumber(v.heard) === played).length
 
 describe.skipIf(!available)('string check on the client recordings', { timeout: 120_000 }, () => {
   const open = { 1: settledStiffness(measured['10'] ?? [])?.b ?? NaN, 2: settledStiffness(measured['20'] ?? [])?.b ?? NaN }
@@ -62,7 +64,6 @@ describe.skipIf(!available)('string check on the client recordings', { timeout: 
     if (!check) throw new Error(`${expected} cannot be checked`)
     return measured[played].map((stiffness) => judgeString(check, stiffness))
   }
-  const count = (list: StringVerdict[], played: string) => list.filter((v) => v.result === 'other' && formatGuitarNumber(v.heard) === played).length
 
   it('every pluck of each position was heard', () => {
     for (const code of ['10', '25', '13', '28', '26']) expect(measured[code]?.length ?? 0, code).toBeGreaterThanOrEqual(5)
@@ -168,7 +169,8 @@ describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string
   })
 
   it('says which neighbouring strings it can tell apart on this guitar', () => {
-    expect(neighbourPairs(strings.open, STANDARD_TUNING).map((p) => p.status)).toEqual(['checked', 'too-alike', 'checked', 'checked', 'checked'])
+    // 2 and 3 are almost as stiff, but string 3's overtones are far less regular.
+    expect(neighbourPairs(strings, STANDARD_TUNING).map((p) => p.status)).toEqual(['checked', 'checked', 'checked', 'checked', 'checked'])
   })
 
   it('with this setup, the earlier same-note plucks: never a correct note called wrong, wrong strings caught', () => {
@@ -183,9 +185,15 @@ describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string
     for (const [expected, played] of [['10', '25'], ['25', '10'], ['13', '28'], ['28', '13']]) {
       expect(judged(expected, played)!.every((v) => v.result === 'other'), `${played} for ${expected}`).toBe(true)
     }
-    // 20 and 34 sound too alike: 34 is not checked (49, on string 4, still is).
+    // 20 and 34: told apart by regularity. Plucks that do not fit the learned pattern stay unsure.
     const at20 = planStringCheck(position('20'), strings, STANDARD_TUNING)!
-    expect(at20.others.map((o) => formatGuitarNumber(o.position))).toEqual(['49'])
-    expect(judged('20', '34')!.some((v) => v.result === 'other')).toBe(false)
+    expect(at20.others.map((o) => formatGuitarNumber(o.position))).toEqual(['34', '49'])
+    const for20 = judged('20', '34')!
+    const for34 = judged('34', '20')!
+    console.log('34 for 20:', for20.map((v) => v.result).join(' '), '| 20 for 34:', for34.map((v) => v.result).join(' '))
+    expect(for20.some((v) => v.result === 'expected')).toBe(false)
+    expect(count(for20, '34')).toBeGreaterThanOrEqual(3)
+    expect(for34.some((v) => v.result === 'expected')).toBe(false)
+    expect(count(for34, '20')).toBeGreaterThanOrEqual(5)
   })
 })

@@ -101,7 +101,7 @@ export function GuitarSetupPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])
 
-  const pairs = neighbourPairs(done ? setup.open : (saved?.open ?? {}), STANDARD_TUNING)
+  const pairs = neighbourPairs(done ? setup : (saved ?? { open: {} }), STANDARD_TUNING)
   const restart = () => {
     dispatch({ type: 'restart' })
     setOtherNote(null)

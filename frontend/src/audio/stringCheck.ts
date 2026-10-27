@@ -175,6 +175,36 @@ type Candidate = {
   predicted: number
   /** A pluck on this string is judged only up to this misfit (see misfitLimit). */
   maxMisfit: number
+  /**
+   * For a string as stiff as the expected one but clearly more or less regular (see
+   * regularityRange): the misfit range that means this string was played. Absent when told apart
+   * by stiffness.
+   */
+  misfitRange?: readonly [number, number]
+}
+
+/**
+ * Two strings can also be told apart by how regular their overtones are, when their usual misfits
+ * (learned in the setup) differ at least this much and the more regular one is clearly regular.
+ * On a real guitar: plain string 2 0.3 cents, wound string 3 2.5 (every pluck: string 2 at most
+ * 0.81, string 3 at least 1.18), while their stiffness is almost the same (20 and 34).
+ */
+const REGULARITY_RATIO = 4
+const MAX_REGULAR_USUAL = 1
+/** Around the middle of the two usual values (geometric mean) nothing is decided: 0.8× to 1.25× of it. */
+const REGULARITY_GAP = 1.25
+
+/**
+ * The misfit range meaning "played on `other`" rather than on `expected`, when the two are told
+ * apart by regularity; null when they cannot be.
+ */
+export function regularityRange(strings: GuitarStrings, expected: StringNumber, other: StringNumber): readonly [number, number] | null {
+  const a = strings.misfit?.[expected]
+  const b = strings.misfit?.[other]
+  if (a === undefined || b === undefined) return null
+  if (Math.max(a, b) < REGULARITY_RATIO * Math.min(a, b) || Math.min(a, b) > MAX_REGULAR_USUAL) return null
+  const middle = Math.sqrt(a * b)
+  return b > a ? [middle * REGULARITY_GAP, MAX_STRING_MISFIT] : [0, middle / REGULARITY_GAP]
 }
 
 export type StringCheck = {
@@ -192,9 +222,14 @@ export function planStringCheck(position: GuitarPosition, strings: GuitarStrings
   if (predicted === null) return null
   const others = positionsForMidi(positionToMidi(position, tuning), tuning)
     .filter((p) => p.stringNumber !== position.stringNumber && p.fret <= maxFret)
-    .flatMap((p) => {
+    .flatMap((p): Candidate[] => {
       const b = predictStiffness(strings.open, p)
-      return b !== null && ratio(b, predicted) >= CHECKABLE_RATIO ? [{ position: p, predicted: b, maxMisfit: misfitLimit(strings, p.stringNumber) }] : []
+      if (b === null) return []
+      const candidate = { position: p, predicted: b, maxMisfit: misfitLimit(strings, p.stringNumber) }
+      if (ratio(b, predicted) >= CHECKABLE_RATIO) return [candidate]
+      // As stiff as the expected string: maybe told apart by how regular its overtones are.
+      const misfitRange = regularityRange(strings, position.stringNumber, p.stringNumber)
+      return misfitRange ? [{ ...candidate, misfitRange }] : []
     })
   const expected = { position, predicted, maxMisfit: misfitLimit(strings, position.stringNumber) }
   return others.length > 0 ? { expected, others } : null
@@ -209,10 +244,21 @@ export type StringVerdict =
 /** Judges a played note's measured stiffness (null = no measurement) against the plan. */
 export function judgeString(check: StringCheck, stiffness: Stiffness | null): StringVerdict {
   if (!stiffness || !(stiffness.b > 0)) return { result: 'unsure' }
+  // A string as stiff as the expected one: its stiffness must match, and the overtones must be
+  // clearly as regular (or irregular) as that string's, not the expected one's.
+  if (stiffness.overtones >= MIN_OVERTONES_TO_JUDGE) {
+    for (const other of check.others) {
+      const range = other.misfitRange
+      if (range && ratio(stiffness.b, other.predicted) <= MATCH_RATIO && stiffness.misfit >= range[0] && stiffness.misfit <= range[1]) {
+        return { result: 'other', heard: other.position }
+      }
+    }
+  }
   const fromExpected = ratio(stiffness.b, check.expected.predicted)
   if (fromExpected <= MATCH_RATIO) return isClean(stiffness, check.expected.maxMisfit) ? { result: 'expected' } : { result: 'unsure' }
-  if (stiffness.overtones < MIN_OVERTONES_TO_JUDGE || fromExpected < RULED_OUT_RATIO) return { result: 'unsure' }
-  const nearest = [...check.others].sort((a, b) => ratio(stiffness.b, a.predicted) - ratio(stiffness.b, b.predicted))[0]
+  const byStiffness = check.others.filter((other) => !other.misfitRange)
+  if (stiffness.overtones < MIN_OVERTONES_TO_JUDGE || fromExpected < RULED_OUT_RATIO || byStiffness.length === 0) return { result: 'unsure' }
+  const nearest = [...byStiffness].sort((a, b) => ratio(stiffness.b, a.predicted) - ratio(stiffness.b, b.predicted))[0]
   // The played string must fit as cleanly as that string normally does.
   return ratio(stiffness.b, nearest.predicted) <= MATCH_RATIO && isClean(stiffness, nearest.maxMisfit)
     ? { result: 'other', heard: nearest.position }
