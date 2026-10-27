@@ -118,44 +118,45 @@ describe.skipIf(!available)('string check on the client recordings', { timeout: 
 const SETUP_FOLDER = '../recordings/guitarStringTrack'
 const setupAvailable = existsSync(`${SETUP_FOLDER}/stringMatch.wav`) && available
 
-describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string check with it', { timeout: 120_000 }, () => {
-  /** Replays the setup recording as live: the string asked for (from the log), then the setup's rules. */
-  function replaySetup() {
-    const bytes = readFileSync(`${SETUP_FOLDER}/stringMatch.wav`)
-    const { samples, sampleRate } = decodeWav(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
-    const log = JSON.parse(readFileSync(`${SETUP_FOLDER}/stringMatch.json`, 'utf8')) as { frames: Array<{ t: number; target: number | null; muted?: boolean }> }
-    const tracker = new PitchTracker(sampleRate, 2048)
-    const plucks: Record<number, Array<Stiffness | null>> = {}
-    let target: number | null = null
-    for (const frame of log.frames) {
-      if (frame.target !== target) {
-        target = frame.target
-        tracker.resetNotes({ requireFreshOnset: true })
-        tracker.setTargets(target === null ? [] : [target])
-        tracker.setStiffnessProbe(target)
-      }
-      const end = Math.round((frame.t / 1000) * sampleRate)
-      if (frame.muted || end < STIFFNESS_WINDOW || end > samples.length) continue
-      for (const event of tracker.process(samples.subarray(end - STIFFNESS_WINDOW, end), frame.t).events) {
-        if (target !== null && event.type === 'noteStart' && event.stiffness !== undefined) (plucks[target] ??= []).push(event.stiffness)
-      }
+/** Replays the setup recording as live: the string asked for (from the log), then the setup's rules. */
+function replaySetupStrings() {
+  const bytes = readFileSync(`${SETUP_FOLDER}/stringMatch.wav`)
+  const { samples, sampleRate } = decodeWav(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+  const log = JSON.parse(readFileSync(`${SETUP_FOLDER}/stringMatch.json`, 'utf8')) as { frames: Array<{ t: number; target: number | null; muted?: boolean }> }
+  const tracker = new PitchTracker(sampleRate, 2048)
+  const plucks: Record<number, Array<Stiffness | null>> = {}
+  let target: number | null = null
+  for (const frame of log.frames) {
+    if (frame.target !== target) {
+      target = frame.target
+      tracker.resetNotes({ requireFreshOnset: true })
+      tracker.setTargets(target === null ? [] : [target])
+      tracker.setStiffnessProbe(target)
     }
-    // Like the setup page: a string is learned as soon as 3 clear plucks agree.
-    const strings = { open: {} as Record<number, number>, misfit: {} as Record<number, number> }
-    for (const string of [1, 2, 3, 4, 5, 6] as const) {
-      const all = plucks[STANDARD_TUNING.openStringMidi[string]] ?? []
-      for (let n = 1; n <= all.length; n++) {
-        const settled = settledStiffness(all.slice(0, n))
-        if (settled) {
-          strings.open[string] = settled.b
-          strings.misfit[string] = settled.misfit
-          break
-        }
-      }
+    const end = Math.round((frame.t / 1000) * sampleRate)
+    if (frame.muted || end < STIFFNESS_WINDOW || end > samples.length) continue
+    for (const event of tracker.process(samples.subarray(end - STIFFNESS_WINDOW, end), frame.t).events) {
+      if (target !== null && event.type === 'noteStart' && event.stiffness !== undefined) (plucks[target] ??= []).push(event.stiffness)
     }
-    return strings
   }
-  const strings = setupAvailable ? replaySetup() : { open: {}, misfit: {} }
+  // Like the setup page: a string is learned as soon as 3 clear plucks agree.
+  const strings = { open: {} as Record<number, number>, misfit: {} as Record<number, number> }
+  for (const string of [1, 2, 3, 4, 5, 6] as const) {
+    const all = plucks[STANDARD_TUNING.openStringMidi[string]] ?? []
+    for (let n = 1; n <= all.length; n++) {
+      const settled = settledStiffness(all.slice(0, n))
+      if (settled) {
+        strings.open[string] = settled.b
+        strings.misfit[string] = settled.misfit
+        break
+      }
+    }
+  }
+  return strings
+}
+
+describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string check with it', { timeout: 120_000 }, () => {
+  const strings = setupAvailable ? replaySetupStrings() : { open: {}, misfit: {} }
 
   it('learns all six strings, wound strings 3 and 6 included', () => {
     const learned = Object.fromEntries(Object.entries(strings.open).map(([s, b]) => [s, Number((b * 1e5).toFixed(1))]))
@@ -195,5 +196,64 @@ describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string
     expect(count(for20, '34')).toBeGreaterThanOrEqual(3)
     expect(for34.some((v) => v.result === 'expected')).toBe(false)
     expect(count(for34, '20')).toBeGreaterThanOrEqual(5)
+  })
+})
+
+// Strings 2 and 3 in practice (2026-10-27, recordings/guitarStringTrack/tandthree): the song
+// "20 20 20 21 21 21 23 23 23 34 34 34 35 35 35 37 37 37" in Note by note, each note played on its
+// own string, then on the other string a few times. What was played, by time (seconds):
+const PAIRS_SONG = '20 20 20 21 21 21 23 23 23 34 34 34 35 35 35 37 37 37'.split(' ')
+const PAIRS_PLAYED: Array<[number, number, string]> = [
+  [4, 5, '20'], [10, 24, '34'], [34, 35, '21'], [40, 50, '35'], [58, 59, '23'], [66, 73, '37'],
+  [78, 79, '34'], [84, 91, '20'], [101, 102, '35'], [105, 107, '21'], [115, 116, '37'],
+]
+const pairsAvailable = setupAvailable && existsSync(`${SETUP_FOLDER}/tandthree.wav`)
+
+describe.skipIf(!pairsAvailable)('strings 2 and 3 in a real practice', { timeout: 120_000 }, () => {
+  it('every right note counts; the other string is caught when the pluck is clear', () => {
+    const strings = replaySetupStrings()
+    const bytes = readFileSync(`${SETUP_FOLDER}/tandthree.wav`)
+    const { samples, sampleRate } = decodeWav(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+    const log = JSON.parse(readFileSync(`${SETUP_FOLDER}/tandthree.json`, 'utf8')) as {
+      frames: Array<{ t: number; muted?: boolean }>
+      events: Array<{ t: number; kind: string; index?: number }>
+    }
+    // The note the app was on at each moment (as logged), and the check it made for it.
+    const steps = log.events.filter((e) => e.kind === 'practice')
+    const stepAt = (t: number) => steps.filter((e) => e.t < t).at(-1)?.index ?? 0
+    const tracker = new PitchTracker(sampleRate, 2048)
+    const verdicts: Record<string, string[]> = {}
+    let step = -1
+    for (const frame of log.frames) {
+      const end = Math.round((frame.t / 1000) * sampleRate)
+      if (stepAt(frame.t) !== step) {
+        step = stepAt(frame.t)
+        tracker.resetNotes({ requireFreshOnset: true })
+        tracker.setTargets([pitchOf(PAIRS_SONG[step])])
+        tracker.setStiffnessProbe(pitchOf(PAIRS_SONG[step]))
+      }
+      if (frame.muted || end < STIFFNESS_WINDOW || end > samples.length) continue
+      for (const event of tracker.process(samples.subarray(end - STIFFNESS_WINDOW, end), frame.t).events) {
+        const played = PAIRS_PLAYED.find(([a, b]) => frame.t / 1000 >= a && frame.t / 1000 <= b)?.[2]
+        if (event.type !== 'noteStart' || event.stiffness === undefined || !played) continue
+        const check = planStringCheck(position(PAIRS_SONG[step]), strings, STANDARD_TUNING)!
+        const verdict = judgeString(check, event.stiffness)
+        ;(verdicts[`${played} for ${PAIRS_SONG[step]}`] ??= []).push(verdict.result === 'other' ? formatGuitarNumber(verdict.heard) : verdict.result)
+      }
+    }
+    console.log(verdicts)
+    for (const [key, list] of Object.entries(verdicts)) {
+      const [played, , expected] = key.split(' ')
+      if (played === expected) expect(list.every((v) => v !== 'other' && !/^\d/.test(v)), key).toBe(true)
+      else expect(list.every((v) => v === played || v === 'unsure' || v === 'expected'), key).toBe(true)
+    }
+    // Caught (measured 2026-10-27). Misses: two 21s plucked into the still-ringing note before
+    // (measured as noise), and two 37s just above the 3.5-cent limit (string 3 at fret 7).
+    const caught = (key: string) => verdicts[key].filter((v) => v === key.split(' ')[0]).length
+    expect(caught('34 for 20')).toBe(6)
+    expect(caught('35 for 21')).toBe(5)
+    expect(caught('20 for 34')).toBe(4)
+    expect(caught('37 for 23')).toBeGreaterThanOrEqual(2)
+    expect(caught('21 for 35')).toBeGreaterThanOrEqual(1)
   })
 })

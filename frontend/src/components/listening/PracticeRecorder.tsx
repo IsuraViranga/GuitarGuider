@@ -3,8 +3,8 @@ import type { ListeningState } from '../../audio/useListening'
 import { download, recordingFiles, sendToComputer, type RecordingFiles } from '../../audio/saveRecording'
 import styles from './ListeningPanel.module.css'
 
-/** Longest diagnostic recording (memory on the phone stays small: ~23 MB at 48 kHz). */
-export const MAX_RECORDING_SECONDS = 120
+/** Longest diagnostic recording: a whole test song or guitar setup (~58 MB of phone memory at 48 kHz). */
+export const MAX_RECORDING_SECONDS = 300
 
 type State =
   | { step: 'idle' }
@@ -28,14 +28,11 @@ export function PracticeRecorder({
   title = 'Practice recording (for testing)',
   playHint = 'Play the song as you normally would.',
   startLabel = 'Record this practice',
-  maxSeconds = MAX_RECORDING_SECONDS,
 }: {
   listening: ListeningState
   title?: string
   playHint?: string
   startLabel?: string
-  /** Longest recording; each minute takes about 11.5 MB of the phone's memory. */
-  maxSeconds?: number
 }) {
   const [state, setState] = useState<State>({ step: 'idle' })
   const [elapsed, setElapsed] = useState(0)
@@ -72,14 +69,14 @@ export function PracticeRecorder({
     const timer = setInterval(() => {
       const seconds = (performance.now() - state.startedAt) / 1000
       setElapsed(seconds)
-      if (seconds >= maxSeconds) void finish()
+      if (seconds >= MAX_RECORDING_SECONDS) void finish()
     }, 250)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, recording])
 
   function begin() {
-    if (startRecording(maxSeconds)) {
+    if (startRecording(MAX_RECORDING_SECONDS)) {
       setElapsed(0)
       setState({ step: 'recording', startedAt: performance.now() })
     }
@@ -94,7 +91,7 @@ export function PracticeRecorder({
         <>
           <p role="status">
             <span className={styles.recDot} aria-hidden="true" /> Recording {formatSeconds(elapsed)} of{' '}
-            {formatSeconds(maxSeconds)}. {playHint}
+            {formatSeconds(MAX_RECORDING_SECONDS)}. {playHint}
           </p>
           <button type="button" className="button button-primary" onClick={() => void finish()}>
             <span aria-hidden="true">■</span> Stop and save
