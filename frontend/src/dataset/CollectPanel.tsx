@@ -289,19 +289,24 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
                 </div>
               </div>
             )}
-            <ChoiceChips legend="Background noise" options={NOISE} value={session.backgroundNoise} onChange={(v) => update({ backgroundNoise: v })} />
-            <ChoiceChips legend="Plucking" options={METHODS} value={session.pluckMethod} onChange={(v) => update({ pluckMethod: v })} />
-            <ChoiceChips legend="Strength" options={STRENGTHS} value={session.pluckStrength} onChange={(v) => update({ pluckStrength: v })} />
-            <ChoiceChips legend="Device" options={DEVICES} value={session.device ?? 'other'} onChange={(v) => update({ device: v })} />
-            <ChoiceChips
-              legend="Plucks per position"
-              options={PLUCK_TARGETS.map((n) => ({ value: n, label: String(n) }))}
-              value={session.target}
-              onChange={(v) => update({ target: v })}
-            />
-            <button type="button" className="button button-primary" disabled={!guitar} onClick={() => setEditing(false)}>
-              Done
-            </button>
+            {/* The conditions come after the guitar is saved, so the form has one button at a time. */}
+            {!addingGuitar && (
+              <>
+                <ChoiceChips legend="Background noise" options={NOISE} value={session.backgroundNoise} onChange={(v) => update({ backgroundNoise: v })} />
+                <ChoiceChips legend="Plucking" options={METHODS} value={session.pluckMethod} onChange={(v) => update({ pluckMethod: v })} />
+                <ChoiceChips legend="Strength" options={STRENGTHS} value={session.pluckStrength} onChange={(v) => update({ pluckStrength: v })} />
+                <ChoiceChips legend="Device" options={DEVICES} value={session.device ?? 'other'} onChange={(v) => update({ device: v })} />
+                <ChoiceChips
+                  legend="Plucks per position"
+                  options={PLUCK_TARGETS.map((n) => ({ value: n, label: String(n) }))}
+                  value={session.target}
+                  onChange={(v) => update({ target: v })}
+                />
+                <button type="button" className="button button-primary" disabled={!guitar} onClick={() => setEditing(false)}>
+                  Done
+                </button>
+              </>
+            )}
           </div>
         )}
       </section>

@@ -140,6 +140,9 @@ describe('dataset collector: recording', () => {
     renderApp('/admin/dataset')
     // No guitar yet: add one (acoustic: steel, strings 3-6 wound).
     await userEvent.type(await screen.findByLabelText('Guitar name'), 'Yamaha black')
+    // One step at a time: the conditions and Done appear once the guitar is saved.
+    expect(screen.queryByRole('button', { name: 'Done' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'Pick' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Add guitar' }))
     expect(calls.find((c) => c.key === 'POST /api/dataset/guitars')!.body).toEqual({ name: 'Yamaha black', guitarType: 'acoustic', stringMaterial: 'steel', woundStrings: [3, 4, 5, 6] })
     await userEvent.click(screen.getByRole('radio', { name: 'Pick' }))
