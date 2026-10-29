@@ -738,11 +738,13 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - `useStringSetup()` (`practice/stringSetup.ts`): signed in → the account's setup, with a copy on
   this device (`guitar-practice:string-setup:<userId>`) used while loading and when the server
   cannot be reached; visitors → the one in this browser (as before, optional).
-- Practice (`PracticePage`): signed in and the server says there is no setup → "First, a guitar
-  setup" (link to the setup page; or use a setup done on this phone without an account). A
-  network problem never blocks practice. Visitors practise without it.
+- Practice (`PracticePage`): signed in and the server says there is no setup → "Quick guitar
+  setup" (`components/practice/GuitarSetupNeeded`: song up next, 3 short facts, "Start setup", or
+  use a setup done on this phone without an account). A network problem never blocks practice.
+  Visitors practise without it.
 - Setup page: the first setup is saved with the account; doing it again asks "Save the new setup /
-  Keep my earlier setup". "Remove the setup" only for visitors (accounts redo it instead).
+  Keep my earlier setup". "Delete my setup" (asked first) deletes it without a new one; accounts
+  then do a new one before their next song. Account menu: "Redo guitar setup".
 - e2e: students that practise get a setup through the API (`tests/e2e/guitarSetup.ts`); a test
   covers the gate for a new account.
 

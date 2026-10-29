@@ -16,7 +16,7 @@ import {
   type Stiffness,
 } from '../audio/stringCheck'
 import { STRING_NUMBERS, type StringNumber, type Tuning } from '../music/tuning'
-import { getAccountStringSetup, saveAccountStringSetup } from './stringSetupApi'
+import { deleteAccountStringSetup, getAccountStringSetup, saveAccountStringSetup } from './stringSetupApi'
 
 /** Clear plucks of one open string that must agree before its stiffness is kept. */
 export const SETUP_PLUCKS = 3
@@ -104,8 +104,8 @@ export type StringSetupState = {
   deviceSetup: StringSetup | null
   /** Saves a new setup (to the account when signed in; may fail, e.g. offline). */
   save: (setup: StringSetup) => Promise<void>
-  /** Removes a visitor's setup from this browser. */
-  remove: () => void
+  /** Deletes the setup (from the account when signed in; may fail, e.g. offline). */
+  remove: () => Promise<void>
 }
 
 /**
@@ -152,7 +152,7 @@ export function useStringSetup(): StringSetupState {
         setVisitorSetup(setup)
         storeStringSetup(STORAGE_KEY, setup)
       },
-      remove: () => {
+      remove: async () => {
         setVisitorSetup(null)
         storeStringSetup(STORAGE_KEY, null)
       },
@@ -169,7 +169,11 @@ export function useStringSetup(): StringSetupState {
       storeStringSetup(accountKey(userId), saved)
       setFetched({ userId, result: saved })
     },
-    remove: () => {},
+    remove: async () => {
+      await deleteAccountStringSetup()
+      storeStringSetup(accountKey(userId), null)
+      setFetched({ userId, result: null })
+    },
   }
 }
 

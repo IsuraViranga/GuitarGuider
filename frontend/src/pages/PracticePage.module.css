@@ -516,20 +516,3 @@
   color: #b9a6ff;
   font-weight: 700;
 }
-
-/* Signed in, before the first song: the guitar setup. */
-.setupNeeded {
-  display: grid;
-  gap: var(--space-3);
-  max-width: 640px;
-  border-color: rgb(245 165 36 / 0.4);
-}
-
-.setupNeeded p {
-  margin: 0;
-}
-
-.setupNeededTitle {
-  margin: 0;
-  text-transform: uppercase;
-}

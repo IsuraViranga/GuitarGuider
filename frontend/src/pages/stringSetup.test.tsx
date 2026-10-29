@@ -1,4 +1,4 @@
-import { act, screen } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { DetectedEvent } from '../audio/pitchTracker'
@@ -137,7 +137,8 @@ describe('guitar setup page', () => {
     saveSetup({ 1: 1.7e-5, 2: 4.5e-5 })
     renderApp('/guitar-setup')
     expect(await screen.findByText(/Your guitar was set up on/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Remove the setup' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete my setup' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
     expect(localStorage.getItem('guitar-practice:string-setup')).toBeNull()
     expect(screen.queryByText(/Your guitar was set up on/)).not.toBeInTheDocument()
   })
@@ -150,9 +151,9 @@ describe('guitar setup with an account', () => {
   it('before the first song: asks for the guitar setup (the server has none)', async () => {
     fakeServer({ ...signedInAs(USER), ...noSetup })
     renderApp('/songs/sample-first-frets/practice')
-    expect(await screen.findByRole('heading', { name: 'First, a guitar setup' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Quick guitar setup' })).toBeInTheDocument()
     expect(screen.queryByTestId('expected-number')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('link', { name: /Set up my guitar/ }))
+    await userEvent.click(screen.getByRole('link', { name: /Start setup/ }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Guitar setup' })).toBeInTheDocument()
   })
 
@@ -180,7 +181,7 @@ describe('guitar setup with an account', () => {
     saveSetup({ 1: 1.7e-5, 2: 4.5e-5 })
     const calls = fakeServer({ ...signedInAs(USER), ...noSetup, 'PUT /api/string-setup': (body) => [200, { ...(body as object), savedAt: '2026-10-29T08:00:00.000Z' }] })
     renderApp('/songs/sample-first-frets/practice')
-    await userEvent.click(await screen.findByRole('button', { name: /Use the setup on this phone/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Use this phone’s setup/ }))
     expect(await screen.findByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
     expect(calls.find((c) => c.key === 'PUT /api/string-setup')?.body).toEqual({ open: { 1: 1.7e-5, 2: 4.5e-5 }, misfit: {} })
   })
@@ -201,6 +202,20 @@ describe('guitar setup with an account', () => {
     expect(calls.find((c) => c.key === 'PUT /api/string-setup')?.body).toEqual({ open: { 1: 1.7e-5, 2: 4.5e-5 }, misfit: { 1: 0.3, 2: 0.3 } })
   })
 
+  it('the student can delete the setup without doing a new one (asked first)', async () => {
+    const calls = fakeServer({ ...signedInAs(USER), 'GET /api/string-setup': () => [200, ACCOUNT_SETUP], 'DELETE /api/string-setup': () => [204] })
+    renderApp('/guitar-setup')
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete my setup' }))
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Delete your guitar setup? You will do a new one before your next song.')
+    await userEvent.click(screen.getByRole('button', { name: 'Keep it' }))
+    expect(calls.some((c) => c.key === 'DELETE /api/string-setup')).toBe(false)
+    await userEvent.click(screen.getByRole('button', { name: 'Delete my setup' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(screen.queryByText(/Your guitar was set up on/)).not.toBeInTheDocument())
+    expect(calls.filter((c) => c.key === 'DELETE /api/string-setup')).toHaveLength(1)
+    expect(localStorage.getItem(`guitar-practice:string-setup:${USER.id}`)).toBeNull()
+  })
+
   it('doing it again replaces the saved setup only when the student agrees', async () => {
     const calls = fakeServer({
       ...signedInAs(USER),
@@ -209,7 +224,6 @@ describe('guitar setup with an account', () => {
     })
     renderApp('/guitar-setup')
     expect(await screen.findByText(/saved with your account/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove the setup' })).not.toBeInTheDocument()
     await doSetup()
     expect(await screen.findByRole('heading', { name: 'Use this new setup?' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Keep my earlier setup' }))

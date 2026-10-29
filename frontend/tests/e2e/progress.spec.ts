@@ -17,8 +17,8 @@ test('a new account does the guitar setup before the first song; then it is save
   await expect(page.getByRole('button', { name: 'Account: Setup Student' })).toBeVisible()
 
   await page.goto('/songs/sample-first-frets/practice')
-  await expect(page.getByRole('heading', { name: 'First, a guitar setup' })).toBeVisible()
-  await page.getByRole('link', { name: /Set up my guitar/ }).click()
+  await expect(page.getByRole('heading', { name: 'Quick guitar setup' })).toBeVisible()
+  await page.getByRole('link', { name: /Start setup/ }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Guitar setup' })).toBeVisible()
 
   await saveGuitarSetup(page) // as the setup page does when it finishes

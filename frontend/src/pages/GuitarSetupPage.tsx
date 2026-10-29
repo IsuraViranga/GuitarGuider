@@ -58,6 +58,15 @@ export function GuitarSetupPage() {
   const strings = useStringSetup()
   const saved = strings.setup
   const signedIn = useAuth().status === 'signedIn'
+  /** Deleting the saved setup: asked first. */
+  const [deleting, setDeleting] = useState<'no' | 'confirm' | 'busy' | 'error'>('no')
+  const deleteSaved = () => {
+    setDeleting('busy')
+    strings
+      .remove()
+      .then(() => setDeleting('no'))
+      .catch(() => setDeleting('error'))
+  }
   /** What happens to a finished setup: asked first when one is saved already. */
   const [saving, setSaving] = useState<'idle' | 'ask' | 'saving' | 'saved' | 'kept' | 'error'>('idle')
   const [boost] = useMicBoostSetting()
@@ -140,10 +149,27 @@ export function GuitarSetupPage() {
             Your guitar was set up on <strong>{new Date(saved.savedAt).toLocaleDateString()}</strong>
             {signedIn ? ' (saved with your account)' : ''}. Do it again after changing strings or on another guitar.
           </p>
-          {!signedIn && (
-            <button type="button" className="button" onClick={strings.remove}>
-              Remove the setup
+          {deleting === 'no' && (
+            <button type="button" className="button" onClick={() => setDeleting('confirm')}>
+              Delete my setup
             </button>
+          )}
+          {deleting !== 'no' && (
+            <div className={styles.confirm} role="alertdialog" aria-label="Delete your guitar setup?">
+              <p>
+                <strong>Delete your guitar setup?</strong>{' '}
+                {signedIn ? 'You will do a new one before your next song.' : 'The string check stays off until you do a new one.'}
+              </p>
+              {deleting === 'error' && <p role="alert">Could not delete it. Please check your connection and try again.</p>}
+              <div className={styles.buttons}>
+                <button type="button" className="button button-primary" onClick={deleteSaved} disabled={deleting === 'busy'}>
+                  {deleting === 'busy' ? 'Deleting…' : 'Delete'}
+                </button>
+                <button type="button" className="button" onClick={() => setDeleting('no')} disabled={deleting === 'busy'}>
+                  Keep it
+                </button>
+              </div>
+            </div>
           )}
         </section>
       )}
