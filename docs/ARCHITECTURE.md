@@ -720,6 +720,15 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   mean (×1.25 / ÷1.25; above it, at most 3.5) is "the other string"; the gap between is never
   judged so. On the recordings: 34 for 20 caught 3 of 6 (rest unsure), 20 for 34 caught 5 of 6;
   no correct note called wrong. All neighbouring pairs are now checked on that guitar.
+- All 55 pairs on a real guitar (2026-10-29, `recordings/guitarPracRecords/prac1–5`: five test songs,
+  each pair "a a a b b b", every note on its own string; each pluck judged with its own position
+  and with its partner expected). Plain strings are near perfect; fretted wound strings are much
+  less regular than open ones (many overtones 5–25 cents off), so most of their plucks were above
+  the limit learned on the open string. The allowance now doubles over 12 frets (`misfitLimit`
+  takes the position), still never above 3.5 cents. With the other day's setup: correct notes
+  called wrong 0 of 328 (2 player slips excluded), wrong strings caught 149 → 185 of 328; with a
+  same-day setup about 72%. Still weak: 11 (always disturbed on that guitar), string 3 above
+  fret 7 (its stiffness rises more slowly than the 6-fret rule), some wound/wound pairs.
 
 ## 9. Later phases (unchanged from the brief, condensed)
 

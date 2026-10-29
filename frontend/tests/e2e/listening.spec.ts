@@ -184,7 +184,7 @@ test('records a practice run and saves sound + decision log on the computer', as
   await startListening(page)
   await expect(page.getByText('Listening. Play the note.')).toBeVisible(LOOP)
   await page.getByRole('button', { name: /Record this practice/ }).click()
-  await expect(page.getByText(/Recording 0:0\d of 2:00/)).toBeVisible()
+  await expect(page.getByText(/Recording 0:0\d of 5:00/)).toBeVisible()
   await page.waitForTimeout(4500) // long enough to hear one G4 pluck
   await page.getByRole('button', { name: /Stop and save/ }).click()
 

@@ -257,3 +257,58 @@ describe.skipIf(!pairsAvailable)('strings 2 and 3 in a real practice', { timeout
     expect(caught('21 for 35')).toBeGreaterThanOrEqual(1)
   })
 })
+
+// All 55 same-note pairs up to fret 12 (2026-10-29, recordings/guitarPracRecords/prac1–5): five test
+// songs, each pair as "a a a b b b", every note played on its own string in Note by note. Each pluck
+// (as measured on the phone, from the log) is judged twice: with its own position expected (must
+// count) and with the pair's other position expected (should be caught). The setup is the one
+// recorded on another day (recordings/guitarStringTrack), so the test does not grade itself.
+const PRAC_FOLDER = '../recordings/guitarPracRecords'
+const PRAC_SONGS = [
+  '10 25 11 26 12 27 13 28 14 29 15 210 16 211 17 212 10 39 11 310 12 311 13 312',
+  '20 34 21 35 22 36 23 37 24 38 25 39 26 310 27 311 28 312 20 49 21 410 22 411 23 412',
+  '30 45 31 46 32 47 33 48 34 49 35 410 36 411 37 412 30 510 31 511 32 512',
+  '40 55 41 56 42 57 43 58 44 59 45 510 46 511 47 512 40 610 41 611 42 612',
+  '50 65 51 66 52 67 53 68 54 69 55 610 56 611 57 612',
+].map((pairs) => pairs.split(' '))
+/** Two slips: the previous position plucked once more at the start of the next (measured exactly like it). */
+const PRAC_SLIPS = [{ code: '27', b: 2.15 }, { code: '510', b: 4.06 }]
+const pracAvailable = setupAvailable && [1, 2, 3, 4, 5].every((n) => existsSync(`${PRAC_FOLDER}/prac${n}.json`))
+
+describe.skipIf(!pracAvailable)('all same-note pairs, played on a real guitar', { timeout: 120_000 }, () => {
+  it('no correct note is called the wrong string; most wrong strings are caught', () => {
+    const strings = replaySetupStrings()
+    let right = 0
+    let wronglyCalled = 0
+    let wrong = 0
+    let caught = 0
+    PRAC_SONGS.forEach((pairs, s) => {
+      const log = JSON.parse(readFileSync(`${PRAC_FOLDER}/prac${s + 1}.json`, 'utf8')) as {
+        events: Array<{ kind: string; index?: number; stiffness?: { b: number; overtones: number; misfit: number } | null }>
+      }
+      const song = pairs.flatMap((_, i) => (i % 2 === 0 ? [...Array(3).fill(pairs[i]), ...Array(3).fill(pairs[i + 1])] : []))
+      const partner = (i: number) => pairs[Math.floor(i / 6) * 2 + (i % 6 < 3 ? 1 : 0)]
+      let step = 0
+      for (const event of log.events) {
+        if (event.kind === 'practice') step = event.index ?? step
+        if (event.kind !== 'noteStart' || event.stiffness === undefined) continue
+        const played = song[Math.min(step, song.length - 1)]
+        const measured = event.stiffness && { ...event.stiffness, b: event.stiffness.b * 1e-5 }
+        if (measured && PRAC_SLIPS.some((slip) => slip.code === played && slip.b === event.stiffness!.b)) continue
+        const own = planStringCheck(position(played), strings, STANDARD_TUNING)
+        if (own) {
+          right++
+          if (judgeString(own, measured).result === 'other') wronglyCalled++
+        }
+        const other = planStringCheck(position(partner(Math.min(step, song.length - 1))), strings, STANDARD_TUNING)
+        wrong++
+        const verdict = other && judgeString(other, measured)
+        if (verdict?.result === 'other' && formatGuitarNumber(verdict.heard) === played) caught++
+      }
+    })
+    console.log(`55 pairs: correct notes called wrong ${wronglyCalled}/${right}; wrong strings caught ${caught}/${wrong}`)
+    expect(wronglyCalled).toBe(0)
+    // Measured 2026-10-29 with the other day's setup: 185 of 328 (before the fret allowance: 149).
+    expect(caught).toBeGreaterThanOrEqual(185)
+  })
+})

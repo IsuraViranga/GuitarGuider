@@ -5,7 +5,7 @@ import { neighbourPairs, settledStiffness } from '../practice/stringSetup'
 import { concat, mix, noise, SAMPLE_RATE, stiffPluck } from '../test/synth'
 import type { NoteEvent } from './noteRecognizer'
 import { PitchTracker } from './pitchTracker'
-import { createStiffnessMeter, judgeString, planStringCheck, predictStiffness, STIFFNESS_WINDOW, STRING_CHECK_DELAY_MS, type Stiffness } from './stringCheck'
+import { createStiffnessMeter, judgeString, misfitLimit, planStringCheck, predictStiffness, STIFFNESS_WINDOW, STRING_CHECK_DELAY_MS, type Stiffness } from './stringCheck'
 
 const E4 = midiToFrequency(64)
 const ROOM = 0.0008
@@ -107,6 +107,14 @@ describe('string verdicts', () => {
       const loose = planStringCheck({ stringNumber: 3, fret: 0 }, { ...strings, misfit: { 3: 3.4, 4: 3.4 } }, STANDARD_TUNING)!
       expect(loose.expected.maxMisfit).toBe(3.5)
       expect(judgeString(loose, wound(11e-5, 3.9))).toEqual({ result: 'unsure' })
+    })
+
+    it('fretted wound strings are less regular: the allowance doubles over 12 frets, never above 3.5', () => {
+      const string5 = { open: { 5: 11.5e-5 }, misfit: { 5: 1.14 } }
+      expect(misfitLimit(string5, { stringNumber: 5, fret: 0 })).toBeCloseTo(1.6, 2) // 1.4 × 1.14
+      expect(misfitLimit(string5, { stringNumber: 5, fret: 12 })).toBeCloseTo(3.19, 2) // 2.8 × 1.14
+      expect(misfitLimit({ open: {}, misfit: { 3: 2.46 } }, { stringNumber: 3, fret: 10 })).toBe(3.5)
+      expect(misfitLimit({ open: {}, misfit: { 2: 0.31 } }, { stringNumber: 2, fret: 12 })).toBe(1.5) // plain: floor
     })
 
     it('setups saved before this keep the plain-string limit', () => {

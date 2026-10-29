@@ -153,7 +153,9 @@ const MIN_OVERTONES_TO_JUDGE = 12
 /**
  * ...and any judgement only on a clean one: a pluck whose overtones fit about as well as that
  * string's do in the setup (up to 1.4× its usual misfit), never worse than MAX_STRING_MISFIT.
- * Without a learned value (older setups): MAX_MISFIT_CENTS, which suits plain strings.
+ * The setup measures open strings; fretted, wound strings are less regular the higher the fret
+ * (measured on real recordings), so the allowance doubles over 12 frets. Without a learned value
+ * (older setups): MAX_MISFIT_CENTS, which suits plain strings.
  */
 export const MAX_MISFIT_CENTS = 1.5
 const USUAL_MISFIT_ALLOWANCE = 1.4
@@ -163,11 +165,12 @@ const USUAL_MISFIT_ALLOWANCE = 1.4
  */
 export const MAX_STRING_MISFIT = 3.5
 
-/** The largest misfit a pluck on this string may have to be judged. */
-export function misfitLimit(strings: GuitarStrings, string: StringNumber): number {
-  const usual = strings.misfit?.[string]
+/** The largest misfit a pluck at this position may have to be judged. */
+export function misfitLimit(strings: GuitarStrings, position: GuitarPosition): number {
+  const usual = strings.misfit?.[position.stringNumber]
   if (usual === undefined) return MAX_MISFIT_CENTS
-  return Math.min(MAX_STRING_MISFIT, Math.max(MAX_MISFIT_CENTS, usual * USUAL_MISFIT_ALLOWANCE))
+  const allowance = USUAL_MISFIT_ALLOWANCE * 2 ** (position.fret / 12)
+  return Math.min(MAX_STRING_MISFIT, Math.max(MAX_MISFIT_CENTS, usual * allowance))
 }
 
 type Candidate = {
@@ -225,13 +228,13 @@ export function planStringCheck(position: GuitarPosition, strings: GuitarStrings
     .flatMap((p): Candidate[] => {
       const b = predictStiffness(strings.open, p)
       if (b === null) return []
-      const candidate = { position: p, predicted: b, maxMisfit: misfitLimit(strings, p.stringNumber) }
+      const candidate = { position: p, predicted: b, maxMisfit: misfitLimit(strings, p) }
       if (ratio(b, predicted) >= CHECKABLE_RATIO) return [candidate]
       // As stiff as the expected string: maybe told apart by how regular its overtones are.
       const misfitRange = regularityRange(strings, position.stringNumber, p.stringNumber)
       return misfitRange ? [{ ...candidate, misfitRange }] : []
     })
-  const expected = { position, predicted, maxMisfit: misfitLimit(strings, position.stringNumber) }
+  const expected = { position, predicted, maxMisfit: misfitLimit(strings, position) }
   return others.length > 0 ? { expected, others } : null
 }
 
