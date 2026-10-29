@@ -11,7 +11,8 @@ export function fakeServer(routes: Record<string, Route>): Call[] {
   const calls: Call[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const key = `${init?.method ?? 'GET'} ${String(input)}`
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    // Uploads (FormData) are passed as they are; everything else is JSON.
+    const body = init?.body instanceof FormData ? init.body : init?.body ? JSON.parse(String(init.body)) : undefined
     calls.push({ key, body })
     const route = routes[key]
     if (!route) throw new TypeError('Failed to fetch')

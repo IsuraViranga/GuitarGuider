@@ -1,9 +1,10 @@
-"""Database tables: accounts, songs, share requests, saved practice and password resets."""
+"""Database tables: accounts, songs, share requests, saved practice, password resets, guitar setups
+and the admin's dataset collector."""
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -167,3 +168,88 @@ class StringSetup(Base):
     open: Mapped[dict] = mapped_column(JSONB)
     misfit: Mapped[dict] = mapped_column(JSONB)
     saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ---------- dataset collector (admin only; see app/dataset.py) ----------
+
+GUITAR_TYPES = ("acoustic", "classical", "electric", "other")
+STRING_MATERIALS = ("steel", "nylon", "unknown")
+STRING_CONSTRUCTIONS = ("wound", "unwound", "unknown")
+NOISE_LEVELS = ("quiet", "moderate", "noisy")
+PLUCK_METHODS = ("finger", "pick")
+PLUCK_STRENGTHS = ("soft", "medium", "strong")
+DEVICES = ("phone", "tablet", "laptop", "other")
+REVIEW_STATUSES = ("accepted", "needs_review", "rejected")
+
+
+def _one_of(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} in ({', '.join(repr(v) for v in values)})"
+
+
+class DatasetGuitar(Base):
+    """A guitar recorded for the dataset. Names are unique (ignoring case), so each is reused."""
+
+    __tablename__ = "dataset_guitars"
+    __table_args__ = (
+        CheckConstraint(_one_of("guitar_type", GUITAR_TYPES), name="dataset_guitars_type_valid"),
+        CheckConstraint(_one_of("string_material", STRING_MATERIALS), name="dataset_guitars_material_valid"),
+        Index("dataset_guitars_name_unique", func.lower(text("name")), unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(60))
+    guitar_type: Mapped[str] = mapped_column(String(12))
+    string_material: Mapped[str] = mapped_column(String(10))
+    # Which strings (1-6) are wound, e.g. [3, 4, 5, 6] (null: not known). Copied to each sample.
+    wound_strings: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DatasetSample(Base):
+    """One recorded pluck: its labels, the recording conditions and where its audio file is kept.
+    The audio itself is never in the database (see app/dataset_storage.py)."""
+
+    __tablename__ = "dataset_samples"
+    __table_args__ = (
+        CheckConstraint("string_number between 1 and 6", name="dataset_samples_string_valid"),
+        CheckConstraint("fret between 0 and 24", name="dataset_samples_fret_valid"),
+        CheckConstraint(_one_of("string_construction", STRING_CONSTRUCTIONS), name="dataset_samples_construction_valid"),
+        CheckConstraint(_one_of("background_noise", NOISE_LEVELS), name="dataset_samples_noise_valid"),
+        CheckConstraint(_one_of("pluck_method", PLUCK_METHODS), name="dataset_samples_method_valid"),
+        CheckConstraint(_one_of("pluck_strength", PLUCK_STRENGTHS), name="dataset_samples_strength_valid"),
+        CheckConstraint(f"device is null or {_one_of('device', DEVICES)}", name="dataset_samples_device_valid"),
+        CheckConstraint(_one_of("status", REVIEW_STATUSES), name="dataset_samples_status_valid"),
+        Index("ix_dataset_samples_position", "guitar_id", "string_number", "fret"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    guitar_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("dataset_guitars.id", ondelete="RESTRICT"), index=True)
+    string_number: Mapped[int] = mapped_column(Integer)
+    fret: Mapped[int] = mapped_column(Integer)
+    expected_midi: Mapped[int] = mapped_column(Integer)
+    expected_note: Mapped[str] = mapped_column(String(4))
+    expected_hz: Mapped[float] = mapped_column(Float)
+    string_construction: Mapped[str] = mapped_column(String(8))
+    background_noise: Mapped[str] = mapped_column(String(10))
+    pluck_method: Mapped[str] = mapped_column(String(8))
+    pluck_strength: Mapped[str] = mapped_column(String(8))
+    device: Mapped[str | None] = mapped_column(String(8))
+    notes: Mapped[str | None] = mapped_column(Text)
+    # The audio file: its key in the storage, and what the file really is (read from the file).
+    audio_key: Mapped[str] = mapped_column(String(120), unique=True)
+    audio_format: Mapped[str] = mapped_column(String(20))
+    sample_rate: Mapped[int] = mapped_column(Integer)
+    bit_depth: Mapped[int] = mapped_column(Integer)
+    channels: Mapped[int] = mapped_column(Integer)
+    duration_ms: Mapped[int] = mapped_column(Integer)
+    audio_bytes: Mapped[int] = mapped_column(Integer)
+    peak: Mapped[float] = mapped_column(Float)
+    # When the app heard the pluck start, ms from the start of the file (null: not heard).
+    pluck_at_ms: Mapped[int | None] = mapped_column(Integer)
+    # How the browser captured the sound (e.g. its sample rate and that its sound processing was off).
+    capture: Mapped[dict | None] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(12), default="accepted", server_default="accepted")
+    recorded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    guitar: Mapped[DatasetGuitar] = relationship()

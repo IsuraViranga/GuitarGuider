@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom'
 import { AuthPage } from '../pages/AuthPage'
+import { DatasetPage } from '../pages/DatasetPage'
 import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages'
 import { EditSongPage } from '../pages/EditSongPage'
 import { GuitarSetupPage } from '../pages/GuitarSetupPage'
@@ -27,6 +28,7 @@ export const routes: RouteObject[] = [
       { path: '/import', element: <ImportPage /> },
       { path: '/progress', element: <ProgressPage /> },
       { path: '/guitar-setup', element: <GuitarSetupPage /> },
+      { path: '/admin/dataset', element: <DatasetPage /> },
       { path: '/signin', element: <AuthPage mode="signin" /> },
       { path: '/signup', element: <AuthPage mode="signup" /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },

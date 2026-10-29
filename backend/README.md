@@ -78,6 +78,25 @@ used from there). Set up once:
 Without a key the "Forgot password?" page says reset by email is not ready. On your own computer
 `EMAIL_LOG_LINKS=true` (in `.env`) prints the link in the server log instead of sending it.
 
+## Dataset collector (admin only)
+
+`/admin/dataset` records labelled single plucks for research (see docs/ARCHITECTURE.md, 8r).
+The sound files go to a **private Backblaze B2 bucket** (free 10 GB, about 12,000 plucks; no card
+needed). On your own computer `DATASET_STORAGE=local` (in `.env`) keeps them in
+`../datasets/collector` instead (git-ignored). Set up B2 once:
+
+1. Create a free account at backblaze.com (B2 Cloud Storage).
+2. **Buckets → Create a Bucket**: a unique name (e.g. `melantha-guitar-dataset`), **Private**.
+   Note its **Endpoint** (e.g. `s3.us-east-005.backblazeb2.com`); the region is the middle part
+   (`us-east-005`).
+3. **Application Keys → Add a New Application Key**: access to **that bucket only**, Read and
+   Write. Copy the **keyID** and the **applicationKey** (shown once).
+4. On Render (service → Environment) add `DATASET_STORAGE=s3`, `DATASET_S3_ENDPOINT`
+   (`https://` + the endpoint), `DATASET_S3_REGION`, `DATASET_S3_BUCKET`, `DATASET_S3_KEY_ID` and
+   `DATASET_S3_SECRET`. Never put the key in the code or chat.
+
+Until all of them are set, the collector says storage is not set up and saves nothing.
+
 ## Health checks
 
 | Address | Means | Uses the database |

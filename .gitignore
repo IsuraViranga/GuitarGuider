@@ -7,3 +7,6 @@ recordings/
 
 # Client song sheets used for testing (not published)
 sharedSongs/
+
+# Downloaded research datasets (large; get them from their own sites)
+datasets/

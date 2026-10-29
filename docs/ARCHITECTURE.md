@@ -760,6 +760,40 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - e2e: students that practise get a setup through the API (`tests/e2e/guitarSetup.ts`); a test
   covers the gate for a new account.
 
+### 8r. Dataset collector (admin only; for research, can be removed)
+
+Labelled recordings of single plucks (string, fret, guitar, conditions), for later research on
+telling strings apart. Nothing else uses it: practice, pitch detection and the string check are
+unchanged.
+
+- **Page** `/admin/dataset` (`pages/DatasetPage.tsx`, `src/dataset/`), linked from the account menu
+  for the admin only. **Record:** the guitar and conditions are set once and kept (this browser);
+  choose string and fret on the progress grid (frets 0–7, or all), Record → "Pluck now" → stops 4 s
+  after the pluck → listen (as often as wanted) → Save / Retake / Discard. Nothing is uploaded
+  before Save. Warnings only: clipped, very quiet, no pluck, several plucks, pluck at the very
+  start, another note heard. After the chosen number of plucks (3/5/10) the next unfinished
+  position is chosen. Keyboard: Space, Enter, R, Esc. **Samples:** filter (guitar, string, fret,
+  strings, noise, status), play, mark accepted / needs review / rejected, note, delete (asked
+  first), export CSV or JSONL (labels and storage keys, no audio).
+- **Audio:** the app's own raw microphone path (echo cancellation, noise suppression and auto gain
+  off; the mic boost is not used), saved as mono 32-bit float WAV at the browser's real sample
+  rate, never filtered or resampled. The server reads the real format from the file header.
+- **Server** (`app/dataset.py`, admin only on every route: 401 / 403 otherwise): guitars
+  (`dataset_guitars`: name unique ignoring case, type, string material, which strings are wound)
+  and samples (`dataset_samples`, Alembic `0007_dataset_collector`): string and fret separately,
+  expected MIDI / note / Hz worked out on the server (standard tuning, A4 = 440), conditions,
+  audio key, format, sample rate, bit depth, channels, duration, bytes, peak, pluck time,
+  status, notes. Uploads: mono WAV, 16-bit or 32-bit float, 0.5–15 s, at most 8 MB.
+- **Storage** (`app/dataset_storage.py`): `DATASET_STORAGE=s3` → a private S3-compatible bucket
+  (Backblaze B2: free 10 GB, no card); playback through signed links valid 5 minutes. `local` →
+  `../datasets/collector` (git-ignored), for development. Unset or incomplete → off: saving is
+  refused with a clear message. Keys are made by the server (`samples/<uuid>.wav`).
+- **Never half-saved:** audio first, then the row; if the row fails, the audio is removed. Delete:
+  the audio first; if that fails, the sample stays listed.
+- **Removing it later:** delete `app/dataset*.py`, `src/dataset/`, `pages/DatasetPage.tsx`, their
+  tests, the route, the menu link and the router line in `main.py`; add a migration that drops
+  the two tables; remove the `DATASET_*` settings.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

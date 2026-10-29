@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .auth import router as auth_router
+from .dataset import router as dataset_router
 from .progress import router as progress_router
 from .string_setup import router as string_setup_router
 from .sharing import router as sharing_router
@@ -128,3 +129,5 @@ app.include_router(songs_router)
 app.include_router(sharing_router)
 app.include_router(progress_router)
 app.include_router(string_setup_router)
+# Admin-only dataset collector (self-contained: removing this line and app/dataset*.py removes it).
+app.include_router(dataset_router)

@@ -6,6 +6,7 @@ os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL", "postgresql://p
 os.environ["COOKIE_SECURE"] = "false"  # the test client talks plain http
 os.environ["EMAIL_API_KEY"] = ""
 os.environ["EMAIL_LOG_LINKS"] = "true"  # emails are captured by the tests, never sent
+os.environ["DATASET_STORAGE"] = ""  # dataset audio: the tests use a store in memory (tests/test_dataset.py)
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -35,7 +36,7 @@ def database():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as connection:
-        connection.execute(text("truncate string_setups, password_resets, practice_saves, share_requests, seed_log, songs, auth_sessions, users cascade"))
+        connection.execute(text("truncate dataset_samples, dataset_guitars, string_setups, password_resets, practice_saves, share_requests, seed_log, songs, auth_sessions, users cascade"))
     signin_limiter.reset()
     reset_limiter.reset()
     yield

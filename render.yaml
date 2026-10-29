@@ -24,3 +24,17 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Dataset collector (admin only): the recorded plucks' audio in a private Backblaze B2
+      # bucket (free 10 GB, no card). See docs/ARCHITECTURE.md, "Dataset collector".
+      - key: DATASET_STORAGE
+        value: s3
+      - key: DATASET_S3_ENDPOINT
+        sync: false
+      - key: DATASET_S3_REGION
+        sync: false
+      - key: DATASET_S3_BUCKET
+        sync: false
+      - key: DATASET_S3_KEY_ID
+        sync: false
+      - key: DATASET_S3_SECRET
+        sync: false

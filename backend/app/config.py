@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     # Reset emails per account per hour (and requests per address per hour).
     reset_per_hour: int = 3
     reset_requests_per_address: int = 10
+    # Dataset collector (admin only): where the audio of each recorded pluck is kept.
+    # "s3": a private S3-compatible bucket (Backblaze B2 on the website), "local": a folder on this
+    # computer (development only: Render's disk is wiped on every restart), "": off.
+    dataset_storage: str = ""
+    dataset_s3_endpoint: str = ""  # e.g. https://s3.us-east-005.backblazeb2.com
+    dataset_s3_region: str = ""  # e.g. us-east-005
+    dataset_s3_bucket: str = ""
+    dataset_s3_key_id: str = ""
+    dataset_s3_secret: str = ""
+    dataset_local_dir: str = "../datasets/collector"
 
     @property
     def email_ready(self) -> bool:
