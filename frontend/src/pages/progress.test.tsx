@@ -141,5 +141,6 @@ describe('My progress', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Account:/ }))
     expect(screen.getByRole('link', { name: /My progress/ })).toHaveAttribute('href', '/progress')
     expect(screen.getByRole('navigation', { name: 'Your account' })).toHaveTextContent('My songs')
+    expect(screen.getByRole('link', { name: /Redo guitar setup/ })).toHaveAttribute('href', '/guitar-setup')
   })
 })

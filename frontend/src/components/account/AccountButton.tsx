@@ -82,6 +82,10 @@ export function AccountButton() {
             <Link to="/progress" className={styles.link}>
               <span aria-hidden="true">📈</span> My progress
             </Link>
+            {/* After new strings, retuning or on another guitar ("Back to the song" returns here). */}
+            <Link to="/guitar-setup" state={{ from: location.pathname }} className={styles.link}>
+              <span aria-hidden="true">🎵</span> Redo guitar setup
+            </Link>
           </nav>
           {error && (
             <p role="alert" className={styles.error}>
