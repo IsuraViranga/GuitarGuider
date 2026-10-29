@@ -155,3 +155,15 @@ class PasswordReset(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user: Mapped[User] = relationship()
+
+
+class StringSetup(Base):
+    """The guitar setup for the string check: one per user (doing it again replaces it)."""
+
+    __tablename__ = "string_setups"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    # Per string ("1"-"6"): the open string's stiffness, and how regular its overtones usually are (cents).
+    open: Mapped[dict] = mapped_column(JSONB)
+    misfit: Mapped[dict] = mapped_column(JSONB)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

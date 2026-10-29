@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { usePageTitle } from '../app/usePageTitle'
 import { Fretboard } from '../components/fretboard/Fretboard'
@@ -27,7 +27,7 @@ import {
   type Feedback,
 } from '../practice/practiceReducer'
 import { canSpeak, correctionToSpeech, noteToSpeech, speak, stopSpeaking } from '../practice/speech'
-import { useStringSetup } from '../practice/stringSetup'
+import { useStringSetup, type StringSetup, type StringSetupState } from '../practice/stringSetup'
 import {
   useErrorSoundSetting,
   useMicBoostSetting,
@@ -46,6 +46,7 @@ export function PracticePage() {
   const state = useSong(songId)
   const song = state.status === 'ready' ? state.value : undefined
   usePageTitle(song ? `Practise ${song.title}` : 'Practice')
+  const strings = useStringSetup()
 
   if (!song) return <SongStatus state={state} />
   if (validateSong(song).length > 0) {
@@ -59,7 +60,56 @@ export function PracticePage() {
       </div>
     )
   }
-  return <PracticeView key={song.id} song={song} />
+  // Signed in: the guitar setup comes first (once per account); visitors may practise without it.
+  if (strings.status === 'loading') {
+    return (
+      <div className="page">
+        <p role="status">Checking your guitar setup…</p>
+      </div>
+    )
+  }
+  if (strings.missingOnAccount) return <GuitarSetupNeeded strings={strings} />
+  return <PracticeView key={song.id} song={song} stringSetup={strings.setup} />
+}
+
+/** Before a signed-in student's first song: the 30-second guitar setup, saved with the account. */
+function GuitarSetupNeeded({ strings }: { strings: StringSetupState }) {
+  const location = useLocation()
+  const [error, setError] = useState<string | null>(null)
+  const device = strings.deviceSetup
+  const adoptDeviceSetup = (setup: StringSetup) => {
+    setError(null)
+    strings.save(setup).catch(() => setError('Could not save it to your account. Please check your connection and try again.'))
+  }
+  return (
+    <div className="page">
+      <section className={`card ${styles.setupNeeded}`} aria-labelledby="setup-needed">
+        <h1 id="setup-needed" className={styles.setupNeededTitle}>
+          First, a guitar setup
+        </h1>
+        <p>
+          Before your first song, let the app learn your guitar: pluck each open string 3 times. It takes about 30 seconds and is
+          saved with your account, so you only do it again after changing strings or guitar. Then the app can tell when a note is
+          played on the wrong string.
+        </p>
+        <div className="button-row">
+          <Link className="button button-primary" to="/guitar-setup" state={{ from: location.pathname }}>
+            <span aria-hidden="true">🎸</span> Set up my guitar
+          </Link>
+          {device && (
+            <button type="button" className="button" onClick={() => adoptDeviceSetup(device)}>
+              Use the setup on this phone ({new Date(device.savedAt).toLocaleDateString()})
+            </button>
+          )}
+        </div>
+        {error && (
+          <p className="error-box" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+    </div>
+  )
 }
 
 /** Results that get the error sound and a spoken correction. */
@@ -73,7 +123,7 @@ const ERROR_SOUND_COOLDOWN_MS = 800
 const QUICK_WRONG_COOLDOWN_MS = 1500
 const QUICK_WRONG_RATE = 1.6
 
-function PracticeView({ song }: { song: Song }) {
+function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSetup | null }) {
   const [mode, setMode] = usePracticeModeSetting()
   const [practice, dispatch] = useReducer(practiceReducer, song.notes, (notes) =>
     createPracticeState(
@@ -90,7 +140,6 @@ function PracticeView({ song }: { song: Song }) {
   const [errorSound, setErrorSound] = useErrorSoundSetting()
   const [boost, setBoost] = useMicBoostSetting()
   const [speakNotes, setSpeakNotes] = useSpeakNotesSetting()
-  const [stringSetup] = useStringSetup()
   const location = useLocation()
 
   // String check (after the guitar setup): the current note's plan, read when a note arrives.

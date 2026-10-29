@@ -1,8 +1,10 @@
 // Guitar setup for the string check: how stiff each open string of the student's guitar is,
-// measured once by plucking each open string a few times, and remembered in this browser.
+// measured once by plucking each open string a few times. Signed in, it is kept with the account
+// (and a copy on this device, so practice works offline); visitors keep it in this browser only.
 // New strings or another guitar: do the setup again (it takes about 30 seconds).
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/authContext'
 import {
   CHECKABLE_RATIO,
   isClean,
@@ -14,13 +16,17 @@ import {
   type Stiffness,
 } from '../audio/stringCheck'
 import { STRING_NUMBERS, type StringNumber, type Tuning } from '../music/tuning'
+import { getAccountStringSetup, saveAccountStringSetup } from './stringSetupApi'
 
 /** Clear plucks of one open string that must agree before its stiffness is kept. */
 export const SETUP_PLUCKS = 3
 /** They agree when each is within this fraction of their middle value. */
 const AGREEMENT = 0.15
 
+/** A visitor's setup (no account), in this browser. */
 const STORAGE_KEY = 'guitar-practice:string-setup'
+/** This device's copy of an account's setup. */
+const accountKey = (userId: string) => `${STORAGE_KEY}:${userId}`
 
 /** Each measured open string's stiffness (B) and usual misfit (see GuitarStrings). */
 export type StringSetup = GuitarStrings & { savedAt: string }
@@ -49,11 +55,19 @@ export function settledStiffness(plucks: readonly (Stiffness | null)[]): { b: nu
   return { b, misfit: middle(newest.map((s) => s.misfit)) }
 }
 
-export function loadStringSetup(): StringSetup | null {
+function loadStringSetup(key: string): StringSetup | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<StringSetup>
+    const raw = localStorage.getItem(key)
+    return raw ? parseStringSetup(JSON.parse(raw)) : null
+  } catch {
+    return null
+  }
+}
+
+/** A setup as stored (here or on the server), keeping only valid measurements. */
+function parseStringSetup(value: unknown): StringSetup | null {
+  try {
+    const parsed = value as Partial<StringSetup>
     const open: OpenStringStiffness = {}
     const misfit: NonNullable<GuitarStrings['misfit']> = {}
     for (const string of STRING_NUMBERS) {
@@ -70,25 +84,93 @@ export function loadStringSetup(): StringSetup | null {
   }
 }
 
-function storeStringSetup(setup: StringSetup | null) {
+function storeStringSetup(key: string, setup: StringSetup | null) {
   try {
-    if (setup) localStorage.setItem(STORAGE_KEY, JSON.stringify(setup))
-    else localStorage.removeItem(STORAGE_KEY)
+    if (setup) localStorage.setItem(key, JSON.stringify(setup))
+    else localStorage.removeItem(key)
   } catch {
     // Not saved (private mode or storage blocked); the setup still applies on this page.
   }
 }
 
-/** The saved setup, and functions to save a new one or remove it. */
-export function useStringSetup(): [StringSetup | null, (setup: StringSetup | null) => void] {
-  const [setup, setSetup] = useState(loadStringSetup)
-  return [
+export type StringSetupState = {
+  /** The setup to use, or null. */
+  setup: StringSetup | null
+  /** 'loading' while it is not known yet (signed in, nothing on this device, server not answered). */
+  status: 'loading' | 'ready'
+  /** Signed in, and the server says the account has no setup yet: practice asks for one first. */
+  missingOnAccount: boolean
+  /** A setup done on this device without an account, which a signed-in student may use for theirs. */
+  deviceSetup: StringSetup | null
+  /** Saves a new setup (to the account when signed in; may fail, e.g. offline). */
+  save: (setup: StringSetup) => Promise<void>
+  /** Removes a visitor's setup from this browser. */
+  remove: () => void
+}
+
+/**
+ * The student's guitar setup. Signed in: the account's, fetched from the server (this device's
+ * copy is used meanwhile, and when the server cannot be reached, so no network problem ever
+ * blocks practice). Visitors: the one saved in this browser, if any.
+ */
+export function useStringSetup(): StringSetupState {
+  const { status: authStatus, user } = useAuth()
+  const userId = authStatus === 'signedIn' && user ? user.id : null
+  const [visitorSetup, setVisitorSetup] = useState(() => loadStringSetup(STORAGE_KEY))
+  /** The server's answer for this user: a setup, null (none yet), or 'unreachable'. */
+  const [fetched, setFetched] = useState<{ userId: string; result: StringSetup | null | 'unreachable' } | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    getAccountStringSetup()
+      .then((setup) => {
+        if (cancelled) return
+        const result = parseStringSetup(setup)
+        storeStringSetup(accountKey(userId), result)
+        setFetched({ userId, result })
+      })
+      .catch(() => {
+        if (!cancelled) setFetched({ userId, result: 'unreachable' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  const answer = fetched?.userId === userId ? fetched.result : undefined
+  // This device's copy (updated with every answer from the server); a quick read.
+  const deviceCopy = userId ? loadStringSetup(accountKey(userId)) : null
+
+  if (!userId) {
+    return {
+      setup: visitorSetup,
+      status: authStatus === 'loading' ? 'loading' : 'ready',
+      missingOnAccount: false,
+      deviceSetup: null,
+      save: async (setup) => {
+        setVisitorSetup(setup)
+        storeStringSetup(STORAGE_KEY, setup)
+      },
+      remove: () => {
+        setVisitorSetup(null)
+        storeStringSetup(STORAGE_KEY, null)
+      },
+    }
+  }
+  const setup = answer === undefined || answer === 'unreachable' ? deviceCopy : answer
+  return {
     setup,
-    (next: StringSetup | null) => {
-      setSetup(next)
-      storeStringSetup(next)
+    status: answer === undefined && !deviceCopy ? 'loading' : 'ready',
+    missingOnAccount: answer === null,
+    deviceSetup: visitorSetup,
+    save: async (next) => {
+      const saved = parseStringSetup(await saveAccountStringSetup(next)) ?? next
+      storeStringSetup(accountKey(userId), saved)
+      setFetched({ userId, result: saved })
     },
-  ]
+    remove: () => {},
+  }
 }
 
 /** The setup goes from the thinnest string to the thickest. */

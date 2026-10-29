@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { saveGuitarSetup } from './guitarSetup'
 
 // Full stack: the real API server (backend/ on http://localhost:8000, with the built-in songs
 // added by "python -m app.cli seed-songs"). Skipped when that server is not running.
@@ -17,6 +18,7 @@ async function signUp(page: Page, name: string, email: string) {
   await page.getByLabel('Password').fill('guitar-123')
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('button', { name: `Account: ${name}` })).toBeVisible()
+  await saveGuitarSetup(page)
 }
 
 const unique = (label: string, project: string) => `${label}-${Date.now()}-${project}`
@@ -79,6 +81,7 @@ test('only the admin adds to the global set list; everyone then sees it', async 
   await page.getByRole('button', { name: 'Sign in' }).click()
   const signedIn = await page.getByRole('button', { name: 'Account: E2E Admin' }).waitFor({ timeout: 8000 }).then(() => true, () => false)
   test.skip(!signedIn, 'No e2e admin account in the local database (see the note at the top of this file).')
+  await saveGuitarSetup(page)
 
   const title = unique('Global Song', info.project.name)
   await page.goto('/songs')

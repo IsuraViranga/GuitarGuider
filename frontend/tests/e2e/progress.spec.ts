@@ -1,10 +1,30 @@
 import { expect, test } from '@playwright/test'
+import { saveGuitarSetup } from './guitarSetup'
 
 // Full stack: needs the API server on http://localhost:8000. Skipped otherwise.
 
 test.beforeAll(async ({ request }) => {
   const up = await request.get('http://localhost:8000/api/health').then((r) => r.ok(), () => false)
   test.skip(!up, 'The API server is not running on localhost:8000 (see backend/README.md).')
+})
+
+test('a new account does the guitar setup before the first song; then it is saved with the account', async ({ page }, info) => {
+  await page.goto('/signup')
+  await page.getByLabel('Your name').fill('Setup Student')
+  await page.getByLabel('Email').fill(`setup-${Date.now()}-${info.project.name}@example.com`)
+  await page.getByLabel('Password').fill('guitar-123')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('button', { name: 'Account: Setup Student' })).toBeVisible()
+
+  await page.goto('/songs/sample-first-frets/practice')
+  await expect(page.getByRole('heading', { name: 'First, a guitar setup' })).toBeVisible()
+  await page.getByRole('link', { name: /Set up my guitar/ }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Guitar setup' })).toBeVisible()
+
+  await saveGuitarSetup(page) // as the setup page does when it finishes
+  await page.goto('/songs/sample-first-frets/practice')
+  await expect(page.getByTestId('expected-number')).toHaveText('10')
+  await expect(page.getByTestId('same-pitch')).toContainText('The string check listens for the string')
 })
 
 test('save a practice → see it in My progress → save again replaces it → remove', async ({ page }, info) => {
@@ -15,6 +35,7 @@ test('save a practice → see it in My progress → save again replaces it → r
   await page.getByLabel('Password').fill('guitar-123')
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('button', { name: 'Account: Progress Student' })).toBeVisible()
+  await saveGuitarSetup(page)
 
   await page.goto('/import')
   await page.getByLabel('Paste the song here').fill('10 11 12')

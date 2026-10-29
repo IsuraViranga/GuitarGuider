@@ -730,6 +730,22 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   same-day setup about 72%. Still weak: 11 (always disturbed on that guitar), string 3 above
   fret 7 (its stiffness rises more slowly than the 6-fret rule), some wound/wound pairs.
 
+### 8q. Guitar setup kept with the account, required before practice
+
+- Table `string_setups` (Alembic `0006_string_setups`): one per user (`open` and `misfit` per
+  string "1"–"6", `saved_at`). `GET/PUT/DELETE /api/string-setup` (`app/string_setup.py`):
+  private, signed in only, validated (stiffness 0–0.01, misfit 0–3.5, strings 1–6).
+- `useStringSetup()` (`practice/stringSetup.ts`): signed in → the account's setup, with a copy on
+  this device (`guitar-practice:string-setup:<userId>`) used while loading and when the server
+  cannot be reached; visitors → the one in this browser (as before, optional).
+- Practice (`PracticePage`): signed in and the server says there is no setup → "First, a guitar
+  setup" (link to the setup page; or use a setup done on this phone without an account). A
+  network problem never blocks practice. Visitors practise without it.
+- Setup page: the first setup is saved with the account; doing it again asks "Save the new setup /
+  Keep my earlier setup". "Remove the setup" only for visitors (accounts redo it instead).
+- e2e: students that practise get a setup through the API (`tests/e2e/guitarSetup.ts`); a test
+  covers the gate for a new account.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

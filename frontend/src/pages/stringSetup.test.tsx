@@ -5,6 +5,7 @@ import type { DetectedEvent } from '../audio/pitchTracker'
 import type { Stiffness } from '../audio/stringCheck'
 import type { ListeningState } from '../audio/useListening'
 import { renderApp } from '../test/renderApp'
+import { fakeServer, signedInAs, USER } from '../test/fakeServer'
 
 // A pretend microphone: the test plays notes by sending the events the detector would send.
 const mic = vi.hoisted(() => ({
@@ -139,5 +140,86 @@ describe('guitar setup page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove the setup' }))
     expect(localStorage.getItem('guitar-practice:string-setup')).toBeNull()
     expect(screen.queryByText(/Your guitar was set up on/)).not.toBeInTheDocument()
+  })
+})
+
+describe('guitar setup with an account', () => {
+  const ACCOUNT_SETUP = { open: { 1: 1.7e-5, 2: 4.5e-5 }, misfit: { 1: 0.3, 2: 0.3 }, savedAt: '2026-10-28T10:00:00.000Z' }
+  const noSetup = { 'GET /api/string-setup': () => [404, { detail: 'No guitar setup yet.' }] as [number, unknown] }
+
+  it('before the first song: asks for the guitar setup (the server has none)', async () => {
+    fakeServer({ ...signedInAs(USER), ...noSetup })
+    renderApp('/songs/sample-first-frets/practice')
+    expect(await screen.findByRole('heading', { name: 'First, a guitar setup' })).toBeInTheDocument()
+    expect(screen.queryByTestId('expected-number')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: /Set up my guitar/ }))
+    expect(await screen.findByRole('heading', { level: 1, name: 'Guitar setup' })).toBeInTheDocument()
+  })
+
+  it('with the setup on the account: practice straight away, string check on', async () => {
+    fakeServer({ ...signedInAs(USER), 'GET /api/string-setup': () => [200, ACCOUNT_SETUP] })
+    renderApp('/songs/sample-first-frets/practice')
+    expect(await screen.findByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
+    expect(localStorage.getItem(`guitar-practice:string-setup:${USER.id}`)).not.toBeNull() // a copy on this device
+  })
+
+  it('never blocked by the network: server unreachable, practice as before', async () => {
+    fakeServer({ ...signedInAs(USER) }) // /api/string-setup fails like a network error
+    renderApp('/songs/sample-first-frets/practice')
+    expect(await screen.findByTestId('expected-number')).toHaveTextContent('10')
+  })
+
+  it('offline, the copy on this device is used', async () => {
+    localStorage.setItem(`guitar-practice:string-setup:${USER.id}`, JSON.stringify(ACCOUNT_SETUP))
+    fakeServer({ ...signedInAs(USER) })
+    renderApp('/songs/sample-first-frets/practice')
+    expect(await screen.findByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
+  })
+
+  it('a setup done on this phone without an account can be used for the account', async () => {
+    saveSetup({ 1: 1.7e-5, 2: 4.5e-5 })
+    const calls = fakeServer({ ...signedInAs(USER), ...noSetup, 'PUT /api/string-setup': (body) => [200, { ...(body as object), savedAt: '2026-10-29T08:00:00.000Z' }] })
+    renderApp('/songs/sample-first-frets/practice')
+    await userEvent.click(await screen.findByRole('button', { name: /Use the setup on this phone/ }))
+    expect(await screen.findByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
+    expect(calls.find((c) => c.key === 'PUT /api/string-setup')?.body).toEqual({ open: { 1: 1.7e-5, 2: 4.5e-5 }, misfit: {} })
+  })
+
+  /** Goes through the setup: strings 1 and 2 learned, the rest skipped. */
+  async function doSetup() {
+    await userEvent.click(await screen.findByRole('button', { name: /Start/ }))
+    for (const b of [1.7e-5, 1.75e-5, 1.68e-5]) pluck(64, clean(b))
+    for (const b of [4.5e-5, 4.4e-5, 4.6e-5]) pluck(59, clean(b))
+    for (let i = 0; i < 4; i++) await userEvent.click(screen.getByRole('button', { name: 'Skip this string' }))
+  }
+
+  it('the first setup is saved with the account', async () => {
+    const calls = fakeServer({ ...signedInAs(USER), ...noSetup, 'PUT /api/string-setup': (body) => [200, { ...(body as object), savedAt: '2026-10-29T08:00:00.000Z' }] })
+    renderApp('/guitar-setup')
+    await doSetup()
+    expect(await screen.findByTestId('setup-result')).toHaveTextContent('Your guitar is set up!')
+    expect(calls.find((c) => c.key === 'PUT /api/string-setup')?.body).toEqual({ open: { 1: 1.7e-5, 2: 4.5e-5 }, misfit: { 1: 0.3, 2: 0.3 } })
+  })
+
+  it('doing it again replaces the saved setup only when the student agrees', async () => {
+    const calls = fakeServer({
+      ...signedInAs(USER),
+      'GET /api/string-setup': () => [200, ACCOUNT_SETUP],
+      'PUT /api/string-setup': (body) => [200, { ...(body as object), savedAt: '2026-10-29T08:00:00.000Z' }],
+    })
+    renderApp('/guitar-setup')
+    expect(await screen.findByText(/saved with your account/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove the setup' })).not.toBeInTheDocument()
+    await doSetup()
+    expect(await screen.findByRole('heading', { name: 'Use this new setup?' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Keep my earlier setup' }))
+    expect(screen.getByRole('heading', { name: 'Your earlier setup is kept' })).toBeInTheDocument()
+    expect(calls.some((c) => c.key === 'PUT /api/string-setup')).toBe(false)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Do it again' }))
+    await doSetup()
+    await userEvent.click(await screen.findByRole('button', { name: 'Save the new setup' }))
+    expect(await screen.findByTestId('setup-result')).toHaveTextContent('Your guitar is set up!')
+    expect(calls.filter((c) => c.key === 'PUT /api/string-setup')).toHaveLength(1)
   })
 })

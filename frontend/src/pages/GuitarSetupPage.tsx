@@ -12,6 +12,7 @@ import { Fretboard } from '../components/fretboard/Fretboard'
 import { PracticeRecorder } from '../components/listening/PracticeRecorder'
 import { midiToNoteName } from '../music/pitch'
 import { STANDARD_TUNING, type StringNumber } from '../music/tuning'
+import { useAuth } from '../auth/authContext'
 import { useMicBoostSetting } from '../practice/usePracticeSettings'
 import {
   countedPlucks,
@@ -47,13 +48,18 @@ const openLabel = (string: StringNumber) => midiToNoteName(STANDARD_TUNING.openS
 
 /**
  * Guitar setup for the string check: the student plucks each open string 3 times, and the app
- * learns how stiff each string is (see audio/stringCheck.ts). Saved in this browser.
+ * learns how stiff each string is (see audio/stringCheck.ts). Saved with the account when signed in
+ * (otherwise in this browser); an existing setup is only replaced when the student agrees.
  */
 export function GuitarSetupPage() {
   usePageTitle('Guitar setup')
   const location = useLocation()
   const backTo = (location.state as { from?: string } | null)?.from
-  const [saved, save] = useStringSetup()
+  const strings = useStringSetup()
+  const saved = strings.setup
+  const signedIn = useAuth().status === 'signedIn'
+  /** What happens to a finished setup: asked first when one is saved already. */
+  const [saving, setSaving] = useState<'idle' | 'ask' | 'saving' | 'saved' | 'kept' | 'error'>('idle')
   const [boost] = useMicBoostSetting()
   const [setup, dispatch] = useReducer(setupReducer, INITIAL_SETUP)
   /** A note that was not the open string asked for (MIDI), to say what was heard. */
@@ -89,12 +95,22 @@ export function GuitarSetupPage() {
     setOtherNote(null)
   }, [openMidi, resetNotes, setTargets, setStiffnessProbe])
 
-  // Finished: save what was measured and stop listening.
+  const measured = Object.keys(setup.open).length > 0
+  const keepNew = () => {
+    setSaving('saving')
+    strings
+      .save({ open: setup.open, misfit: setup.misfit, savedAt: new Date().toISOString() })
+      .then(() => setSaving('saved'))
+      .catch(() => setSaving('error'))
+  }
+  // Finished: stop listening, and save what was measured (first setup) or ask (one is saved already).
   useEffect(() => {
     if (!done) return
     stop()
-    if (Object.keys(setup.open).length > 0) save({ open: setup.open, misfit: setup.misfit, savedAt: new Date().toISOString() })
-    // Save once when the setup finishes.
+    if (!measured) return
+    if (saved) setSaving('ask')
+    else keepNew()
+    // Once, when the setup finishes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])
 
@@ -102,11 +118,12 @@ export function GuitarSetupPage() {
   const restart = () => {
     dispatch({ type: 'restart' })
     setOtherNote(null)
+    setSaving('idle')
   }
 
   return (
     <div className={`page ${styles.layout}`}>
-      {done && Object.keys(setup.open).length > 0 && <Celebration />}
+      {done && saving === 'saved' && <Celebration />}
       <header className={styles.header}>
         <h1 className={styles.title}>Guitar setup</h1>
         <p className={styles.lead}>
@@ -120,12 +137,14 @@ export function GuitarSetupPage() {
         <section className={`card ${styles.saved}`} aria-label="Saved setup">
           <p>
             <span aria-hidden="true">✓ </span>
-            Your guitar was set up on <strong>{new Date(saved.savedAt).toLocaleDateString()}</strong>. Do it again after
-            changing strings or on another guitar.
+            Your guitar was set up on <strong>{new Date(saved.savedAt).toLocaleDateString()}</strong>
+            {signedIn ? ' (saved with your account)' : ''}. Do it again after changing strings or on another guitar.
           </p>
-          <button type="button" className="button" onClick={() => save(null)}>
-            Remove the setup
-          </button>
+          {!signedIn && (
+            <button type="button" className="button" onClick={strings.remove}>
+              Remove the setup
+            </button>
+          )}
         </section>
       )}
 
@@ -236,9 +255,37 @@ export function GuitarSetupPage() {
       {done && (
         <section className={`card ${styles.result}`} aria-labelledby="setup-done" data-testid="setup-result">
           <h2 id="setup-done" className={styles.stepTitle}>
-            {Object.keys(setup.open).length > 0 ? 'Your guitar is set up!' : 'Nothing was measured'}
+            {!measured && 'Nothing was measured'}
+            {measured && saving === 'ask' && 'Use this new setup?'}
+            {measured && saving === 'kept' && 'Your earlier setup is kept'}
+            {measured && (saving === 'saving' || saving === 'saved' || saving === 'error') && 'Your guitar is set up!'}
           </h2>
-          {Object.keys(setup.open).length > 0 ? (
+          {measured && saving === 'ask' && (
+            <>
+              <p>
+                You already have a guitar setup from <strong>{new Date(saved!.savedAt).toLocaleDateString()}</strong>. Save this new one
+                instead? Choose it after new strings, retuning or on another guitar.
+              </p>
+              <div className={styles.buttons}>
+                <button type="button" className="button button-primary" onClick={keepNew}>
+                  Save the new setup
+                </button>
+                <button type="button" className="button" onClick={() => setSaving('kept')}>
+                  Keep my earlier setup
+                </button>
+              </div>
+            </>
+          )}
+          {measured && saving === 'saving' && <p role="status">Saving…</p>}
+          {measured && saving === 'error' && (
+            <div className="error-box" role="alert">
+              <p>Could not save the setup. Please check your connection and try again.</p>
+              <button type="button" className="button" onClick={keepNew}>
+                Try again
+              </button>
+            </div>
+          )}
+          {measured && saving === 'saved' ? (
             <>
               <p>The string check is now on. When the same note can be played on two strings:</p>
               <ul className={styles.pairs}>
@@ -255,7 +302,7 @@ export function GuitarSetupPage() {
               <p className={styles.note}>When the app is not sure, it counts the note as right, as before.</p>
             </>
           ) : (
-            <p>All strings were skipped, so the string check stays off.</p>
+            !measured && <p>All strings were skipped, so the string check stays off.</p>
           )}
           <div className={styles.buttons}>
             <Link className="button button-primary" to={backTo ?? '/songs'}>
