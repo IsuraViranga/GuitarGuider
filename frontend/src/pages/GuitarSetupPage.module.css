@@ -7,7 +7,7 @@
 
 .header {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .title {
@@ -18,22 +18,35 @@
 
 .lead {
   margin: 0;
+  font-size: 1.1rem;
   color: var(--color-muted);
 }
 
-.lead code {
+/* "Why?": the reason, for the curious, folded away. */
+.why summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.why p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.why code {
   color: var(--color-accent-strong);
 }
 
+/* Cards */
 .saved,
 .step,
 .result {
   display: grid;
   gap: var(--space-3);
-}
-
-.saved {
-  border-color: rgb(74 222 128 / 0.45);
 }
 
 .saved p,
@@ -42,19 +55,60 @@
   margin: 0;
 }
 
-.step {
-  border-color: rgb(245 165 36 / 0.4);
+.saved {
+  border-color: rgb(74 222 128 / 0.45);
   justify-items: start;
 }
 
-.tip {
-  font-size: 0.9rem;
+.savedText {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.savedTick {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-correct);
+  color: var(--color-on-feedback);
+  font-weight: 800;
+}
+
+.savedHint {
+  color: var(--color-muted);
+}
+
+.step {
+  justify-items: center;
+  text-align: center;
+  border-color: rgb(245 165 36 / 0.45);
+  background:
+    radial-gradient(circle at 50% 0%, rgb(245 165 36 / 0.14), transparent 60%),
+    linear-gradient(180deg, rgb(40 32 54 / 0.62), rgb(20 16 28 / 0.7));
+}
+
+.readyPick {
+  width: 56px;
+  height: 56px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 14px rgb(245 165 36 / 0.55));
+}
+
+.progress {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--color-muted);
 }
 
 .stepTitle {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   text-transform: uppercase;
 }
 
@@ -63,11 +117,40 @@
 }
 
 .stepNote {
+  display: block;
   font-family: inherit;
   font-size: 1rem;
   font-weight: 400;
   text-transform: none;
   color: var(--color-muted);
+}
+
+/* Before starting: three short tips. */
+.tips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.tips li {
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  border: 1px solid rgb(245 165 36 / 0.45);
+  color: var(--color-accent-strong);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.start {
+  width: 100%;
+  max-width: 320px;
+  min-height: 52px;
+  font-size: 1.1rem;
 }
 
 /* Three picks: filled amber as each clear pluck is heard. */
@@ -79,14 +162,15 @@
 }
 
 .pick {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   color: var(--color-accent);
   filter: drop-shadow(0 0 10px rgb(245 165 36 / 0.45));
 }
 
 .message {
   min-height: 3em;
+  max-width: 30rem;
   font-weight: 600;
 }
 
@@ -104,14 +188,20 @@
 .buttons {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2);
+}
+
+.saved .buttons,
+.result .buttons {
+  justify-content: flex-start;
 }
 
 .error {
   color: var(--color-incorrect);
 }
 
-/* The six strings, with what is known about each. */
+/* The six strings, with what is known about each: 6 across on wide screens, 3 on phones. */
 .strings {
   list-style: none;
   margin: 0;
@@ -119,22 +209,26 @@
   border-radius: var(--radius);
   background: linear-gradient(90deg, var(--fb-wood-edge), var(--fb-wood) 30%, var(--fb-wood) 70%, var(--fb-wood-edge));
   display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--space-2);
 }
 
-.stringRow {
+.chip {
   display: grid;
-  grid-template-columns: 28px 1fr auto;
-  gap: var(--space-3);
-  align-items: center;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius);
+  background: rgb(0 0 0 / 0.25);
   color: var(--fb-nut);
+  text-align: center;
 }
 
-.stringNumber {
+.chipNumber {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgb(0 0 0 / 0.35);
   border: 1px solid var(--fb-fret);
@@ -142,41 +236,61 @@
   font-weight: 700;
 }
 
-.stringStatus {
-  font-size: 0.9rem;
+.chipNote {
   font-weight: 700;
 }
 
-.now .stringNumber {
+.chipStatus {
+  min-height: 1.2em;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.now {
+  background: rgb(245 165 36 / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(245 165 36 / 0.6);
+}
+
+.now .chipNumber {
   border: 2px solid var(--color-accent);
   color: var(--color-accent-strong);
   box-shadow: 0 0 12px rgb(245 165 36 / 0.5);
 }
 
-.now .stringStatus {
+.now .chipStatus {
   color: var(--color-accent-strong);
 }
 
-.kept .stringNumber {
+.kept .chipNumber {
   background: var(--color-correct);
   border-color: var(--color-correct);
   color: var(--color-on-feedback);
 }
 
-.kept .stringStatus {
+.kept .chipStatus {
   color: var(--color-correct);
 }
 
 .left {
-  opacity: 0.7;
+  opacity: 0.65;
 }
 
+/* For testing (a recording of the setup), folded away. */
+.testTools {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.testTools summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  cursor: pointer;
+}
+
+/* After the setup */
 .result {
   border-color: rgb(74 222 128 / 0.45);
-}
-
-.recorder {
-  font-size: 0.95rem;
 }
 
 .pairs {
@@ -203,4 +317,19 @@
   border-radius: var(--radius);
   border: 2px solid var(--color-incorrect);
   background: var(--color-incorrect-soft);
+}
+
+@media (max-width: 480px) {
+  .strings {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stepTitle {
+    font-size: 1.4rem;
+  }
+
+  .tips li {
+    padding: 2px var(--space-2);
+    font-size: 0.85rem;
+  }
 }

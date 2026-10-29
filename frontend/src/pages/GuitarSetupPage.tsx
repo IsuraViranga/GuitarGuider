@@ -30,6 +30,12 @@ import styles from './GuitarSetupPage.module.css'
 
 const STRING_HINTS: Partial<Record<StringNumber, string>> = { 1: 'the thinnest', 6: 'the thickest' }
 
+const TIPS = [
+  { icon: '🎯', text: 'Tune first' },
+  { icon: '🤫', text: 'Quiet room' },
+  { icon: '💪', text: 'Pluck firmly' },
+]
+
 const LAST_MESSAGES: Record<NonNullable<SetupState['last']>, string> = {
   counted: 'Got it. Pluck it again the same way.',
   unclear: 'That one was not clear. Quiet the other strings with your hand, then pluck again.',
@@ -135,19 +141,27 @@ export function GuitarSetupPage() {
       {done && saving === 'saved' && <Celebration />}
       <header className={styles.header}>
         <h1 className={styles.title}>Guitar setup</h1>
-        <p className={styles.lead}>
-          Some notes sound the same on two strings: <code>10</code> and <code>25</code> are both E4. Each string still rings a
-          little differently. Pluck each open string 3 times and the app learns your strings, so it can tell when a note is played
-          on the wrong string. It takes about 30 seconds.
-        </p>
+        <p className={styles.lead}>Pluck each open string 3 times. The app learns your guitar.</p>
+        <details className={styles.why}>
+          <summary>Why?</summary>
+          <p>
+            Some notes sound the same on two strings (<code>10</code> and <code>25</code> are both E4), but each string rings a little
+            differently. This lets the app tell when a note is played on the wrong string.
+          </p>
+        </details>
       </header>
 
       {saved && !active && !done && setup.index === 0 && (
         <section className={`card ${styles.saved}`} aria-label="Saved setup">
-          <p>
-            <span aria-hidden="true">✓ </span>
-            Your guitar was set up on <strong>{new Date(saved.savedAt).toLocaleDateString()}</strong>
-            {signedIn ? ' (saved with your account)' : ''}. Do it again after changing strings or on another guitar.
+          <p className={styles.savedText}>
+            <span className={styles.savedTick} aria-hidden="true">
+              ✓
+            </span>
+            <span>
+              Your guitar was set up on <strong>{new Date(saved.savedAt).toLocaleDateString()}</strong>
+              {signedIn ? ' (saved with your account)' : ''}.
+              <span className={styles.savedHint}> Redo it after new strings or on another guitar.</span>
+            </span>
           </p>
           {deleting === 'no' && (
             <button type="button" className="button" onClick={() => setDeleting('confirm')}>
@@ -176,11 +190,11 @@ export function GuitarSetupPage() {
 
       {!done && (
         <section className={`card ${styles.step}`} aria-labelledby="setup-step">
-          <p className={styles.tip}>
-            <span aria-hidden="true">🎸 </span>Tune your guitar first. Play in a quiet room, and pluck firmly, like when you practise.
-          </p>
           {active ? (
             <>
+              <p className={styles.progress}>
+                String {setup.index + 1} of {SETUP_ORDER.length}
+              </p>
               <h2 id="setup-step" className={styles.stepTitle}>
                 Pluck <span className={styles.stringName}>string {string}</span> open
                 <span className={styles.stepNote}>
@@ -224,9 +238,17 @@ export function GuitarSetupPage() {
             </>
           ) : (
             <>
+              <GuitarPick className={styles.readyPick} />
               <h2 id="setup-step" className={styles.stepTitle}>
                 {setup.index === 0 ? 'Ready?' : `Next: string ${string}`}
               </h2>
+              <ul className={styles.tips} aria-label="Before you start">
+                {TIPS.map((tip) => (
+                  <li key={tip.text}>
+                    <span aria-hidden="true">{tip.icon}</span> {tip.text}
+                  </li>
+                ))}
+              </ul>
               {listening.status === 'error' && listening.error && (
                 <p className={styles.error} role="alert">
                   {MICROPHONE_ERROR_MESSAGES[listening.error]}
@@ -234,7 +256,7 @@ export function GuitarSetupPage() {
               )}
               <button
                 type="button"
-                className="button button-primary"
+                className={`button button-primary ${styles.start}`}
                 onClick={() => {
                   setMicUsed(true)
                   listening.start({ boost })
@@ -251,13 +273,18 @@ export function GuitarSetupPage() {
         {SETUP_ORDER.map((s, i) => {
           const status = setup.open[s] !== undefined ? 'kept' : setup.left.includes(s) ? 'left' : i === setup.index ? 'now' : 'waiting'
           return (
-            <li key={s} className={`${styles.stringRow} ${styles[status]}`} data-status={status}>
-              <span className={styles.stringNumber}>{s}</span>
-              <span>
+            <li key={s} className={`${styles.chip} ${styles[status]}`} data-status={status}>
+              <span className={styles.chipNumber} aria-hidden="true">
+                {status === 'kept' ? '✓' : s}
+              </span>
+              <span className="visually-hidden">
                 String {s} · {openLabel(s)}
               </span>
-              <span className={styles.stringStatus}>
-                {status === 'kept' && '✓ learned'}
+              <span className={styles.chipNote} aria-hidden="true">
+                {openLabel(s)}
+              </span>
+              <span className={styles.chipStatus}>
+                {status === 'kept' && 'learned'}
                 {status === 'left' && 'not checked'}
                 {status === 'now' && (active ? 'listening…' : 'next')}
               </span>
@@ -268,14 +295,16 @@ export function GuitarSetupPage() {
 
       {micUsed && (
         // For testing: the sound and every measurement, to check the setup on a real guitar.
-        <section className={`card ${styles.recorder}`} aria-label="Setup recording">
+        // Folded away: it stays mounted (a recording must outlive the last string) while closed.
+        <details className={styles.testTools}>
+          <summary>For testing: record this setup</summary>
           <PracticeRecorder
             listening={listening}
             title="Setup recording (for testing)"
             playHint="Pluck each string as the app asks."
             startLabel="Record this setup"
           />
-        </section>
+        </details>
       )}
 
       {done && (
