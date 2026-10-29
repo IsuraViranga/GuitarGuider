@@ -11,7 +11,7 @@ import { formatGuitarNumber, parseGuitarNumber, type GuitarPosition } from '../m
 import { STANDARD_TUNING } from '../music/tuning'
 import { neighbourPairs, settledStiffness } from '../practice/stringSetup'
 import { PitchTracker } from './pitchTracker'
-import { isClean, judgeString, planStringCheck, STIFFNESS_WINDOW, type Stiffness, type StringVerdict } from './stringCheck'
+import { isClean, judgeString, MAX_JUDGED_FRET, planStringCheck, STIFFNESS_WINDOW, type Stiffness, type StringVerdict } from './stringCheck'
 import { decodeWav } from './wav'
 
 const FOLDER = '../recordings/same-pitch'
@@ -61,8 +61,8 @@ describe.skipIf(!available)('string check on the client recordings', { timeout: 
   const open = { 1: settledStiffness(measured['10'] ?? [])?.b ?? NaN, 2: settledStiffness(measured['20'] ?? [])?.b ?? NaN }
   const verdicts = (expected: string, played: string): StringVerdict[] => {
     const check = planStringCheck(position(expected), { open }, STANDARD_TUNING)
-    if (!check) throw new Error(`${expected} cannot be checked`)
-    return measured[played].map((stiffness) => judgeString(check, stiffness))
+    // Not checked (e.g. 28 is above MAX_JUDGED_FRET): the note counts, as before.
+    return check ? measured[played].map((stiffness) => judgeString(check, stiffness)) : []
   }
 
   it('every pluck of each position was heard', () => {
@@ -86,7 +86,7 @@ describe.skipIf(!available)('string check on the client recordings', { timeout: 
   it.each([
     ['10', '25', 1],
     ['25', '10', 1],
-    ['13', '28', 1],
+    // (13 expected, 28 played is not judged: 28 is above fret 7, MAX_JUDGED_FRET.)
     ['28', '13', 1],
     // Two of these 26 plucks were disturbed (another string ringing): "unsure", so not judged.
     ['11', '26', 0.7],
@@ -183,12 +183,12 @@ describe.skipIf(!setupAvailable)('guitar setup on a real guitar, then the string
     for (const code of ['10', '25', '13', '28', '11', '26', '20', '34']) {
       expect((judged(code, code) ?? []).filter((v) => v.result === 'other'), code).toEqual([])
     }
-    for (const [expected, played] of [['10', '25'], ['25', '10'], ['13', '28'], ['28', '13']]) {
+    for (const [expected, played] of [['10', '25'], ['25', '10'], ['28', '13']]) {
       expect(judged(expected, played)!.every((v) => v.result === 'other'), `${played} for ${expected}`).toBe(true)
     }
     // 20 and 34: told apart by regularity. Plucks that do not fit the learned pattern stay unsure.
     const at20 = planStringCheck(position('20'), strings, STANDARD_TUNING)!
-    expect(at20.others.map((o) => formatGuitarNumber(o.position))).toEqual(['34', '49'])
+    expect(at20.others.map((o) => formatGuitarNumber(o.position))).toEqual(['34']) // 49 is above fret 7
     const for20 = judged('20', '34')!
     const for34 = judged('34', '20')!
     console.log('34 for 20:', for20.map((v) => v.result).join(' '), '| 20 for 34:', for34.map((v) => v.result).join(' '))
@@ -264,6 +264,8 @@ describe.skipIf(!pairsAvailable)('strings 2 and 3 in a real practice', { timeout
 // count) and with the pair's other position expected (should be caught). The setup is the one
 // recorded on another day (recordings/guitarStringTrack), so the test does not grade itself.
 const PRAC_FOLDER = '../recordings/guitarPracRecords'
+/** Wrong strings caught on the owner's guitar (every fret recordings), measured 2026-10-29. */
+const FRETS_CAUGHT = 106 // of 179 (other position up to fret 7)
 const PRAC_SONGS = [
   '10 25 11 26 12 27 13 28 14 29 15 210 16 211 17 212 10 39 11 310 12 311 13 312',
   '20 34 21 35 22 36 23 37 24 38 25 39 26 310 27 311 28 312 20 49 21 410 22 411 23 412',
@@ -272,6 +274,8 @@ const PRAC_SONGS = [
   '50 65 51 66 52 67 53 68 54 69 55 610 56 611 57 612',
 ].map((pairs) => pairs.split(' '))
 /** Two slips: the previous position plucked once more at the start of the next (measured exactly like it). */
+/** Wrong strings caught (the other position up to fret 7), measured 2026-10-29: 119 of 210. */
+const CAUGHT_UP_TO_FRET_7 = 119
 const PRAC_SLIPS = [{ code: '27', b: 2.15 }, { code: '510', b: 4.06 }]
 const pracAvailable = setupAvailable && [1, 2, 3, 4, 5].every((n) => existsSync(`${PRAC_FOLDER}/prac${n}.json`))
 
@@ -300,15 +304,108 @@ describe.skipIf(!pracAvailable)('all same-note pairs, played on a real guitar', 
           right++
           if (judgeString(own, measured).result === 'other') wronglyCalled++
         }
+        // The wrong string is only named up to MAX_JUDGED_FRET: count the plucks it can be named for.
+        if (position(played).fret > MAX_JUDGED_FRET) continue
         const other = planStringCheck(position(partner(Math.min(step, song.length - 1))), strings, STANDARD_TUNING)
         wrong++
         const verdict = other && judgeString(other, measured)
         if (verdict?.result === 'other' && formatGuitarNumber(verdict.heard) === played) caught++
       }
     })
-    console.log(`55 pairs: correct notes called wrong ${wronglyCalled}/${right}; wrong strings caught ${caught}/${wrong}`)
+    console.log(`55 pairs: correct notes called wrong ${wronglyCalled}/${right}; wrong strings (up to fret 7) caught ${caught}/${wrong}`)
     expect(wronglyCalled).toBe(0)
-    // Measured 2026-10-29 with the other day's setup: 185 of 328 (before the fret allowance: 149).
-    expect(caught).toBeGreaterThanOrEqual(185)
+    // Measured 2026-10-29 with the other day's setup (at least 18 overtones, other position up to fret 7).
+    expect(caught).toBeGreaterThanOrEqual(CAUGHT_UP_TO_FRET_7)
+  })
+})
+
+// Every fret 0–12 on all six strings, 3 plucks each, on the owner's guitar, with that day's setup
+// (2026-10-29, recordings/allFrets: setupnew11, song1new–song3new). Each pluck is judged with its
+// own position expected (must count) and with every same-note position up to fret 7 expected.
+const FRETS_FOLDER = '../recordings/allFrets'
+const fretsAvailable = ['setupnew11', 'song1new', 'song2new', 'song3new'].every((n) => existsSync(`${FRETS_FOLDER}/${n}.wav`))
+
+describe.skipIf(!fretsAvailable)('every fret on the owner guitar', { timeout: 600_000 }, () => {
+  type Log = { frames: Array<{ t: number; target: number | null; muted?: boolean }>; events: Array<{ t: number; kind: string; index?: number }> }
+  /** Replays a recording as live, labelling each measured pluck with `labelAt`. */
+  function replay(name: string, labelAt: (t: number, target: number | null, log: Log) => string | null) {
+    const bytes = readFileSync(`${FRETS_FOLDER}/${name}.wav`)
+    const { samples, sampleRate } = decodeWav(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+    const log = JSON.parse(readFileSync(`${FRETS_FOLDER}/${name}.json`, 'utf8')) as Log
+    const tracker = new PitchTracker(sampleRate, 2048)
+    const plucks: Record<string, Array<Stiffness | null>> = {}
+    let target: number | null | undefined
+    for (const frame of log.frames) {
+      if (frame.target !== target) {
+        target = frame.target
+        tracker.resetNotes({ requireFreshOnset: true })
+        tracker.setTargets(target === null ? [] : [target])
+        tracker.setStiffnessProbe(target)
+      }
+      const end = Math.round((frame.t / 1000) * sampleRate)
+      if (frame.muted || end < STIFFNESS_WINDOW || end > samples.length) continue
+      for (const event of tracker.process(samples.subarray(end - STIFFNESS_WINDOW, end), frame.t).events) {
+        const label = labelAt(frame.t, target, log)
+        if (label && event.type === 'noteStart' && event.stiffness !== undefined) (plucks[label] ??= []).push(event.stiffness)
+      }
+    }
+    return plucks
+  }
+
+  it('no correct note is called the wrong string; most wrong strings up to fret 7 are caught', () => {
+    const openCode: Record<number, string> = Object.fromEntries(([1, 2, 3, 4, 5, 6] as const).map((s) => [STANDARD_TUNING.openStringMidi[s], `${s}0`]))
+    const setupPlucks = replay('setupnew11', (_, target) => (target === null ? null : (openCode[target] ?? null)))
+    const strings = { open: {} as Record<number, number>, misfit: {} as Record<number, number> }
+    for (const s of [1, 2, 3, 4, 5, 6]) {
+      const all = setupPlucks[`${s}0`] ?? []
+      for (let n = 1; n <= all.length; n++) {
+        const settled = settledStiffness(all.slice(0, n))
+        if (settled) {
+          strings.open[s] = settled.b
+          strings.misfit[s] = settled.misfit
+          break
+        }
+      }
+    }
+    expect(Object.keys(strings.open)).toEqual(['1', '2', '3', '4', '5', '6'])
+    const plucks: Record<string, Array<Stiffness | null>> = {}
+    ;[[1, 2], [3, 4], [5, 6]].forEach((pair, i) => {
+      const song = pair.flatMap((s) => Array.from({ length: 13 }, (_, f) => Array(3).fill(`${s}${f}`)).flat())
+      const got = replay(`song${i + 1}new`, (t, _, log) => {
+        const step = log.events.filter((e) => e.kind === 'practice' && e.t <= t).at(-1)?.index ?? 0
+        return song[Math.min(step, song.length - 1)]
+      })
+      for (const [code, list] of Object.entries(got)) (plucks[code] ??= []).push(...list)
+    })
+    let right = 0
+    let wronglyCalled = 0
+    let wrong = 0
+    let caught = 0
+    for (const [code, list] of Object.entries(plucks)) {
+      const own = planStringCheck(position(code), strings, STANDARD_TUNING)
+      for (const measured of list) {
+        if (own) {
+          right++
+          if (judgeString(own, measured).result === 'other') wronglyCalled++
+        }
+      }
+      if (position(code).fret > MAX_JUDGED_FRET) continue
+      // As if a same-note position were expected and this one was played instead.
+      const midi = STANDARD_TUNING.openStringMidi[position(code).stringNumber] + position(code).fret
+      for (const s of [1, 2, 3, 4, 5, 6] as const) {
+        const fret = midi - STANDARD_TUNING.openStringMidi[s]
+        if (s === position(code).stringNumber || fret < 0 || fret > 12) continue
+        const check = planStringCheck({ stringNumber: s, fret }, strings, STANDARD_TUNING)
+        if (!check?.others.some((o) => formatGuitarNumber(o.position) === code)) continue
+        for (const measured of list) {
+          wrong++
+          const verdict = judgeString(check, measured)
+          if (verdict.result === 'other' && formatGuitarNumber(verdict.heard) === code) caught++
+        }
+      }
+    }
+    console.log(`every fret: correct notes called wrong ${wronglyCalled}/${right}; wrong strings (up to fret 7) caught ${caught}/${wrong}`)
+    expect(wronglyCalled).toBe(0)
+    expect(caught).toBeGreaterThanOrEqual(FRETS_CAUGHT)
   })
 })

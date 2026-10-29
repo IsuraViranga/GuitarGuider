@@ -730,6 +730,18 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
   same-day setup about 72%. Still weak: 11 (always disturbed on that guitar), string 3 above
   fret 7 (its stiffness rises more slowly than the 6-fret rule), some wound/wound pairs.
 
+- Every fret 0–12 on the owner's guitar (2026-10-29, `recordings/allFrets`, with that day's setup):
+  strings 1, 2, 4 follow the 6-fret rule closely, 5 and 6 nearly; string 3 grows far more slowly
+  above fret 4 (×1.5–1.8 at frets 8–12) and is irregular (~4 cents). 11 is always disturbed (also
+  on the client's recordings). With the rules then, 3 of 976 correct plucks over all recordings
+  would have been called wrong (a disturbed 11 matching 310's prediction; a slightly disturbed 25
+  as 39; a stray 57 reading as 42). Two rules make it 0 of 976: "another string" needs at least 18
+  overtones (clean plucks 20–25, the stray ones 17–18), and the other position is only named up
+  to fret 7 (`MAX_JUDGED_FRET`, where the predictions hold). Within frets 0–7 catching stays the
+  same (65% over all recordings); above fret 7 a note counts as before. Guarded tests: the
+  client's 55 pairs (0 of 292 wrongly, 119 of 210 caught) and every fret on the owner's guitar
+  (0 of 155 wrongly, 106 of 179 caught).
+
 ### 8q. Guitar setup kept with the account, required before practice
 
 - Table `string_setups` (Alembic `0006_string_setups`): one per user (`open` and `misfit` per

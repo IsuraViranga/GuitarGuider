@@ -148,8 +148,11 @@ export const CHECKABLE_RATIO = 2.5
 const MATCH_RATIO = 1.6
 /** ...and the expected position is ruled out only when the measurement is at least this far from it. */
 const RULED_OUT_RATIO = 2.2
-/** "Another string" is only said on a measurement with at least this many overtones... */
-const MIN_OVERTONES_TO_JUDGE = 12
+/**
+ * "Another string" is only said on a measurement with at least this many overtones (clean plucks
+ * give 20–25; the stray readings that would have been called wrong on a real guitar used 17–18)...
+ */
+const MIN_OVERTONES_TO_JUDGE = 18
 /**
  * ...and any judgement only on a clean one: a pluck whose overtones fit about as well as that
  * string's do in the setup (up to 1.4× its usual misfit), never worse than MAX_STRING_MISFIT.
@@ -217,10 +220,17 @@ export type StringCheck = {
 }
 
 /**
- * What to check for a note at `position`: null when nothing can be checked (no other string has
- * this note up to fret 12, its strings were not measured, or they sound too alike).
+ * The other position is only named up to this fret. The setup measures open strings and predicts
+ * the frets; measured on real guitars, the prediction holds low on the neck but not always higher
+ * up (string 3 grew far more slowly above fret 4), where a stray reading could then match it.
  */
-export function planStringCheck(position: GuitarPosition, strings: GuitarStrings, tuning: Tuning, maxFret = 12): StringCheck | null {
+export const MAX_JUDGED_FRET = 7
+
+/**
+ * What to check for a note at `position`: null when nothing can be checked (no other string has
+ * this note up to `maxFret`, its strings were not measured, or they sound too alike).
+ */
+export function planStringCheck(position: GuitarPosition, strings: GuitarStrings, tuning: Tuning, maxFret = MAX_JUDGED_FRET): StringCheck | null {
   const predicted = predictStiffness(strings.open, position)
   if (predicted === null) return null
   const others = positionsForMidi(positionToMidi(position, tuning), tuning)
