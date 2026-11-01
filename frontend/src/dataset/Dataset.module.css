@@ -476,3 +476,13 @@
 .guitarChoiceStatus {
   margin: 0;
 }
+
+/* "Record my guitar": a plain accent link, no underline. */
+.recordLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}

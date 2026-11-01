@@ -504,6 +504,13 @@
   text-underline-offset: 3px;
 }
 
+/* "A recorded guitar can help" inside the same-sound hint: no underline. */
+.hintLink {
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 /* "Then: 23 Twin · 15 kle": the word sung on each coming note. */
 .upcomingWord {
   font-weight: 400;

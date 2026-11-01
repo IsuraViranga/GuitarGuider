@@ -9,14 +9,10 @@ function describe(status: SoundMatchStatus): string {
       return 'Loading the recorded guitars…'
     case 'off':
       return 'Off: the string check uses your guitar setup only.'
-    case 'none':
-      return 'No recorded guitar yet. Record yours for the best string check.'
     case 'using':
-      return `✓ Using ${status.guitar.name}: it matches your guitar, so same-sounding places (like 10 and 25) are checked with its recordings.`
-    case 'noFit':
-      return `${status.guitar.name} does not match your guitar (its strings sound different), so it is not used. Record your guitar for the best string check.`
-    case 'noSetup':
-      return `Do the guitar setup first, so the app can check that ${status.guitar.name} matches your guitar.`
+      return `✓ Using ${status.guitar.name}: same-sounding places (like 10 and 25) are checked with its recordings.`
+    case 'normal':
+      return 'The string check uses your guitar setup.'
   }
 }
 
@@ -47,7 +43,7 @@ export function GuitarChoice({ state }: { state: SoundMatchState }) {
       <p className={`muted ${styles.guitarChoiceStatus}`} role="status" data-testid="guitar-choice-status">
         {describe(state.status)}
       </p>
-      <Link to="/record-guitar" className={styles.linkButton}>
+      <Link to="/record-guitar" className={styles.recordLink}>
         {hasOwn ? '🎙 Record another guitar' : '🎙 Record my guitar (about 15 min, once)'}
       </Link>
     </section>

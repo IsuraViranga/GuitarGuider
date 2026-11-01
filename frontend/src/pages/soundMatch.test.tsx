@@ -116,7 +116,7 @@ describe('guitar for the string check, in practice (signed-in players)', () => {
   it('the default guitar matches this guitar: 25 played for 10 is caught', async () => {
     server(USER, OPEN_B)
     renderApp('/songs/sample-first-frets/practice') // 10 11 13 ...
-    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent(/Using No name: it matches your guitar/))
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent(/Using No name: same-sounding places/))
     await vi.waitFor(() => expect(mic.probes.at(-1)).toBe(64)) // 10 = E4 is measured
     expect(screen.getByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
     play(900, sounding(-2, 3.5e-5))
@@ -127,14 +127,34 @@ describe('guitar for the string check, in practice (signed-in players)', () => {
     expect(screen.getByTestId('expected-number')).toHaveTextContent('11')
   })
 
-  it('another guitar (its strings sound different): the recordings are not used, and nothing is called wrong', async () => {
+  it('another guitar (its strings sound different): the normal check, quietly, and nothing is called wrong', async () => {
     server(USER, Object.fromEntries(Object.entries(OPEN_B).map(([s, b]) => [s, b * 2])))
     renderApp('/songs/sample-first-frets/practice')
-    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent('No name does not match your guitar'))
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent('The string check uses your guitar setup.'))
+    expect(screen.getByTestId('guitar-choice-status')).not.toHaveTextContent(/match/)
     expect(mic.probes.at(-1)).toBeNull()
     play(900, sounding(-2, 7e-5))
     expect(screen.getByTestId('feedback')).toHaveTextContent('Correct note!')
     expect(screen.getByRole('link', { name: /Record my guitar/ })).toHaveAttribute('href', '/record-guitar')
+  })
+
+  it('a chosen guitar that does not fit this guitar: the default guitar is used instead', async () => {
+    const other = { ...NO_NAME, id: 'g2', name: 'Sqoe', isDefault: false }
+    const sqoeRows = ROWS.map((r) => ({ ...r, v: fingerprint(sounding(-8, 2.5e-4))! }))
+    fakeServer({
+      ...signedInAs(USER),
+      'GET /api/string-setup': () => [200, setupOf(OPEN_B)],
+      'GET /api/dataset/guitars': () => [200, [NO_NAME, other]],
+      'GET /api/dataset/guitars/g1/fingerprints': () => [200, { fingerprints: ROWS }],
+      'GET /api/dataset/guitars/g2/fingerprints': () => [200, { fingerprints: sqoeRows }],
+    })
+    localStorage.setItem(`guitar-practice:sound-match-guitar:${USER.id}`, 'g2')
+    renderApp('/songs/sample-first-frets/practice')
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent(/Using No name/))
+    expect(screen.getByRole('combobox', { name: /Guitar for the string check/ })).toHaveValue('g2') // the choice is kept
+    await vi.waitFor(() => expect(mic.probes.at(-1)).toBe(64))
+    play(900, sounding(-2, 3.5e-5))
+    expect(screen.getByTestId('feedback')).toHaveTextContent('That sounded like 25 (string 2, fret 5).')
   })
 
   it('off, remembered for this player on this device', async () => {

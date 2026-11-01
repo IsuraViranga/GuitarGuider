@@ -26,13 +26,9 @@ function writeChoice(userId: string, choice: string | null) {
 export type SoundMatchStatus =
   | { kind: 'loading' }
   | { kind: 'off' }
-  /** Nothing chosen and no default guitar. */
-  | { kind: 'none' }
   | { kind: 'using'; guitar: DatasetGuitar }
-  /** The guitar's open strings do not sound like the player's (guitar setup): not used. */
-  | { kind: 'noFit'; guitar: DatasetGuitar }
-  /** No guitar setup to compare with: not used. */
-  | { kind: 'noSetup'; guitar: DatasetGuitar }
+  /** No recorded guitar fits the player's guitar (or none yet): the normal string check. */
+  | { kind: 'normal' }
 
 export type SoundMatchState = {
   /** Signed in (visitors get none of this, and nothing is asked from the server). */
@@ -47,17 +43,37 @@ export type SoundMatchState = {
   match: SoundMatch | null
 }
 
+/** The first candidate guitar (ids in order) that fits the player's guitar, 'loading', or null. */
+function pickGuitar(
+  candidateIds: string,
+  rows: Record<string, FingerprintRow[]>,
+  setup: { open: Partial<Record<number, number>> } | null,
+  guitars: DatasetGuitar[],
+): { guitar: DatasetGuitar; match: SoundMatch } | 'loading' | null {
+  for (const id of candidateIds ? candidateIds.split(',') : []) {
+    const found = rows[id]
+    if (found === undefined) return 'loading'
+    const references: Reference[] = found.map((r) => ({ stringNumber: r.stringNumber as StringNumber, fret: r.fret, v: r.v }))
+    const match = fitsSetup(references, setup) ? createSoundMatch(references) : null
+    const guitar = guitars.find((g) => g.id === id)
+    if (match && guitar) return { guitar, match }
+  }
+  return null
+}
+
 /**
  * Practice for signed-in players: compare same-sounding places with a recorded guitar's
- * recordings. The guitar is the player's choice on this device, else the admin's default guitar;
- * it is used only when its open strings sound like the player's guitar setup (fitsSetup).
+ * recordings. The player's choice on this device is tried first, then the admin's default guitar;
+ * the first whose open strings sound like the player's guitar setup (fitsSetup) is used. When none
+ * fits, practice quietly uses the normal string check (no "does not match" message for the player).
  */
 export function useSoundMatch(setup: { open: Partial<Record<number, number>> } | null): SoundMatchState {
   const auth = useAuth()
   const userId = auth.status === 'signedIn' && auth.user ? auth.user.id : null
   const [guitars, setGuitars] = useState<DatasetGuitar[] | null>(null)
   const [choices, setChoices] = useState<Record<string, string | null>>({})
-  const [rows, setRows] = useState<{ guitarId: string; fingerprints: FingerprintRow[] } | null>(null)
+  /** Each candidate guitar's recordings, by guitar id (an empty list when they could not be read). */
+  const [rows, setRows] = useState<Record<string, FingerprintRow[]>>({})
 
   useEffect(() => {
     if (!userId) return
@@ -71,32 +87,28 @@ export function useSoundMatch(setup: { open: Partial<Record<number, number>> } |
   }, [userId])
 
   const choice = userId ? ((userId in choices ? choices[userId] : readChoice(userId)) ?? '') : ''
-  const chosen = choice === 'off' ? null : (guitars?.find((g) => g.id === choice) ?? guitars?.find((g) => g.isDefault) ?? null)
-  const chosenId = chosen?.id ?? null
+  // The chosen guitar first, then the default guitar.
+  const candidateIds = choice === 'off' || !guitars ? '' : [...new Set([guitars.find((g) => g.id === choice)?.id, guitars.find((g) => g.isDefault)?.id].filter(Boolean))].join(',')
   useEffect(() => {
-    if (!chosenId) return
+    if (!candidateIds) return
     let current = true
-    getFingerprints(chosenId)
-      .then((found) => current && setRows({ guitarId: chosenId, fingerprints: found.fingerprints }))
-      .catch(() => current && setRows(null))
+    for (const id of candidateIds.split(',')) {
+      getFingerprints(id)
+        .then((found) => current && setRows((all) => ({ ...all, [id]: found.fingerprints })))
+        .catch(() => current && setRows((all) => ({ ...all, [id]: [] })))
+    }
     return () => {
       current = false
     }
-  }, [chosenId])
+  }, [candidateIds])
 
-  const references = useMemo<Reference[] | null>(
-    () => (chosen && rows?.guitarId === chosen.id ? rows.fingerprints.map((r) => ({ stringNumber: r.stringNumber as StringNumber, fret: r.fret, v: r.v })) : null),
-    [chosen, rows],
-  )
-  const fits = references !== null && fitsSetup(references, setup)
-  const match = useMemo(() => (references && fits ? createSoundMatch(references) : null), [references, fits])
+  const picked = useMemo(() => pickGuitar(candidateIds, rows, setup, guitars ?? []), [candidateIds, rows, setup, guitars])
 
   let status: SoundMatchStatus
   if (choice === 'off') status = { kind: 'off' }
-  else if (guitars === null || (chosen && references === null)) status = { kind: 'loading' }
-  else if (!chosen) status = { kind: 'none' }
-  else if (!setup) status = { kind: 'noSetup', guitar: chosen }
-  else status = fits && match ? { kind: 'using', guitar: chosen } : { kind: 'noFit', guitar: chosen }
+  else if (guitars === null || picked === 'loading') status = { kind: 'loading' }
+  else status = picked ? { kind: 'using', guitar: picked.guitar } : { kind: 'normal' }
+  const match = picked && picked !== 'loading' ? picked.match : null
 
   return {
     available: userId !== null,

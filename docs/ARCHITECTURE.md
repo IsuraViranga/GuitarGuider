@@ -804,11 +804,13 @@ a recorded guitar's recordings (the sound match). Research data comes from the s
   closer to its own place); a pluck is at the other place only when ×1.2 closer to it.
 - **Practice** (signed-in players; `useSoundMatch`, `GuitarChoice`): "Guitar for the string check":
   Default (the admin's default guitar) · any recorded guitar ("yours" / "by …") · Off, kept per
-  player on this device, with a plain status line and "Record my guitar". The guitar is used only
+  player on this device, with a plain status line and "Record my guitar". A guitar is used only
   when it **fits the player's guitar setup** (`fitsSetup`: each open string's stiffness within
   ×1.35, at least 5 strings), because one guitar's recordings judging another called 10 of 49
-  correct notes wrong. It acts only where the string check is unsure or has no plan; its clear
-  verdicts are kept. Visitors, Off or no fit: practice exactly as before. Measured on the
+  correct notes wrong: the chosen guitar is tried first, then the default guitar, and when neither
+  fits practice quietly uses the normal check (no "does not match" message, which put new players
+  off). It acts only where the string check is unsure or has no plan; its clear verdicts are kept.
+  Visitors, Off or no fit: practice exactly as before. Measured on the
   client's 2 guitars (`soundMatch.real.test.ts`, each pluck against the other takes): one guitar
   70% → 94% wrong places caught with no correct pluck called wrong; on the other the recordings
   overlap and the self-test switches every pair off; neither guitar's recordings fit the other.

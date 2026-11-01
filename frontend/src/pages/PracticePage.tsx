@@ -413,7 +413,7 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
                     {soundMatch.available && (
                       <>
                         {' '}
-                        <a href="#guitar-choice" className={styles.setupLink}>
+                        <a href="#guitar-choice" className={styles.hintLink}>
                           A recorded guitar can help
                         </a>
                       </>
