@@ -7,6 +7,8 @@ os.environ["COOKIE_SECURE"] = "false"  # the test client talks plain http
 os.environ["EMAIL_API_KEY"] = ""
 os.environ["EMAIL_LOG_LINKS"] = "true"  # emails are captured by the tests, never sent
 os.environ["DATASET_STORAGE"] = ""  # dataset audio: the tests use a store in memory (tests/test_dataset.py)
+for _name in ("ENDPOINT", "REGION", "BUCKET", "KEY_ID", "SECRET"):
+    os.environ[f"DATASET_S3_{_name}"] = ""  # never a real bucket from a local .env
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402

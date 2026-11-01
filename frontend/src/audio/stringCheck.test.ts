@@ -37,6 +37,20 @@ describe('stiffness measurement', () => {
     expect(meter(windowAt(sound, 200), E4)!.b).toBeCloseTo(7.7e-5, 6)
   })
 
+  it('also reports how strong each overtone is, in dB below the strongest, read on the fitted curve', () => {
+    const b = 4e-5
+    const sound = new Float32Array(Math.round(0.5 * SAMPLE_RATE))
+    for (let k = 1; k <= 25; k++) {
+      const hz = k * E4 * Math.sqrt(1 + b * k * k)
+      const level = 0.3 * 10 ** (-(2 * (k - 1)) / 20) // each overtone 2 dB weaker
+      for (let i = 0; i < sound.length; i++) sound[i] += level * Math.sin((2 * Math.PI * hz * i) / SAMPLE_RATE)
+    }
+    const measured = meter(windowAt(sound, 200), E4)!
+    expect(measured.b / b).toBeGreaterThan(0.95)
+    expect(measured.harmonics).toHaveLength(16)
+    measured.harmonics!.forEach((level, i) => expect(level).toBeCloseTo(-2 * i, 0))
+  })
+
   it('gives no measurement for room noise or too little sound', () => {
     expect(meter(noise(0.5, 0.01), E4)).toBeNull()
     expect(meter(new Float32Array(1000), E4)).toBeNull()

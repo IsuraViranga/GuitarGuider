@@ -39,6 +39,11 @@ import { samePitchPositions } from '../music/fretboard'
 import { startsLine } from '../songs/lines'
 import { formatGuitarNumber } from '../music/guitarNumber'
 import { midiToNoteName } from '../music/pitch'
+import type { GuitarPosition } from '../music/guitarNumber'
+// Sound match: admin test of the dataset collector (removable with src/dataset).
+import { withSoundMatch, type SoundMatch } from '../dataset/soundMatch'
+import { SoundMatchChoice } from '../dataset/SoundMatchChoice'
+import { useSoundMatch } from '../dataset/useSoundMatch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
 
@@ -105,6 +110,9 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
 
   // String check (after the guitar setup): the current note's plan, read when a note arrives.
   const stringCheckRef = useRef<StringCheck | null>(null)
+  // Sound match (admin test): the chosen recorded guitar, and the note it compares with.
+  const soundMatch = useSoundMatch()
+  const soundMatchRef = useRef<{ match: SoundMatch; expected: GuitarPosition } | null>(null)
   const handleNoteEvents = useCallback((events: DetectedEvent[]) => {
     for (const event of events) {
       if (event.type === 'chordStart' || event.type === 'chordWrong') {
@@ -113,7 +121,9 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
       }
       // A note that was held for the string check carries its string's stiffness.
       const check = stringCheckRef.current
-      const string = check && event.stiffness !== undefined ? judgeString(check, event.stiffness) : undefined
+      const checked = check && event.stiffness !== undefined ? judgeString(check, event.stiffness) : undefined
+      const matching = soundMatchRef.current
+      const string = matching ? withSoundMatch(matching.match, matching.expected, event.stiffness, checked) : checked
       dispatch({ type: 'noteEvent', event, string })
     }
   }, [])
@@ -144,9 +154,13 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
   // setup can tell those strings apart. The detector then measures the string of that note.
   const stringCheck =
     !practice.completed && note.position && !note.chord && stringSetup ? planStringCheck(note.position, stringSetup, tuning) : null
-  const probeMidi = stringCheck ? note.midi : null
+  // Sound match: also for notes the string check has no plan for, when the recordings keep a pair apart.
+  const matchExpected = soundMatch.match && !practice.completed && note.position && !note.chord ? note.position : null
+  const matched = matchExpected && soundMatch.match && soundMatch.match.pairsOn(matchExpected).length > 0 ? { match: soundMatch.match, expected: matchExpected } : null
+  const probeMidi = stringCheck || matched ? note.midi : null
   useEffect(() => {
     stringCheckRef.current = stringCheck
+    soundMatchRef.current = matched
   })
   useEffect(() => {
     setStiffnessProbe(probeMidi)
@@ -483,6 +497,7 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
           boost={boost}
           onBoostChange={setBoost}
         />
+        <SoundMatchChoice state={soundMatch} />
       </div>
 
       <section className={styles.timeline} aria-labelledby="timeline-heading">

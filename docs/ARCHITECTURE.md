@@ -790,9 +790,24 @@ unchanged.
   refused with a clear message. Keys are made by the server (`samples/<uuid>.wav`).
 - **Never half-saved:** audio first, then the row; if the row fails, the audio is removed. Delete:
   the audio first; if that fails, the sample stays listed.
+- **Sound match (admin test)** (`src/dataset/soundMatch.ts`): tells same-note places apart (10 / 25)
+  by comparing a pluck with recordings of the same guitar. Fingerprint = overtones 1–16 (dB below
+  the strongest, from the string check's own measurement, `Stiffness.harmonics`), odd/even balance,
+  log B, misfit, all 200 ms after the pluck. A pair is used only when the guitar's recordings keep
+  it apart (self-test: each recording ×1.2 closer to its own place); a pluck is at the other place
+  only when ×1.2 closer to it. **Samples** tab → choose a guitar → "Prepare sound match": the
+  browser reads each recording through the API (`GET /samples/{id}/audio`), runs it through the
+  live tracker and stores the fingerprints (`dataset_guitars.fingerprints`, Alembic
+  `0008_dataset_fingerprints`). **Practice** (admins only): "Compare with recorded guitar" → after
+  the string check, where it is unsure or has no plan, the sound match may say "wrong string".
+  Measured on the client's 2 guitars (each pluck against the other takes,
+  `soundMatch.real.test.ts`): one guitar 71% → 91% wrong places caught, no correct pluck called
+  wrong; on the other the recordings overlap and the self-test switches every pair off.
 - **Removing it later:** delete `app/dataset*.py`, `src/dataset/`, `pages/DatasetPage.tsx`, their
-  tests, the route, the menu link and the router line in `main.py`; add a migration that drops
-  the two tables; remove the `DATASET_*` settings.
+  tests, the route, the menu link and the router line in `main.py`; in `PracticePage.tsx` the
+  sound-match lines (imports, `useSoundMatch`, `withSoundMatch`, the probe condition and
+  `<SoundMatchChoice>`); `Stiffness.harmonics` may stay. Add a migration that drops the two
+  tables; remove the `DATASET_*` settings.
 
 ## 9. Later phases (unchanged from the brief, condensed)
 

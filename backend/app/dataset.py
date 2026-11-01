@@ -153,10 +153,15 @@ class GuitarOut(Out):
     string_material: str
     wound_strings: list[int] | None
     samples: int
+    # Sound-match fingerprints made from its recordings (0 = not prepared).
+    fingerprints: int
 
     @classmethod
     def of(cls, guitar: DatasetGuitar, samples: int) -> "GuitarOut":
-        return cls(id=guitar.id, name=guitar.name, guitar_type=guitar.guitar_type, string_material=guitar.string_material, wound_strings=guitar.wound_strings, samples=samples)
+        return cls(
+            id=guitar.id, name=guitar.name, guitar_type=guitar.guitar_type, string_material=guitar.string_material, wound_strings=guitar.wound_strings,
+            samples=samples, fingerprints=len(guitar.fingerprints or []),
+        )
 
 
 class PositionCount(Out):
@@ -201,6 +206,59 @@ def guitar_progress(guitar_id: uuid.UUID, db: DbSession, _admin: Admin) -> list[
         .group_by(DatasetSample.string_number, DatasetSample.fret)
     ).all()
     return [PositionCount(string_number=s, fret=f, count=n) for s, f, n in rows]
+
+
+# ---------- sound match (admin test) ----------
+# The admin's browser runs each recording through the app's own tracker and sends one fingerprint
+# per measured sample (frontend/src/dataset/soundMatch.ts); practice compares plucks with them.
+
+FINGERPRINT_SIZE = 19  # soundMatch.ts FINGERPRINT_SIZE: 16 overtones, odd/even, log stiffness, misfit
+MAX_FINGERPRINTS = 2000
+
+
+class Fingerprint(Camel):
+    sample_id: uuid.UUID
+    string_number: StringNumber
+    fret: int = Field(ge=0, le=MAX_FRET)
+    v: list[float] = Field(min_length=FINGERPRINT_SIZE, max_length=FINGERPRINT_SIZE)
+
+    @field_validator("v")
+    @classmethod
+    def _finite(cls, value: list[float]) -> list[float]:
+        if not all(math.isfinite(x) for x in value):
+            raise ValueError("Every value must be a finite number.")
+        return value
+
+
+class FingerprintsIn(Camel):
+    fingerprints: list[Fingerprint] = Field(max_length=MAX_FINGERPRINTS)
+
+
+class FingerprintsOut(Out):
+    fingerprints: list[dict]
+    made_at: datetime | None
+
+
+@router.put("/guitars/{guitar_id}/fingerprints")
+def save_fingerprints(guitar_id: uuid.UUID, body: FingerprintsIn, db: DbSession, _admin: Admin) -> GuitarOut:
+    """Replaces the guitar's fingerprints. Each must belong to one of its samples, at that sample's place."""
+    guitar = _guitar(db, guitar_id)
+    places = {row.id: (row.string_number, row.fret) for row in db.execute(select(DatasetSample.id, DatasetSample.string_number, DatasetSample.fret).where(DatasetSample.guitar_id == guitar_id))}
+    for f in body.fingerprints:
+        if places.get(f.sample_id) != (f.string_number, f.fret):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A fingerprint does not match a recording of this guitar. Please prepare it again.")
+    guitar.fingerprints = [f.model_dump(mode="json", by_alias=True) for f in body.fingerprints]
+    guitar.fingerprints_at = func.now()
+    db.commit()
+    db.refresh(guitar)
+    samples = db.scalar(select(func.count()).select_from(DatasetSample).where(DatasetSample.guitar_id == guitar_id)) or 0
+    return GuitarOut.of(guitar, samples)
+
+
+@router.get("/guitars/{guitar_id}/fingerprints")
+def get_fingerprints(guitar_id: uuid.UUID, db: DbSession, _admin: Admin) -> FingerprintsOut:
+    guitar = _guitar(db, guitar_id)
+    return FingerprintsOut(fingerprints=guitar.fingerprints or [], made_at=guitar.fingerprints_at)
 
 
 # ---------- samples ----------
@@ -432,10 +490,9 @@ def audio_url(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store) 
 
 @router.get("/samples/{sample_id}/audio")
 def audio_file(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store) -> Response:
-    """The file itself, from local storage only (development); the bucket uses signed links."""
+    """The file itself, through the API: local storage plays this way, and the admin's browser reads
+    bucket files this way to prepare the sound match (playing in the list uses signed links)."""
     target = _store(store)
-    if target.name != "local":
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Use the signed link from audio-url.")
     sample = _sample(db, sample_id)
     try:
         data = target.get(sample.audio_key)

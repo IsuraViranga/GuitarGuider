@@ -97,6 +97,16 @@ needed). On your own computer `DATASET_STORAGE=local` (in `.env`) keeps them in
 
 Until all of them are set, the collector says storage is not set up and saves nothing.
 
+**Copying the recordings to your computer** (for research):
+
+1. In B2, add another application key: that bucket only, **Read Only**. Put it in your own
+   `backend/.env` as `DATASET_S3_KEY_ID` / `DATASET_S3_SECRET`, with `DATASET_S3_ENDPOINT`,
+   `DATASET_S3_REGION` and `DATASET_S3_BUCKET` (`.env` is never committed).
+2. In the collector's **Samples** tab, press **⬇ JSONL** (all samples, no filter).
+3. `python -m app.dataset_download path\to\guitar-dataset.jsonl` copies every sample that is not
+   rejected to `../datasets/collector-b2` (git-ignored), with `labels.jsonl` next to the files.
+   Run it again after more recording: files already copied are skipped.
+
 ## Health checks
 
 | Address | Means | Uses the database |

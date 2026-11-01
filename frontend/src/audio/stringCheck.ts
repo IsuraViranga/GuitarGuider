@@ -46,7 +46,18 @@ export type Stiffness = {
   overtones: number
   /** Typical distance of the overtones from the fitted curve, in cents (small = clean). */
   misfit: number
+  /**
+   * Strength of overtones 1–HARMONICS_MEASURED in dB below the strongest (0 = the strongest), read
+   * where the fitted curve puts them: the sound's colour, for comparing a pluck with recordings
+   * of the same guitar (dataset/soundMatch.ts).
+   */
+  harmonics?: number[]
 }
+
+/** Overtones whose strength is reported (Stiffness.harmonics)... */
+export const HARMONICS_MEASURED = 16
+/** ...each the strongest magnitude within this fraction of where the curve puts it. */
+const HARMONIC_WIDTH = 0.035
 
 /**
  * Measures B of the note in `samples` (the newest STIFFNESS_WINDOW are used), near `f0` (Hz).
@@ -84,8 +95,25 @@ export function createStiffnessMeter(sampleRate: number) {
     // How far the overtones lie from the fitted curve: a clean pluck of one string fits within a
     // cent or two; another string ringing along, or a buzzing fret, does not.
     const misfit = median(found.map(([k, f]) => Math.abs(1200 * Math.log2(f / (k * result.f0 * Math.sqrt(1 + result.b * k * k))))))
-    return { b: result.b, overtones: found.length, misfit }
+    return { b: result.b, overtones: found.length, misfit, harmonics: harmonicLevels(magnitudes, binHz, result) }
   }
+}
+
+/** Overtone strengths in dB below the strongest (see Stiffness.harmonics). */
+function harmonicLevels(magnitudes: Float64Array, binHz: number, curve: { b: number; f0: number }): number[] {
+  const levels: number[] = []
+  // A stray reading can give a negative or huge B; the overtones are then read near k·f0.
+  const b = curve.b > 0 && curve.b < 5e-4 ? curve.b : 0
+  for (let k = 1; k <= HARMONICS_MEASURED; k++) {
+    const at = k * curve.f0 * Math.sqrt(1 + b * k * k)
+    const low = Math.max(1, Math.floor((at * (1 - HARMONIC_WIDTH)) / binHz))
+    const high = Math.min(magnitudes.length - 1, Math.ceil((at * (1 + HARMONIC_WIDTH)) / binHz))
+    let peak = 1e-12
+    for (let i = low; i <= high; i++) peak = Math.max(peak, magnitudes[i])
+    levels.push(20 * Math.log10(peak))
+  }
+  const strongest = Math.max(...levels)
+  return levels.map((level) => level - strongest)
 }
 
 /** Where the true peak lies between bins (on a log scale, which suits the Hann window's peak). */

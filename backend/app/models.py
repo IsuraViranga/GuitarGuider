@@ -203,6 +203,10 @@ class DatasetGuitar(Base):
     # Which strings (1-6) are wound, e.g. [3, 4, 5, 6] (null: not known). Copied to each sample.
     wound_strings: Mapped[list | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Sound match (admin test): one fingerprint per measured sample, made from its recording in the
+    # admin's browser by the app's own code ([{sampleId, stringNumber, fret, v}]); null = not made.
+    fingerprints: Mapped[list | None] = mapped_column(JSONB)
+    fingerprints_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DatasetSample(Base):

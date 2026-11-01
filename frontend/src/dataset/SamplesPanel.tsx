@@ -16,6 +16,7 @@ import {
   type SamplePage,
   type StringMaterial,
 } from './datasetApi'
+import { SoundMatchCard } from './SoundMatchCard'
 import styles from './Dataset.module.css'
 
 const PAGE_SIZE = 20
@@ -24,7 +25,7 @@ const STATUS_LABELS: Record<ReviewStatus, string> = { accepted: 'Accepted', need
 const message = (problem: unknown, fallback: string) => (problem instanceof ApiError ? problem.message : fallback)
 
 /** The saved samples: filter, play, mark, delete, and export the labels for later research. */
-export function SamplesPanel({ guitars }: { guitars: DatasetGuitar[] }) {
+export function SamplesPanel({ guitars, onGuitarChanged }: { guitars: DatasetGuitar[]; onGuitarChanged: (guitar: DatasetGuitar) => void }) {
   const [filters, setFilters] = useState<SampleFilters>({})
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<SamplePage | null>(null)
@@ -106,6 +107,7 @@ export function SamplesPanel({ guitars }: { guitars: DatasetGuitar[] }) {
 
   const pages = result ? Math.max(1, Math.ceil(result.total / PAGE_SIZE)) : 1
   const number = (value: string) => (value === '' ? undefined : Number(value))
+  const chosen = guitars.find((g) => g.id === filters.guitarId)
 
   return (
     <div className={styles.samples}>
@@ -186,6 +188,8 @@ export function SamplesPanel({ guitars }: { guitars: DatasetGuitar[] }) {
           </p>
         )}
       </section>
+
+      {chosen && <SoundMatchCard key={chosen.id} guitar={chosen} onPrepared={onGuitarChanged} />}
 
       {error && (
         <p role="alert" className={styles.error}>

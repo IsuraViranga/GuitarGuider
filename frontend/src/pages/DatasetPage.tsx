@@ -61,7 +61,9 @@ export function DatasetPage() {
       )}
       {guitars === null && !error && <p>Loading…</p>}
       {guitars && tab === 'record' && <CollectPanel guitars={guitars} onGuitarAdded={(guitar) => setGuitars((list) => [...(list ?? []), guitar])} />}
-      {guitars && tab === 'samples' && <SamplesPanel guitars={guitars} />}
+      {guitars && tab === 'samples' && (
+        <SamplesPanel guitars={guitars} onGuitarChanged={(guitar) => setGuitars((list) => (list ?? []).map((g) => (g.id === guitar.id ? guitar : g)))} />
+      )}
     </div>
   )
 }

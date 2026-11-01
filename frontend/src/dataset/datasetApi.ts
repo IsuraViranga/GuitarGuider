@@ -19,9 +19,14 @@ export type DatasetGuitar = {
   /** Which strings are wound (null: not known). */
   woundStrings: number[] | null
   samples: number
+  /** Sound-match fingerprints made from its recordings (0: not prepared). */
+  fingerprints: number
 }
 
-export type NewGuitar = Omit<DatasetGuitar, 'id' | 'samples'>
+export type NewGuitar = Omit<DatasetGuitar, 'id' | 'samples' | 'fingerprints'>
+
+/** One sample's sound-match fingerprint (dataset/soundMatch.ts). */
+export type FingerprintRow = { sampleId: string; stringNumber: number; fret: number; v: number[] }
 
 export type PositionCount = { stringNumber: number; fret: number; count: number }
 
@@ -129,6 +134,17 @@ export const changeSample = (sampleId: string, change: { status?: ReviewStatus; 
   apiRequest<DatasetSample>(`${BASE}/samples/${sampleId}`, { method: 'PATCH', body: change })
 
 export const deleteSample = (sampleId: string) => apiRequest<void>(`${BASE}/samples/${sampleId}`, { method: 'DELETE' })
+
+/** The sample's recording itself (through the API, so no bucket setting is needed). */
+export async function sampleAudio(sampleId: string): Promise<ArrayBuffer> {
+  return (await send(`${BASE}/samples/${sampleId}/audio`)).arrayBuffer()
+}
+
+export const saveFingerprints = (guitarId: string, fingerprints: FingerprintRow[]) =>
+  apiRequest<DatasetGuitar>(`${BASE}/guitars/${guitarId}/fingerprints`, { method: 'PUT', body: { fingerprints } })
+
+export const getFingerprints = (guitarId: string) =>
+  apiRequest<{ fingerprints: FingerprintRow[]; madeAt: string | null }>(`${BASE}/guitars/${guitarId}/fingerprints`)
 
 /** Labels and storage keys of the matching samples, as a file (no audio inside). */
 export async function exportSamples(filters: SampleFilters, format: 'csv' | 'jsonl'): Promise<Blob> {

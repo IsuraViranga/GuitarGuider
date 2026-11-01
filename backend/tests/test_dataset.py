@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.dataset import expected_note, read_wav
+from app.dataset_download import download
 from app.dataset_storage import LocalStore, S3Store, StorageError, get_store
 from app.db import SessionLocal
 from app.main import app
@@ -284,8 +285,9 @@ def test_play_a_sample_through_a_short_lived_link(store):
     guitar = add_guitar(client)
     sample = save(client, guitar["id"]).json()["sample"]
     assert client.get(f"/api/dataset/samples/{sample['id']}/audio-url").json() == {"url": f"https://storage.example/{sample['audioKey']}?signed=1"}
-    # The file itself is only sent by the API when it is kept on this computer.
-    assert client.get(f"/api/dataset/samples/{sample['id']}/audio").status_code == 404
+    # The file itself also comes through the API (the browser reads it to prepare the sound match).
+    audio = client.get(f"/api/dataset/samples/{sample['id']}/audio")
+    assert audio.status_code == 200 and audio.content == wav() and audio.headers["content-type"] == "audio/wav"
 
 
 def test_local_storage_keeps_files_on_this_computer_and_the_api_plays_them(tmp_path):
@@ -382,3 +384,70 @@ def test_read_wav_reports_what_the_file_really_is():
     assert (info.audio_format, info.sample_rate, info.bit_depth, info.channels, info.duration_ms, info.peak) == ("wav-float32", 96000, 32, 1, 1500, 0.25)
     with pytest.raises(ValueError):
         read_wav(wav(kind="float32")[:40])
+
+
+def test_download_copies_the_audio_and_skips_rejected_and_finished_files(tmp_path):
+    store = MemoryStore()
+    a, b, c = (f"samples/{letter * 32}.wav" for letter in "abc")
+    for key in (a, b, c):
+        store.files[key] = wav(0.5)
+    size = len(wav(0.5))
+    records = [
+        {"audio_key": a, "audio_bytes": size, "status": "accepted"},
+        {"audio_key": b, "audio_bytes": size, "status": "rejected"},
+        {"audio_key": c, "audio_bytes": size, "status": "needs_review"},
+        {"audio_key": "../outside.wav", "audio_bytes": size, "status": "accepted"},
+    ]
+    assert download(records, store, tmp_path) == {"copied": 2, "skipped": 0, "failed": 1}
+    assert (tmp_path / a).read_bytes() == wav(0.5) and not (tmp_path / b).exists() and not (tmp_path.parent / "outside.wav").exists()
+    labels = [json.loads(line)["audio_key"] for line in (tmp_path / "labels.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert labels == [a, c]
+    # Run again after more recording: files already here are not fetched again.
+    store.files.clear()
+    assert download(records, store, tmp_path) == {"copied": 0, "skipped": 2, "failed": 1}
+
+
+# ---------- sound match fingerprints ----------
+
+
+def fingerprint(sample, **fields):
+    return {"sampleId": sample["id"], "stringNumber": sample["stringNumber"], "fret": sample["fret"], "v": [0.5] * 19, **fields}
+
+
+def test_fingerprints_are_kept_with_the_guitar_and_replaced_on_each_prepare(store):
+    client = admin()
+    guitar = add_guitar(client)
+    first = save(client, guitar["id"]).json()["sample"]
+    second = save(client, guitar["id"], stringNumber=1, fret=0).json()["sample"]
+    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json() == {"fingerprints": [], "madeAt": None}
+    saved = client.put(f"/api/dataset/guitars/{guitar['id']}/fingerprints", json={"fingerprints": [fingerprint(first), fingerprint(second)]})
+    assert saved.status_code == 200 and saved.json()["fingerprints"] == 2 and saved.json()["samples"] == 2
+    got = client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()
+    assert got["fingerprints"] == [fingerprint(first), fingerprint(second)] and got["madeAt"]
+    assert client.get("/api/dataset/guitars").json()[0]["fingerprints"] == 2
+    client.put(f"/api/dataset/guitars/{guitar['id']}/fingerprints", json={"fingerprints": [fingerprint(second)]})
+    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()["fingerprints"] == [fingerprint(second)]
+
+
+def test_fingerprints_must_match_this_guitars_recordings_and_be_numbers(store):
+    client = admin()
+    guitar = add_guitar(client)
+    other = add_guitar(client, name="Other guitar")
+    mine = save(client, guitar["id"]).json()["sample"]
+    theirs = save(client, other["id"]).json()["sample"]
+    url = f"/api/dataset/guitars/{guitar['id']}/fingerprints"
+    assert client.put(url, json={"fingerprints": [fingerprint(theirs)]}).status_code == 422
+    assert client.put(url, json={"fingerprints": [fingerprint(mine, fret=6)]}).status_code == 422
+    assert client.put(url, json={"fingerprints": [fingerprint(mine, v=[0.5] * 18)]}).status_code == 422
+    assert client.put(url, content='{"fingerprints": [{"sampleId": "%s", "stringNumber": 2, "fret": 5, "v": [NaN%s]}]}' % (mine["id"], ", 0" * 18),
+                      headers={"Content-Type": "application/json", "X-Requested-With": "fetch"}).status_code == 422
+    assert client.get(url).json()["fingerprints"] == []
+
+
+def test_fingerprints_are_admin_only(store):
+    client = admin()
+    guitar = add_guitar(client)
+    url = f"/api/dataset/guitars/{guitar['id']}/fingerprints"
+    for who, code in ((person("Student", "student@example.com"), 403), (guest(), 401)):
+        assert who.get(url).status_code == code
+        assert who.put(url, json={"fingerprints": []}).status_code == code
