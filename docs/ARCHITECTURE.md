@@ -760,53 +760,62 @@ Problems reported on a real guitar: correct notes sometimes not caught, notes 62
 - e2e: students that practise get a setup through the API (`tests/e2e/guitarSetup.ts`); a test
   covers the gate for a new account.
 
-### 8r. Dataset collector (admin only; for research, can be removed)
+### 8r. Guitar recordings (dataset collector) and the sound match
 
-Labelled recordings of single plucks (string, fret, guitar, conditions), for later research on
-telling strings apart. Nothing else uses it: practice, pitch detection and the string check are
-unchanged.
+Labelled recordings of single plucks (string, fret, guitar, conditions). Every signed-in player
+may record their own guitars; the string check then compares same-sounding places (10 / 25) with
+a recorded guitar's recordings (the sound match). Research data comes from the same recordings.
 
-- **Page** `/admin/dataset` (`pages/DatasetPage.tsx`, `src/dataset/`), linked from the account menu
-  for the admin only. **Record:** the guitar and conditions are set once and kept (this browser);
-  choose string and fret on the progress grid (frets 0–7, or all), Record → "Pluck now" → stops 4 s
-  after the pluck → listen (as often as wanted) → Save / Retake / Discard. Nothing is uploaded
-  before Save. Warnings only: clipped, very quiet, no pluck, several plucks, pluck at the very
-  start, another note heard. After the chosen number of plucks (3/5/10) the next unfinished
-  position is chosen. Keyboard: Space, Enter, R, Esc. **Samples:** filter (guitar, string, fret,
-  strings, noise, status), play, mark accepted / needs review / rejected, note, delete (asked
-  first), export CSV or JSONL (labels and storage keys, no audio).
+- **Page** `/record-guitar` (`pages/DatasetPage.tsx`, `src/dataset/`; `/admin/dataset` redirects),
+  "Record my guitar" in the account menu ("Dataset collector" for the admin). Visitors are asked
+  to sign in. **Record:** choose or add a guitar (players: name and type only; the admin also sets
+  strings and wound strings), choose string and fret on the progress grid, Record → "Pluck now" →
+  stops 4 s after the pluck → listen → Save / Retake / Discard. Players record 3 plucks per place
+  (all 6 strings × frets 0–7); the admin also sets noise, plucking, strength, device and 3/5/10
+  plucks. Warnings only: clipped, very quiet, no pluck, several plucks, pluck at the very start,
+  another note. When every place is done: a guitar-pick celebration, and a player's own guitar is
+  chosen for their practice (this device). **Samples / My recordings:** filter, play, mark,
+  note, delete; the admin also filters by strings and noise and exports CSV or JSONL.
 - **Audio:** the app's own raw microphone path (echo cancellation, noise suppression and auto gain
-  off; the mic boost is not used), saved as mono 32-bit float WAV at the browser's real sample
-  rate, never filtered or resampled. The server reads the real format from the file header.
-- **Server** (`app/dataset.py`, admin only on every route: 401 / 403 otherwise): guitars
-  (`dataset_guitars`: name unique ignoring case, type, string material, which strings are wound)
-  and samples (`dataset_samples`, Alembic `0007_dataset_collector`): string and fret separately,
-  expected MIDI / note / Hz worked out on the server (standard tuning, A4 = 440), conditions,
-  audio key, format, sample rate, bit depth, channels, duration, bytes, peak, pluck time,
-  status, notes. Uploads: mono WAV, 16-bit or 32-bit float, 0.5–15 s, at most 8 MB.
+  off; no mic boost), saved as mono 32-bit float WAV at the browser's real sample rate, never
+  filtered or resampled. The server reads the real format from the file header.
+- **Server** (`app/dataset.py`): signed in on every route (401 for visitors). Every guitar is
+  listed for every player, with its owner and how many recordings have fingerprints; each
+  guitar's fingerprints can be read by every player. Recording into a guitar and listing,
+  playing, marking, deleting its samples: its owner or the admin (403 otherwise). The default
+  guitar and the export: the admin only. Up to 3 guitars per player and 400 recordings per guitar
+  (the free bucket holds about 60 guitars of 144 plucks). Tables `dataset_guitars` (owner,
+  `is_default`: at most one; names unique per owner) and `dataset_samples` (string and fret,
+  expected MIDI / note / Hz worked out on the server, conditions, audio key and format, pluck
+  time, status, notes, `fingerprint`); Alembic `0007`–`0009`.
 - **Storage** (`app/dataset_storage.py`): `DATASET_STORAGE=s3` → a private S3-compatible bucket
   (Backblaze B2: free 10 GB, no card); playback through signed links valid 5 minutes. `local` →
   `../datasets/collector` (git-ignored), for development. Unset or incomplete → off: saving is
-  refused with a clear message. Keys are made by the server (`samples/<uuid>.wav`).
-- **Never half-saved:** audio first, then the row; if the row fails, the audio is removed. Delete:
-  the audio first; if that fails, the sample stays listed.
-- **Sound match (admin test)** (`src/dataset/soundMatch.ts`): tells same-note places apart (10 / 25)
-  by comparing a pluck with recordings of the same guitar. Fingerprint = overtones 1–16 (dB below
-  the strongest, from the string check's own measurement, `Stiffness.harmonics`), odd/even balance,
-  log B, misfit, all 200 ms after the pluck. A pair is used only when the guitar's recordings keep
-  it apart (self-test: each recording ×1.2 closer to its own place); a pluck is at the other place
-  only when ×1.2 closer to it. **Samples** tab → choose a guitar → "Prepare sound match": the
-  browser reads each recording through the API (`GET /samples/{id}/audio`), runs it through the
-  live tracker and stores the fingerprints (`dataset_guitars.fingerprints`, Alembic
-  `0008_dataset_fingerprints`). **Practice** (admins only): "Compare with recorded guitar" → after
-  the string check, where it is unsure or has no plan, the sound match may say "wrong string".
-  Measured on the client's 2 guitars (each pluck against the other takes,
-  `soundMatch.real.test.ts`): one guitar 71% → 91% wrong places caught, no correct pluck called
-  wrong; on the other the recordings overlap and the self-test switches every pair off.
+  refused with a clear message. Keys are made by the server (`samples/<uuid>.wav`). Never
+  half-saved: audio first, then the row (the audio is removed if the row fails); delete: the audio
+  first. `python -m app.dataset_download` copies them to `../datasets/collector-b2` for research.
+- **Sound match** (`src/dataset/soundMatch.ts`): fingerprint of a pluck = overtones 1–16 (dB below
+  the strongest, from the string check's own measurement, `Stiffness.harmonics`), odd/even
+  balance, log B and misfit, 200 ms after the pluck. Made in the browser **when a pluck is
+  recorded** (from the take, with 1.5 s of silence put before it so the tracker hears the pluck
+  start) and saved with it: nothing to download or prepare. Older recordings: "Update N older
+  recordings" on the Samples tab reads only those, 4 at a time, saving each fingerprint at once.
+  A pair is used only when the guitar's recordings keep it apart (self-test: each recording ×1.2
+  closer to its own place); a pluck is at the other place only when ×1.2 closer to it.
+- **Practice** (signed-in players; `useSoundMatch`, `GuitarChoice`): "Guitar for the string check":
+  Default (the admin's default guitar) · any recorded guitar ("yours" / "by …") · Off, kept per
+  player on this device, with a plain status line and "Record my guitar". The guitar is used only
+  when it **fits the player's guitar setup** (`fitsSetup`: each open string's stiffness within
+  ×1.35, at least 5 strings), because one guitar's recordings judging another called 10 of 49
+  correct notes wrong. It acts only where the string check is unsure or has no plan; its clear
+  verdicts are kept. Visitors, Off or no fit: practice exactly as before. Measured on the
+  client's 2 guitars (`soundMatch.real.test.ts`, each pluck against the other takes): one guitar
+  70% → 94% wrong places caught with no correct pluck called wrong; on the other the recordings
+  overlap and the self-test switches every pair off; neither guitar's recordings fit the other.
 - **Removing it later:** delete `app/dataset*.py`, `src/dataset/`, `pages/DatasetPage.tsx`, their
-  tests, the route, the menu link and the router line in `main.py`; in `PracticePage.tsx` the
-  sound-match lines (imports, `useSoundMatch`, `withSoundMatch`, the probe condition and
-  `<SoundMatchChoice>`); `Stiffness.harmonics` may stay. Add a migration that drops the two
+  tests, the routes, the menu link and the router line in `main.py`; in `PracticePage.tsx` the
+  sound-match lines (imports, `useSoundMatch`, `withSoundMatch`, the probe condition, the hint link
+  and `<GuitarChoice>`); `Stiffness.harmonics` may stay. Add a migration that drops the two
   tables; remove the `DATASET_*` settings.
 
 ## 9. Later phases (unchanged from the brief, condensed)

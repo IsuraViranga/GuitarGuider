@@ -40,9 +40,9 @@ import { startsLine } from '../songs/lines'
 import { formatGuitarNumber } from '../music/guitarNumber'
 import { midiToNoteName } from '../music/pitch'
 import type { GuitarPosition } from '../music/guitarNumber'
-// Sound match: admin test of the dataset collector (removable with src/dataset).
+// Sound match: same-sounding places checked with a recorded guitar (signed-in players; src/dataset).
+import { GuitarChoice } from '../dataset/GuitarChoice'
 import { withSoundMatch, type SoundMatch } from '../dataset/soundMatch'
-import { SoundMatchChoice } from '../dataset/SoundMatchChoice'
 import { useSoundMatch } from '../dataset/useSoundMatch'
 import { SongStatus } from './SongStatus'
 import styles from './PracticePage.module.css'
@@ -110,8 +110,8 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
 
   // String check (after the guitar setup): the current note's plan, read when a note arrives.
   const stringCheckRef = useRef<StringCheck | null>(null)
-  // Sound match (admin test): the chosen recorded guitar, and the note it compares with.
-  const soundMatch = useSoundMatch()
+  // Sound match: the recorded guitar the string check compares with, and the note it compares.
+  const soundMatch = useSoundMatch(stringSetup)
   const soundMatchRef = useRef<{ match: SoundMatch; expected: GuitarPosition } | null>(null)
   const handleNoteEvents = useCallback((events: DetectedEvent[]) => {
     for (const event of events) {
@@ -398,7 +398,7 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
           <p className={styles.samePitch} data-testid="same-pitch">
             <span aria-hidden="true">👂 </span>
             {samePitch.map(formatGuitarNumber).join(' and ')} {samePitch.length === 1 ? 'sounds' : 'sound'} the same.{' '}
-            {stringCheck ? (
+            {stringCheck || matched ? (
               <>
                 The string check listens for the string, so play it on <strong>string {note.position.stringNumber}</strong> as
                 shown.
@@ -408,7 +408,17 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
                 The app hears the note, not the string, so play it on <strong>string {note.position.stringNumber}</strong> as
                 shown.{' '}
                 {stringSetup ? (
-                  'Your guitar setup cannot check these strings (they sound too alike, or one was skipped).'
+                  <>
+                    Your guitar setup cannot check these strings (they sound too alike, or one was skipped).
+                    {soundMatch.available && (
+                      <>
+                        {' '}
+                        <a href="#guitar-choice" className={styles.setupLink}>
+                          A recorded guitar can help
+                        </a>
+                      </>
+                    )}
+                  </>
                 ) : (
                   <Link to="/guitar-setup" state={{ from: location.pathname }} className={styles.setupLink}>
                     Set up the string check (30 s)
@@ -497,7 +507,7 @@ function PracticeView({ song, stringSetup }: { song: Song; stringSetup: StringSe
           boost={boost}
           onBoostChange={setBoost}
         />
-        <SoundMatchChoice state={soundMatch} />
+        <GuitarChoice state={soundMatch} />
       </div>
 
       <section className={styles.timeline} aria-labelledby="timeline-heading">

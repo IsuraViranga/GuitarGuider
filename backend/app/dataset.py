@@ -1,8 +1,11 @@
-"""Dataset collector: labelled recordings of single plucks, for research on telling strings apart.
+"""Guitar recordings (the dataset collector): labelled recordings of single plucks, used by the
+string check's sound match (frontend/src/dataset/soundMatch.ts) and for research.
 
-- Admin only: every route checks the account on the server (403 for others, 401 when signed out).
-- Self-contained: nothing else in the app uses these tables or routes, so the collector can be
-  removed without touching practice, the string check or anything else.
+- Signed-in players only (401 for visitors). Every player may record their own guitars; every
+  guitar's fingerprints can be read by every player (to choose any recorded guitar). Recording
+  into a guitar, and listing, playing, marking or deleting its samples: its owner or the admin.
+  Setting the default guitar and exporting: the admin only.
+- Self-contained: practice only reads fingerprints; removing this leaves the string check as it was.
 - Each sample is one pluck: string and fret, the expected note (worked out here from the standard
   tuning, as the app does), the recording conditions, and the audio file exactly as the browser
   captured it. The file goes to private storage (app/dataset_storage.py); only its key is stored here.
@@ -30,7 +33,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .auth import require_admin
+from .auth import current_user, require_admin
 from .dataset_storage import AudioStore, StorageError, get_store
 from .db import get_db
 from .models import DatasetGuitar, DatasetSample, User
@@ -39,6 +42,7 @@ from .song_schemas import MAX_FRET, Camel
 router = APIRouter(prefix="/api/dataset", tags=["dataset collector"])
 DbSession = Annotated[Session, Depends(get_db)]
 Admin = Annotated[User, Depends(require_admin)]
+Player = Annotated[User, Depends(current_user)]
 Store = Annotated[AudioStore | None, Depends(get_store)]
 _log = logging.getLogger("app.dataset")
 
@@ -49,6 +53,9 @@ NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 # One pluck with some sound before and after it: a few seconds. Larger files are refused.
 MIN_SECONDS, MAX_SECONDS = 0.5, 15
 MAX_AUDIO_BYTES = 8 * 1024 * 1024
+# Each guitar is about 150 MB of audio: these keep the free storage (10 GB) from filling up.
+MAX_GUITARS_PER_PLAYER = 3
+MAX_SAMPLES_PER_GUITAR = 400
 
 GuitarType = Literal["acoustic", "classical", "electric", "other"]
 StringMaterial = Literal["steel", "nylon", "unknown"]
@@ -153,14 +160,21 @@ class GuitarOut(Out):
     string_material: str
     wound_strings: list[int] | None
     samples: int
-    # Sound-match fingerprints made from its recordings (0 = not prepared).
+    # Kept samples with a sound-match fingerprint, and kept samples still without one (older recordings).
     fingerprints: int
+    missing_fingerprints: int
+    owner_name: str | None
+    # Recorded by the player asking (they may record into it and manage its samples).
+    mine: bool
+    is_default: bool
 
     @classmethod
-    def of(cls, guitar: DatasetGuitar, samples: int) -> "GuitarOut":
+    def of(cls, guitar: DatasetGuitar, user: User, counts: tuple[int, int, int] = (0, 0, 0)) -> "GuitarOut":
+        samples, fingerprints, missing = counts
         return cls(
             id=guitar.id, name=guitar.name, guitar_type=guitar.guitar_type, string_material=guitar.string_material, wound_strings=guitar.wound_strings,
-            samples=samples, fingerprints=len(guitar.fingerprints or []),
+            samples=samples, fingerprints=fingerprints, missing_fingerprints=missing,
+            owner_name=guitar.owner.display_name if guitar.owner else None, mine=guitar.owner_id == user.id, is_default=guitar.is_default,
         )
 
 
@@ -177,29 +191,85 @@ def _guitar(db: Session, guitar_id: uuid.UUID) -> DatasetGuitar:
     return guitar
 
 
+def _may_change(user: User, guitar: DatasetGuitar) -> bool:
+    return user.role == "admin" or guitar.owner_id == user.id
+
+
+def _own_guitar(db: Session, guitar_id: uuid.UUID, user: User) -> DatasetGuitar:
+    """The guitar, when this player may record into it and manage its samples (owner or admin)."""
+    guitar = _guitar(db, guitar_id)
+    if not _may_change(user, guitar):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This guitar was recorded by another player.")
+    return guitar
+
+
+def _counts(db: Session, guitar_ids: list[uuid.UUID]) -> dict[uuid.UUID, tuple[int, int, int]]:
+    """Per guitar: all samples, kept ones with a fingerprint, kept ones without."""
+    kept = DatasetSample.status != "rejected"
+    rows = db.execute(
+        select(
+            DatasetSample.guitar_id,
+            func.count(),
+            func.count().filter(kept, DatasetSample.fingerprint.is_not(None)),
+            func.count().filter(kept, DatasetSample.fingerprint.is_(None)),
+        )
+        .where(DatasetSample.guitar_id.in_(guitar_ids))
+        .group_by(DatasetSample.guitar_id)
+    ).all()
+    return {row[0]: (row[1], row[2], row[3]) for row in rows}
+
+
+def _out(db: Session, guitar: DatasetGuitar, user: User) -> GuitarOut:
+    return GuitarOut.of(guitar, user, _counts(db, [guitar.id]).get(guitar.id, (0, 0, 0)))
+
+
 @router.get("/guitars")
-def list_guitars(db: DbSession, _admin: Admin) -> list[GuitarOut]:
-    counts = dict(db.execute(select(DatasetSample.guitar_id, func.count()).group_by(DatasetSample.guitar_id)).all())
-    guitars = db.scalars(select(DatasetGuitar).order_by(func.lower(DatasetGuitar.name))).all()
-    return [GuitarOut.of(g, counts.get(g.id, 0)) for g in guitars]
+def list_guitars(db: DbSession, user: Player) -> list[GuitarOut]:
+    """Every recorded guitar (any player may compare with any of them)."""
+    guitars = db.scalars(select(DatasetGuitar).order_by(func.lower(DatasetGuitar.name), DatasetGuitar.created_at)).all()
+    counts = _counts(db, [g.id for g in guitars])
+    return [GuitarOut.of(g, user, counts.get(g.id, (0, 0, 0))) for g in guitars]
 
 
 @router.post("/guitars", status_code=status.HTTP_201_CREATED)
-def add_guitar(body: GuitarIn, db: DbSession, _admin: Admin) -> GuitarOut:
-    guitar = DatasetGuitar(name=body.name, guitar_type=body.guitar_type, string_material=body.string_material, wound_strings=body.wound_strings)
+def add_guitar(body: GuitarIn, db: DbSession, user: Player) -> GuitarOut:
+    if user.role != "admin":
+        owned = db.scalar(select(func.count()).select_from(DatasetGuitar).where(DatasetGuitar.owner_id == user.id))
+        if owned >= MAX_GUITARS_PER_PLAYER:
+            raise HTTPException(status.HTTP_409_CONFLICT, f"You can record up to {MAX_GUITARS_PER_PLAYER} guitars. Choose one of yours from the list.")
+    guitar = DatasetGuitar(name=body.name, guitar_type=body.guitar_type, string_material=body.string_material, wound_strings=body.wound_strings, owner_id=user.id)
     db.add(guitar)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "A guitar with this name already exists. Choose it from the list.") from None
-    return GuitarOut.of(guitar, 0)
+        raise HTTPException(status.HTTP_409_CONFLICT, "You already have a guitar with this name. Choose it from the list.") from None
+    db.refresh(guitar)
+    return _out(db, guitar, user)
+
+
+class DefaultChange(Camel):
+    is_default: bool
+
+
+@router.put("/guitars/{guitar_id}/default")
+def set_default(guitar_id: uuid.UUID, body: DefaultChange, db: DbSession, admin: Admin) -> GuitarOut:
+    """The guitar players are compared with before they choose one (at most one)."""
+    guitar = _guitar(db, guitar_id)
+    if body.is_default:
+        for other in db.scalars(select(DatasetGuitar).where(DatasetGuitar.is_default, DatasetGuitar.id != guitar_id)):
+            other.is_default = False
+        db.flush()
+    guitar.is_default = body.is_default
+    db.commit()
+    db.refresh(guitar)
+    return _out(db, guitar, admin)
 
 
 @router.get("/guitars/{guitar_id}/progress")
-def guitar_progress(guitar_id: uuid.UUID, db: DbSession, _admin: Admin) -> list[PositionCount]:
+def guitar_progress(guitar_id: uuid.UUID, db: DbSession, user: Player) -> list[PositionCount]:
     """Samples kept per position (rejected ones do not count)."""
-    _guitar(db, guitar_id)
+    _own_guitar(db, guitar_id, user)
     rows = db.execute(
         select(DatasetSample.string_number, DatasetSample.fret, func.count())
         .where(DatasetSample.guitar_id == guitar_id, DatasetSample.status != "rejected")
@@ -208,57 +278,43 @@ def guitar_progress(guitar_id: uuid.UUID, db: DbSession, _admin: Admin) -> list[
     return [PositionCount(string_number=s, fret=f, count=n) for s, f, n in rows]
 
 
-# ---------- sound match (admin test) ----------
-# The admin's browser runs each recording through the app's own tracker and sends one fingerprint
-# per measured sample (frontend/src/dataset/soundMatch.ts); practice compares plucks with them.
+# ---------- sound match ----------
+# Each sample's fingerprint is made in the recording player's browser by the app's own code
+# (frontend/src/dataset/soundMatch.ts); practice compares plucks with a guitar's fingerprints.
 
 FINGERPRINT_SIZE = 19  # soundMatch.ts FINGERPRINT_SIZE: 16 overtones, odd/even, log stiffness, misfit
-MAX_FINGERPRINTS = 2000
+FingerprintValues = Annotated[list[float], Field(min_length=FINGERPRINT_SIZE, max_length=FINGERPRINT_SIZE)]
 
 
-class Fingerprint(Camel):
-    sample_id: uuid.UUID
-    string_number: StringNumber
-    fret: int = Field(ge=0, le=MAX_FRET)
-    v: list[float] = Field(min_length=FINGERPRINT_SIZE, max_length=FINGERPRINT_SIZE)
+def _finite(value: list[float] | None) -> list[float] | None:
+    if value is not None and not all(math.isfinite(x) for x in value):
+        raise ValueError("Every fingerprint value must be a finite number.")
+    return value
+
+
+class FingerprintIn(Camel):
+    v: FingerprintValues
 
     @field_validator("v")
     @classmethod
-    def _finite(cls, value: list[float]) -> list[float]:
-        if not all(math.isfinite(x) for x in value):
-            raise ValueError("Every value must be a finite number.")
-        return value
-
-
-class FingerprintsIn(Camel):
-    fingerprints: list[Fingerprint] = Field(max_length=MAX_FINGERPRINTS)
+    def _finite_values(cls, value: list[float]) -> list[float]:
+        return _finite(value)
 
 
 class FingerprintsOut(Out):
     fingerprints: list[dict]
-    made_at: datetime | None
-
-
-@router.put("/guitars/{guitar_id}/fingerprints")
-def save_fingerprints(guitar_id: uuid.UUID, body: FingerprintsIn, db: DbSession, _admin: Admin) -> GuitarOut:
-    """Replaces the guitar's fingerprints. Each must belong to one of its samples, at that sample's place."""
-    guitar = _guitar(db, guitar_id)
-    places = {row.id: (row.string_number, row.fret) for row in db.execute(select(DatasetSample.id, DatasetSample.string_number, DatasetSample.fret).where(DatasetSample.guitar_id == guitar_id))}
-    for f in body.fingerprints:
-        if places.get(f.sample_id) != (f.string_number, f.fret):
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A fingerprint does not match a recording of this guitar. Please prepare it again.")
-    guitar.fingerprints = [f.model_dump(mode="json", by_alias=True) for f in body.fingerprints]
-    guitar.fingerprints_at = func.now()
-    db.commit()
-    db.refresh(guitar)
-    samples = db.scalar(select(func.count()).select_from(DatasetSample).where(DatasetSample.guitar_id == guitar_id)) or 0
-    return GuitarOut.of(guitar, samples)
 
 
 @router.get("/guitars/{guitar_id}/fingerprints")
-def get_fingerprints(guitar_id: uuid.UUID, db: DbSession, _admin: Admin) -> FingerprintsOut:
-    guitar = _guitar(db, guitar_id)
-    return FingerprintsOut(fingerprints=guitar.fingerprints or [], made_at=guitar.fingerprints_at)
+def get_fingerprints(guitar_id: uuid.UUID, db: DbSession, _user: Player) -> FingerprintsOut:
+    """The fingerprints of the guitar's kept samples (any player may compare with any guitar)."""
+    _guitar(db, guitar_id)
+    rows = db.execute(
+        select(DatasetSample.id, DatasetSample.string_number, DatasetSample.fret, DatasetSample.fingerprint)
+        .where(DatasetSample.guitar_id == guitar_id, DatasetSample.status != "rejected", DatasetSample.fingerprint.is_not(None))
+        .order_by(DatasetSample.recorded_at, DatasetSample.id)
+    ).all()
+    return FingerprintsOut(fingerprints=[{"sampleId": str(r[0]), "stringNumber": r[1], "fret": r[2], "v": r[3]} for r in rows])
 
 
 # ---------- samples ----------
@@ -278,6 +334,13 @@ class SampleIn(Camel):
     pluck_at_ms: int | None = Field(default=None, ge=0, le=MAX_SECONDS * 1000)
     # How the browser captured the sound, e.g. {"sampleRate": 48000, "echoCancellation": false}.
     capture: dict[Annotated[str, Field(max_length=40)], CaptureValue] | None = Field(default=None, max_length=20)
+    # The sound-match fingerprint of this pluck, made in the browser (null: it could not be measured).
+    fingerprint: FingerprintValues | None = None
+
+    @field_validator("fingerprint")
+    @classmethod
+    def _finite_fingerprint(cls, value: list[float] | None) -> list[float] | None:
+        return _finite(value)
 
     @field_validator("notes")
     @classmethod
@@ -318,6 +381,7 @@ class SampleOut(Out):
     peak: float
     pluck_at_ms: int | None
     capture: dict | None
+    has_fingerprint: bool
     status: str
     recorded_at: datetime
 
@@ -331,7 +395,8 @@ class SampleOut(Out):
             string_construction=s.string_construction, background_noise=s.background_noise, pluck_method=s.pluck_method,
             pluck_strength=s.pluck_strength, device=s.device, notes=s.notes, audio_key=s.audio_key, audio_format=s.audio_format,
             sample_rate=s.sample_rate, bit_depth=s.bit_depth, channels=s.channels, duration_ms=s.duration_ms,
-            audio_bytes=s.audio_bytes, peak=s.peak, pluck_at_ms=s.pluck_at_ms, capture=s.capture, status=s.status, recorded_at=s.recorded_at,
+            audio_bytes=s.audio_bytes, peak=s.peak, pluck_at_ms=s.pluck_at_ms, capture=s.capture, has_fingerprint=s.fingerprint is not None,
+            status=s.status, recorded_at=s.recorded_at,
         )
 
 
@@ -354,10 +419,13 @@ def _store(store: AudioStore | None) -> AudioStore:
     return store
 
 
-def _sample(db: Session, sample_id: uuid.UUID) -> DatasetSample:
+def _own_sample(db: Session, sample_id: uuid.UUID, user: User) -> DatasetSample:
+    """The sample, when this player may play or manage it (its guitar's owner, or the admin)."""
     sample = db.get(DatasetSample, sample_id)
     if sample is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sample not found.")
+    if not _may_change(user, sample.guitar):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "This recording belongs to another player.")
     return sample
 
 
@@ -378,7 +446,7 @@ def _count_at(db: Session, guitar_id: uuid.UUID, string_number: int, fret: int) 
 @router.post("/samples", status_code=status.HTTP_201_CREATED)
 def save_sample(
     db: DbSession,
-    admin: Admin,
+    user: Player,
     store: Store,
     audio: Annotated[UploadFile, File(description="The pluck: a mono WAV file, as recorded")],
     meta: Annotated[str, Form(description="The labels and conditions (SampleIn as JSON)")],
@@ -388,7 +456,9 @@ def save_sample(
     except ValidationError as error:
         raise RequestValidationError(error.errors()) from None
     target = _store(store)
-    guitar = _guitar(db, body.guitar_id)
+    guitar = _own_guitar(db, body.guitar_id, user)
+    if db.scalar(select(func.count()).select_from(DatasetSample).where(DatasetSample.guitar_id == guitar.id)) >= MAX_SAMPLES_PER_GUITAR:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"This guitar already has {MAX_SAMPLES_PER_GUITAR} recordings, which is plenty.")
     data = audio.file.read(MAX_AUDIO_BYTES + 1)
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "The recording is too large for one pluck.")
@@ -412,7 +482,7 @@ def save_sample(
         background_noise=body.background_noise, pluck_method=body.pluck_method, pluck_strength=body.pluck_strength,
         device=body.device, notes=body.notes, audio_key=key, audio_format=info.audio_format, sample_rate=info.sample_rate,
         bit_depth=info.bit_depth, channels=info.channels, duration_ms=info.duration_ms, audio_bytes=len(data), peak=info.peak,
-        pluck_at_ms=body.pluck_at_ms, capture=body.capture, status="accepted", recorded_by=admin.id,
+        pluck_at_ms=body.pluck_at_ms, capture=body.capture, fingerprint=body.fingerprint, status="accepted", recorded_by=user.id,
     )
     try:
         db.add(sample)
@@ -450,8 +520,11 @@ def filters(
     return Filters(guitar_id, string_number, fret, string_material, background_noise, review_status)
 
 
-def _matching(f: Filters):
+def _matching(f: Filters, user: User | None = None):
+    """The samples matching the filters; with `user` (not the admin), only their own guitars'."""
     query = select(DatasetSample).join(DatasetSample.guitar)
+    if user is not None and user.role != "admin":
+        query = query.where(DatasetGuitar.owner_id == user.id)
     if f.guitar_id is not None:
         query = query.where(DatasetSample.guitar_id == f.guitar_id)
     if f.string_number is not None:
@@ -470,30 +543,31 @@ def _matching(f: Filters):
 @router.get("/samples")
 def list_samples(
     db: DbSession,
-    _admin: Admin,
+    user: Player,
     f: Annotated[Filters, Depends(filters)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 25,
 ) -> SamplePage:
-    query = _matching(f)
+    """The player's own recordings (the admin: everyone's)."""
+    query = _matching(f, user)
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     rows = db.scalars(query.order_by(DatasetSample.recorded_at.desc(), DatasetSample.id).offset((page - 1) * page_size).limit(page_size)).all()
     return SamplePage(items=[SampleOut.of(s) for s in rows], total=total, page=page, page_size=page_size)
 
 
 @router.get("/samples/{sample_id}/audio-url")
-def audio_url(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store) -> dict[str, str]:
+def audio_url(sample_id: uuid.UUID, db: DbSession, user: Player, store: Store) -> dict[str, str]:
     """A link to play the sample: signed and short-lived for the bucket (it stays private)."""
-    sample = _sample(db, sample_id)
+    sample = _own_sample(db, sample_id, user)
     return {"url": _store(store).playback_url(sample.audio_key, str(sample.id))}
 
 
 @router.get("/samples/{sample_id}/audio")
-def audio_file(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store) -> Response:
-    """The file itself, through the API: local storage plays this way, and the admin's browser reads
-    bucket files this way to prepare the sound match (playing in the list uses signed links)."""
+def audio_file(sample_id: uuid.UUID, db: DbSession, user: Player, store: Store) -> Response:
+    """The file itself, through the API: local storage plays this way, and the browser reads older
+    recordings this way to make their fingerprints (playing in the list uses signed links)."""
     target = _store(store)
-    sample = _sample(db, sample_id)
+    sample = _own_sample(db, sample_id, user)
     try:
         data = target.get(sample.audio_key)
     except StorageError:
@@ -502,8 +576,8 @@ def audio_file(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store)
 
 
 @router.patch("/samples/{sample_id}")
-def change_sample(sample_id: uuid.UUID, body: SampleChange, db: DbSession, _admin: Admin) -> SampleOut:
-    sample = _sample(db, sample_id)
+def change_sample(sample_id: uuid.UUID, body: SampleChange, db: DbSession, user: Player) -> SampleOut:
+    sample = _own_sample(db, sample_id, user)
     given = body.model_fields_set
     if "status" in given and body.status is not None:
         sample.status = body.status
@@ -514,10 +588,20 @@ def change_sample(sample_id: uuid.UUID, body: SampleChange, db: DbSession, _admi
     return SampleOut.of(sample)
 
 
+@router.put("/samples/{sample_id}/fingerprint")
+def save_fingerprint(sample_id: uuid.UUID, body: FingerprintIn, db: DbSession, user: Player) -> SampleOut:
+    """An older recording's fingerprint, made in the browser from its audio file."""
+    sample = _own_sample(db, sample_id, user)
+    sample.fingerprint = body.v
+    db.commit()
+    db.refresh(sample)
+    return SampleOut.of(sample)
+
+
 @router.delete("/samples/{sample_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_sample(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Store) -> None:
+def delete_sample(sample_id: uuid.UUID, db: DbSession, user: Player, store: Store) -> None:
     """The audio file first, then the row: if the file cannot be removed, the sample stays listed."""
-    sample = _sample(db, sample_id)
+    sample = _own_sample(db, sample_id, user)
     try:
         _store(store).delete(sample.audio_key)
     except StorageError:
@@ -527,7 +611,7 @@ def delete_sample(sample_id: uuid.UUID, db: DbSession, _admin: Admin, store: Sto
     db.commit()
 
 
-EXPORT_FIELDS = [name for name in SampleOut.model_fields if name != "capture"] + ["capture", "storage"]
+EXPORT_FIELDS = [name for name in SampleOut.model_fields if name not in ("capture", "has_fingerprint")] + ["capture", "storage"]
 
 
 @router.get("/export")
@@ -541,7 +625,7 @@ def export(
     """Labels, conditions and storage keys of the matching samples (no audio inside)."""
     rows = db.scalars(_matching(f).order_by(DatasetSample.recorded_at, DatasetSample.id)).all()
     storage = store.name if store else ""
-    records = [{**SampleOut.of(s).model_dump(mode="json", by_alias=False), "storage": storage} for s in rows]
+    records = [{**SampleOut.of(s).model_dump(mode="json", by_alias=False, exclude={"has_fingerprint"}), "storage": storage} for s in rows]
     if file_format == "jsonl":
         content = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records)
         media = "application/x-ndjson"

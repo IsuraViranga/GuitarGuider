@@ -1,5 +1,5 @@
-// The admin's dataset collector on the server (backend/app/dataset.py). Admin only: the server
-// refuses everyone else. Self-contained: nothing outside src/dataset and pages/DatasetPage uses it.
+// Guitar recordings on the server (backend/app/dataset.py): signed-in players record their own
+// guitars; every guitar's fingerprints can be read by every player. The server checks who may do what.
 
 import { ApiError, apiRequest } from '../api/client'
 
@@ -19,11 +19,18 @@ export type DatasetGuitar = {
   /** Which strings are wound (null: not known). */
   woundStrings: number[] | null
   samples: number
-  /** Sound-match fingerprints made from its recordings (0: not prepared). */
+  /** Kept recordings with a sound-match fingerprint, and kept older ones still without. */
   fingerprints: number
+  missingFingerprints: number
+  /** Who recorded it (null: account deleted). */
+  ownerName: string | null
+  /** Recorded by this player: they may record into it and manage its recordings. */
+  mine: boolean
+  /** The guitar players are compared with before they choose one (set by the admin). */
+  isDefault: boolean
 }
 
-export type NewGuitar = Omit<DatasetGuitar, 'id' | 'samples' | 'fingerprints'>
+export type NewGuitar = Pick<DatasetGuitar, 'name' | 'guitarType' | 'stringMaterial' | 'woundStrings'>
 
 /** One sample's sound-match fingerprint (dataset/soundMatch.ts). */
 export type FingerprintRow = { sampleId: string; stringNumber: number; fret: number; v: number[] }
@@ -41,6 +48,8 @@ export type SampleMeta = {
   notes?: string | null
   pluckAtMs: number | null
   capture: Record<string, string | number | boolean | null>
+  /** The pluck's sound-match fingerprint (null: it could not be measured). */
+  fingerprint: number[] | null
 }
 
 export type DatasetSample = {
@@ -70,6 +79,7 @@ export type DatasetSample = {
   audioBytes: number
   peak: number
   pluckAtMs: number | null
+  hasFingerprint: boolean
   status: ReviewStatus
   recordedAt: string
 }
@@ -140,11 +150,16 @@ export async function sampleAudio(sampleId: string): Promise<ArrayBuffer> {
   return (await send(`${BASE}/samples/${sampleId}/audio`)).arrayBuffer()
 }
 
-export const saveFingerprints = (guitarId: string, fingerprints: FingerprintRow[]) =>
-  apiRequest<DatasetGuitar>(`${BASE}/guitars/${guitarId}/fingerprints`, { method: 'PUT', body: { fingerprints } })
+/** An older recording's fingerprint, made in this browser from its audio. */
+export const saveSampleFingerprint = (sampleId: string, v: number[]) =>
+  apiRequest<DatasetSample>(`${BASE}/samples/${sampleId}/fingerprint`, { method: 'PUT', body: { v } })
 
-export const getFingerprints = (guitarId: string) =>
-  apiRequest<{ fingerprints: FingerprintRow[]; madeAt: string | null }>(`${BASE}/guitars/${guitarId}/fingerprints`)
+/** The fingerprints of a guitar's kept recordings (any player may compare with any guitar). */
+export const getFingerprints = (guitarId: string) => apiRequest<{ fingerprints: FingerprintRow[] }>(`${BASE}/guitars/${guitarId}/fingerprints`)
+
+/** Admin: the guitar players are compared with before they choose one. */
+export const setDefaultGuitar = (guitarId: string, isDefault: boolean) =>
+  apiRequest<DatasetGuitar>(`${BASE}/guitars/${guitarId}/default`, { method: 'PUT', body: { isDefault } })
 
 /** Labels and storage keys of the matching samples, as a file (no audio inside). */
 export async function exportSamples(filters: SampleFilters, format: 'csv' | 'jsonl'): Promise<Blob> {

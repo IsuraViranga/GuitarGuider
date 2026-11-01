@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom'
+import { Navigate, type RouteObject } from 'react-router-dom'
 import { AuthPage } from '../pages/AuthPage'
 import { DatasetPage } from '../pages/DatasetPage'
 import { ForgotPasswordPage, ResetPasswordPage } from '../pages/PasswordResetPages'
@@ -28,7 +28,8 @@ export const routes: RouteObject[] = [
       { path: '/import', element: <ImportPage /> },
       { path: '/progress', element: <ProgressPage /> },
       { path: '/guitar-setup', element: <GuitarSetupPage /> },
-      { path: '/admin/dataset', element: <DatasetPage /> },
+      { path: '/record-guitar', element: <DatasetPage /> },
+      { path: '/admin/dataset', element: <Navigate to="/record-guitar" replace /> },
       { path: '/signin', element: <AuthPage mode="signin" /> },
       { path: '/signup', element: <AuthPage mode="signup" /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },

@@ -170,7 +170,7 @@ class StringSetup(Base):
     saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
-# ---------- dataset collector (admin only; see app/dataset.py) ----------
+# ---------- guitar recordings (dataset collector; see app/dataset.py) ----------
 
 GUITAR_TYPES = ("acoustic", "classical", "electric", "other")
 STRING_MATERIALS = ("steel", "nylon", "unknown")
@@ -187,13 +187,15 @@ def _one_of(column: str, values: tuple[str, ...]) -> str:
 
 
 class DatasetGuitar(Base):
-    """A guitar recorded for the dataset. Names are unique (ignoring case), so each is reused."""
+    """A recorded guitar. Every signed-in player may record theirs; all guitars can be chosen by
+    everyone for the string check. Names are unique per owner (ignoring case)."""
 
     __tablename__ = "dataset_guitars"
     __table_args__ = (
         CheckConstraint(_one_of("guitar_type", GUITAR_TYPES), name="dataset_guitars_type_valid"),
         CheckConstraint(_one_of("string_material", STRING_MATERIALS), name="dataset_guitars_material_valid"),
-        Index("dataset_guitars_name_unique", func.lower(text("name")), unique=True),
+        Index("dataset_guitars_owner_name_unique", "owner_id", func.lower(text("name")), unique=True),
+        Index("dataset_guitars_one_default", "is_default", unique=True, postgresql_where=text("is_default")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -203,10 +205,12 @@ class DatasetGuitar(Base):
     # Which strings (1-6) are wound, e.g. [3, 4, 5, 6] (null: not known). Copied to each sample.
     wound_strings: Mapped[list | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    # Sound match (admin test): one fingerprint per measured sample, made from its recording in the
-    # admin's browser by the app's own code ([{sampleId, stringNumber, fret, v}]); null = not made.
-    fingerprints: Mapped[list | None] = mapped_column(JSONB)
-    fingerprints_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Who recorded it (null: the account was deleted).
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    # The guitar players are compared with before they choose one (set by the admin; at most one).
+    is_default: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+
+    owner: Mapped["User | None"] = relationship()
 
 
 class DatasetSample(Base):
@@ -252,6 +256,8 @@ class DatasetSample(Base):
     pluck_at_ms: Mapped[int | None] = mapped_column(Integer)
     # How the browser captured the sound (e.g. its sample rate and that its sound processing was off).
     capture: Mapped[dict | None] = mapped_column(JSONB)
+    # Sound match: 19 numbers made from this recording in the browser (frontend/src/dataset/soundMatch.ts).
+    fingerprint: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     status: Mapped[str] = mapped_column(String(12), default="accepted", server_default="accepted")
     recorded_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

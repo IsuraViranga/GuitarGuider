@@ -4,11 +4,14 @@ import { MICROPHONE_ERROR_MESSAGES } from '../audio/microphone'
 import type { DetectedEvent } from '../audio/pitchTracker'
 import { useListening } from '../audio/useListening'
 import { encodeWav } from '../audio/wav'
+import { Link } from 'react-router-dom'
+import { Celebration } from '../components/decor/Celebration'
 import { LevelBars } from '../components/decor/LevelBars'
 import { Fretboard } from '../components/fretboard/Fretboard'
 import { DEFAULT_MAX_FRET, STANDARD_TUNING, type StringNumber } from '../music/tuning'
 import { guitarProgress, saveSample, type DatasetGuitar, type Device, type Noise, type PluckMethod, type PluckStrength } from './datasetApi'
 import { ChoiceChips, GuitarForm } from './DatasetControls'
+import { fingerprint, guitarChoiceKey, measureRecording } from './soundMatch'
 import {
   AFTER_PLUCK_MS,
   checkPluck,
@@ -19,6 +22,7 @@ import {
   MAIN_FRETS,
   MAX_TAKE_SECONDS,
   nextIncomplete,
+  PLAYER_PLUCKS,
   PLUCK_TARGETS,
   positionCode,
   READY_MS,
@@ -55,20 +59,53 @@ const STRINGS: StringNumber[] = [1, 2, 3, 4, 5, 6]
 type Take =
   | { step: 'idle' }
   | { step: 'recording'; position: Position; cue: 'ready' | 'pluck'; heard: boolean }
-  | { step: 'review'; position: Position; wav: Blob; url: string; sampleRate: number; check: PluckCheck; saving: boolean; error: string | null }
+  | {
+      step: 'review'
+      position: Position
+      wav: Blob
+      url: string
+      sampleRate: number
+      check: PluckCheck
+      /** The pluck's sound-match fingerprint, made now from the take (null: not measurable). */
+      fingerprint: number[] | null
+      saving: boolean
+      error: string | null
+    }
 
 /** The browser's sound processing the app asks to turn off (audio/microphone.ts), as requested. */
 const CAPTURE_REQUESTED = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && target.closest('input, textarea, select, button, audio, summary') !== null
 
+/** Remembers the guitar for this player's practice on this device (see useSoundMatch). */
+function chooseForPractice(userId: string, guitarId: string) {
+  try {
+    localStorage.setItem(guitarChoiceKey(userId), guitarId)
+  } catch {
+    // Not saved (private mode or storage blocked): the player can choose it on the practice page.
+  }
+}
+
 /**
- * Recording plucks for the dataset: choose the position, record one pluck, listen, then save,
- * retake or discard. The guitar and conditions stay the same between recordings; after the
- * chosen number of plucks at a position, the next unfinished position is chosen.
+ * Recording plucks: choose the position, record one pluck, listen, then save, retake or discard.
+ * The guitar and conditions stay the same between recordings; after the chosen number of plucks
+ * at a position, the next unfinished position is chosen. Players (not the admin) see only the
+ * guitar and the grid: the research details keep their defaults, PLAYER_PLUCKS per place.
  */
-export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuitar[]; onGuitarAdded: (guitar: DatasetGuitar) => void }) {
+export function CollectPanel({
+  guitars,
+  onGuitarAdded,
+  admin,
+  userId,
+}: {
+  guitars: DatasetGuitar[]
+  onGuitarAdded: (guitar: DatasetGuitar) => void
+  admin: boolean
+  userId: string
+}) {
   const [session, setSession] = useState<Session>(loadSession)
+  const target = admin ? session.target : PLAYER_PLUCKS
+  const [ready, setReady] = useState(false)
   const guitar = guitars.find((g) => g.id === session.guitarId) ?? null
   const [editing, setEditing] = useState(guitar === null)
   const [addingGuitar, setAddingGuitar] = useState(guitars.length === 0)
@@ -155,6 +192,7 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
       url: URL.createObjectURL(wav),
       sampleRate: recording.sampleRate,
       check: checkPluck(recording, expectedNote(current.position).midi),
+      fingerprint: fingerprint(measureRecording(recording.samples, recording.sampleRate, expectedNote(current.position).midi)),
       saving: false,
       error: null,
     })
@@ -194,17 +232,23 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
         notes: note.trim() || null,
         pluckAtMs: current.check.pluckAtMs,
         capture: { sampleRate: current.sampleRate, ...CAPTURE_REQUESTED },
+        fingerprint: current.fingerprint,
       })
       const code = positionCode(current.position)
       const nextCounts = new Map(counts).set(countKey(current.position.stringNumber, current.position.fret), countAtPosition)
       setCounts(nextCounts)
-      let message = `Saved ✓ ${countAtPosition} of ${session.target} at ${code}.`
-      if (countAtPosition >= session.target) {
-        const next = nextIncomplete(nextCounts, current.position, session.target)
+      let message = `Saved ✓ ${countAtPosition} of ${target} at ${code}.`
+      if (countAtPosition >= target) {
+        const next = nextIncomplete(nextCounts, current.position, target)
         if (next) {
           update({ position: next })
           message += ` ${code} is done. Next: ${positionCode(next)}.`
-        } else message += ' Every position up to fret 7 is done on this guitar!'
+        } else {
+          message += ' Every position up to fret 7 is done on this guitar!'
+          // A player's own guitar is complete: practice compares with it from now on.
+          if (!admin) chooseForPractice(userId, guitar.id)
+          setReady(true)
+        }
       }
       setSaved(message)
       setNote('')
@@ -252,8 +296,13 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
               </span>
               <br />
               <span className="muted">
-                {session.backgroundNoise} · {session.pluckMethod} · {session.pluckStrength}
-                {session.device ? ` · ${session.device}` : ''} · {session.target} per position
+                {admin && (
+                  <>
+                    {session.backgroundNoise} · {session.pluckMethod} · {session.pluckStrength}
+                    {session.device ? ` · ${session.device}` : ''} ·{' '}
+                  </>
+                )}
+                {target} per position
               </span>
             </p>
             <button type="button" className="button" onClick={() => setEditing(true)} disabled={busy}>
@@ -264,6 +313,7 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
           <div className={styles.settingsForm}>
             {addingGuitar ? (
               <GuitarForm
+                simple={!admin}
                 onAdded={(added) => {
                   onGuitarAdded(added)
                   update({ guitarId: added.id })
@@ -292,16 +342,21 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
             {/* The conditions come after the guitar is saved, so the form has one button at a time. */}
             {!addingGuitar && (
               <>
-                <ChoiceChips legend="Background noise" options={NOISE} value={session.backgroundNoise} onChange={(v) => update({ backgroundNoise: v })} />
-                <ChoiceChips legend="Plucking" options={METHODS} value={session.pluckMethod} onChange={(v) => update({ pluckMethod: v })} />
-                <ChoiceChips legend="Strength" options={STRENGTHS} value={session.pluckStrength} onChange={(v) => update({ pluckStrength: v })} />
-                <ChoiceChips legend="Device" options={DEVICES} value={session.device ?? 'other'} onChange={(v) => update({ device: v })} />
-                <ChoiceChips
-                  legend="Plucks per position"
-                  options={PLUCK_TARGETS.map((n) => ({ value: n, label: String(n) }))}
-                  value={session.target}
-                  onChange={(v) => update({ target: v })}
-                />
+                {/* Research details: the admin only (players keep the defaults). */}
+                {admin && (
+                  <>
+                    <ChoiceChips legend="Background noise" options={NOISE} value={session.backgroundNoise} onChange={(v) => update({ backgroundNoise: v })} />
+                    <ChoiceChips legend="Plucking" options={METHODS} value={session.pluckMethod} onChange={(v) => update({ pluckMethod: v })} />
+                    <ChoiceChips legend="Strength" options={STRENGTHS} value={session.pluckStrength} onChange={(v) => update({ pluckStrength: v })} />
+                    <ChoiceChips legend="Device" options={DEVICES} value={session.device ?? 'other'} onChange={(v) => update({ device: v })} />
+                    <ChoiceChips
+                      legend="Plucks per position"
+                      options={PLUCK_TARGETS.map((n) => ({ value: n, label: String(n) }))}
+                      value={session.target}
+                      onChange={(v) => update({ target: v })}
+                    />
+                  </>
+                )}
                 <button type="button" className="button button-primary" disabled={!guitar} onClick={() => setEditing(false)}>
                   Done
                 </button>
@@ -349,7 +404,7 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
                       <th scope="row">{s}</th>
                       {frets.map((f) => {
                         const count = counts.get(countKey(s, f)) ?? 0
-                        const done = count >= session.target
+                        const done = count >= target
                         const selected = session.position.stringNumber === s && session.position.fret === f
                         return (
                           <td key={f}>
@@ -357,7 +412,7 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
                               type="button"
                               className={`${styles.cell} ${done ? styles.done : count > 0 ? styles.started : ''} ${selected ? styles.selected : ''}`}
                               aria-pressed={selected}
-                              aria-label={`${s}${f}: string ${s}, fret ${f}, ${count} of ${session.target} saved`}
+                              aria-label={`${s}${f}: string ${s}, fret ${f}, ${count} of ${target} saved`}
                               disabled={busy}
                               onClick={() => choose({ stringNumber: s, fret: f })}
                             >
@@ -406,6 +461,21 @@ export function CollectPanel({ guitars, onGuitarAdded }: { guitars: DatasetGuita
                   <p role="status" className={styles.saved} data-testid="dataset-saved">
                     {saved}
                   </p>
+                )}
+                {ready && (
+                  <div className={styles.ready} data-testid="guitar-ready">
+                    <Celebration />
+                    <p>
+                      <strong>🎸 {guitar.name} is ready for the string check.</strong>
+                      <br />
+                      {admin
+                        ? 'Players can choose it on the practice page.'
+                        : 'Practice now compares same-sounding places with your recordings.'}
+                    </p>
+                    <Link to="/songs" className="button button-primary">
+                      Practise a song
+                    </Link>
+                  </div>
                 )}
                 <button type="button" className={`button button-primary ${styles.big}`} onClick={record}>
                   ● Record {positionCode(session.position)}

@@ -132,6 +132,40 @@ export function createSoundMatch(references: readonly Reference[], tuning: Tunin
 }
 
 /**
+ * A guitar's recordings fit a player's guitar only when its open strings are as stiff as in the
+ * player's guitar setup: within this ratio on every string compared...
+ */
+export const FIT_RATIO = 1.35
+/** ...and at least this many strings compared (both have that open string). */
+export const FIT_MIN_STRINGS = 5
+
+/**
+ * Whether these recordings may be used for this player's guitar. Recordings of another guitar call
+ * correct plucks wrong (measured: one recorded guitar judging another called 10 of 49 correct notes
+ * "wrong string"), so the stiffness of each open string (median of the recordings at fret 0, log B
+ * in the fingerprint) must match the player's guitar setup. The two collected guitars differ ×2–3.5.
+ */
+export function fitsSetup(references: readonly Reference[], setup: { open: Partial<Record<number, number>> } | null): boolean {
+  if (!setup) return false
+  let compared = 0
+  for (const stringNumber of [1, 2, 3, 4, 5, 6]) {
+    const measured = setup.open[stringNumber]
+    const recorded = references
+      .filter((r) => r.stringNumber === stringNumber && r.fret === 0)
+      .map((r) => Math.exp(r.v[FINGERPRINT_SIZE - 2]))
+      .sort((a, b) => a - b)
+    if (!(measured && measured > 0) || recorded.length === 0) continue
+    const middle = recorded[recorded.length >> 1]
+    if (Math.max(measured, middle) / Math.min(measured, middle) > FIT_RATIO) return false
+    compared++
+  }
+  return compared >= FIT_MIN_STRINGS
+}
+
+/** This device's choice of recorded guitar for a player: a guitar id, 'off', or nothing (the default). */
+export const guitarChoiceKey = (userId: string) => `guitar-practice:sound-match-guitar:${userId}`
+
+/**
  * Practice: the verdict after the string check. Where the check is unsure or did not plan for
  * this note, the sound match may name another place; a clear verdict of the check is kept.
  */
@@ -148,10 +182,19 @@ export function withSoundMatch(
 }
 
 /**
+ * Silence put before a recording: the tracker hears a pluck start only after some quiet (live, the
+ * microphone is always on), so a pluck right after Record would otherwise go unmeasured.
+ */
+const LEAD_IN_SECONDS = 1.5
+
+/**
  * A recording of one pluck through the live tracker, as practice hears it: the expected note is
  * the target, and the measurement is the one practice would judge (null: not heard or measured).
  */
-export function measureRecording(samples: Float32Array, sampleRate: number, midi: number): Stiffness | null {
+export function measureRecording(recording: Float32Array, sampleRate: number, midi: number): Stiffness | null {
+  const lead = Math.round(LEAD_IN_SECONDS * sampleRate)
+  const samples = new Float32Array(lead + recording.length)
+  samples.set(recording, lead)
   const tracker = new PitchTracker(sampleRate, 2048)
   tracker.resetNotes({ requireFreshOnset: true })
   tracker.setTargets([midi])

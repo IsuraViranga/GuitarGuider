@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Stiffness } from '../audio/stringCheck'
-import { countPairs, createSoundMatch, fingerprint, FINGERPRINT_SIZE, withSoundMatch, type Reference } from './soundMatch'
+import { countPairs, createSoundMatch, fingerprint, FINGERPRINT_SIZE, fitsSetup, withSoundMatch, type Reference } from './soundMatch'
 
 const P10 = { stringNumber: 1 as const, fret: 0 }
 const P25 = { stringNumber: 2 as const, fret: 5 }
@@ -86,5 +86,32 @@ describe('after the string check, in practice', () => {
     expect(withSoundMatch(match, P10, undefined, undefined)).toBeUndefined()
     expect(withSoundMatch(null, P10, sounding(-2), { result: 'unsure' })).toEqual({ result: 'unsure' })
     expect(withSoundMatch(match, null, sounding(-2), undefined)).toBeUndefined()
+  })
+})
+
+describe('do the recordings fit this guitar? (guitar setup)', () => {
+  const OPEN = { 1: 1.7e-5, 2: 4.5e-5, 3: 2.9e-5, 4: 6e-5, 5: 1.2e-4, 6: 1.8e-4 } as Record<number, number>
+  /** Three recordings of each open string with stiffness `scale` × OPEN. */
+  const recordings = (scale: Record<number, number> = {}): Reference[] =>
+    [1, 2, 3, 4, 5, 6].flatMap((s) =>
+      [0.97, 1, 1.03].map((k) => ({ stringNumber: s as 1, fret: 0, v: fingerprint({ b: OPEN[s] * k * (scale[s] ?? 1), overtones: 24, misfit: 0.4, harmonics: Array.from({ length: 16 }, () => -10) })! })),
+    )
+
+  it('the same guitar fits', () => {
+    expect(fitsSetup(recordings(), { open: OPEN })).toBe(true)
+    expect(fitsSetup(recordings({ 3: 1.3 }), { open: OPEN })).toBe(true) // within ×1.35
+  })
+
+  it('one string clearly different: another guitar (or new strings), not used', () => {
+    expect(fitsSetup(recordings({ 3: 1.5 }), { open: OPEN })).toBe(false)
+    expect(fitsSetup(recordings({ 1: 0.5 }), { open: OPEN })).toBe(false)
+  })
+
+  it('needs at least 5 strings to compare, and a guitar setup', () => {
+    const { 5: _a, 6: _b, ...four } = OPEN
+    expect(fitsSetup(recordings(), { open: four })).toBe(false)
+    const { 6: _c, ...five } = OPEN
+    expect(fitsSetup(recordings(), { open: five })).toBe(true)
+    expect(fitsSetup(recordings(), null)).toBe(false)
   })
 })

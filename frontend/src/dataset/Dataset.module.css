@@ -440,9 +440,39 @@
   margin: 0;
 }
 
-.soundMatchChoice {
+/* A guitar with every place recorded. */
+.ready {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+}
+
+.ready p {
+  margin: 0;
+}
+
+.defaultPick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+}
+
+/* Practice: which recorded guitar the string check compares with. */
+.guitarChoice {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.guitarChoiceLabel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  font-weight: 600;
+}
+
+.guitarChoiceStatus {
+  margin: 0;
 }

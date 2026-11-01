@@ -6,9 +6,9 @@ import type { Stiffness } from '../audio/stringCheck'
 import type { ListeningState } from '../audio/useListening'
 import { fingerprint } from '../dataset/soundMatch'
 import { renderApp } from '../test/renderApp'
-import { ADMIN, fakeServer, signedInAs, USER } from '../test/fakeServer'
+import { fakeServer, signedInAs, signedOut, USER } from '../test/fakeServer'
 
-// A pretend microphone (practice), and pretend measurements of recordings (preparing a guitar).
+// A pretend microphone (practice), and pretend measurements of recordings (older recordings).
 const mic = vi.hoisted(() => ({
   send: null as ((events: DetectedEvent[]) => void) | null,
   probes: [] as (number | null)[],
@@ -50,81 +50,122 @@ vi.mock('../dataset/soundMatch', async (original) => ({
   measureRecording: () => mic.measured.shift() ?? null,
 }))
 
-/** A measured pluck whose second overtone is `second` dB: about -12 on string 1 open (10), -2 on 25. */
-const sounding = (second: number): Stiffness => ({ b: 2e-5, overtones: 24, misfit: 0.4, harmonics: [0, second, ...Array.from({ length: 14 }, () => -20)] })
-const PLACES = [
-  ...[-12, -11.5, -12.5].map((second, i) => ({ id: `s${i + 1}`, stringNumber: 1, fret: 0, second })),
-  ...[-2, -2.5, -1.5].map((second, i) => ({ id: `s${i + 4}`, stringNumber: 2, fret: 5, second })),
-]
-const GUITAR = { id: 'g1', name: 'No name', guitarType: 'electric', stringMaterial: 'steel', woundStrings: [4, 5, 6], samples: 6, fingerprints: 0 }
-const ROWS = PLACES.map((p) => ({ sampleId: p.id, stringNumber: p.stringNumber, fret: p.fret, v: fingerprint(sounding(p.second))! }))
+/** A measured pluck: its second overtone `second` dB (the colour that differs), stiffness `b`. */
+const sounding = (second: number, b: number): Stiffness => ({ b, overtones: 24, misfit: 0.4, harmonics: [0, second, ...Array.from({ length: 14 }, () => -20)] })
+/**
+ * The recorded guitar: each open string 3 times, and 25 (same note as 10) 3 times. Strings 1 and 2
+ * are almost as stiff at 10 and 25 (×1.2), so the setup alone cannot check 10; their colour differs.
+ */
+const OPEN_B: Record<number, number> = { 1: 3e-5, 2: 2e-5, 3: 4e-5, 4: 6e-5, 5: 9e-5, 6: 1.4e-4 }
+const ROWS = [
+  ...[1, 2, 3, 4, 5, 6].flatMap((s) => (s === 1 ? [-12, -11.5, -12.5] : [-8, -8.5, -7.5]).map((second) => ({ stringNumber: s, fret: 0, v: fingerprint(sounding(second, OPEN_B[s]))! }))),
+  ...[-2, -2.5, -1.5].map((second) => ({ stringNumber: 2, fret: 5, v: fingerprint(sounding(second, OPEN_B[2] * 2 ** (5 / 6)))! })),
+].map((r, i) => ({ sampleId: `s${i}`, ...r }))
+const NO_NAME = { id: 'g1', name: 'No name', guitarType: 'electric', stringMaterial: 'steel', woundStrings: [4, 5, 6], samples: 21, fingerprints: 21, missingFingerprints: 0, ownerName: 'Melantha', mine: false, isDefault: true }
+const setupOf = (open: Record<number, number>) => ({ open, savedAt: '2026-11-02T10:00:00.000Z' })
 
-describe('sound match: preparing a recorded guitar (dataset collector)', () => {
-  it('measures every recording of the guitar in the browser and keeps the fingerprints', async () => {
-    const sample = (p: (typeof PLACES)[number]) => ({ id: p.id, guitarId: 'g1', guitarName: 'No name', stringNumber: p.stringNumber, fret: p.fret, position: `${p.stringNumber}${p.fret}`,
-      expectedMidi: 64, expectedNote: 'E4', expectedHz: 329.63, stringConstruction: 'unwound', backgroundNoise: 'quiet', pluckMethod: 'finger', pluckStrength: 'medium',
-      device: 'phone', notes: null, durationMs: 4000, sampleRate: 48000, peak: 0.5, status: 'accepted', recordedAt: '2026-11-01T10:00:00Z' })
-    const page = { items: PLACES.map(sample), total: 6, page: 1, pageSize: 20 }
-    const audio = Object.fromEntries(PLACES.map((p) => [`GET /api/dataset/samples/${p.id}/audio`, () => [200, {}] as [number, unknown]]))
+describe('older recordings get their fingerprints (record my guitar)', () => {
+  it('reads only the recordings without one, and saves each fingerprint as soon as it is made', async () => {
+    const mine = { ...NO_NAME, name: 'My Yamaha', mine: true, isDefault: false, fingerprints: 0, missingFingerprints: 6, samples: 6 }
+    const sample = (i: number) => ({ id: `s${i}`, guitarId: 'g1', guitarName: 'My Yamaha', stringNumber: 1, fret: 0, position: '10', expectedMidi: 64, expectedNote: 'E4',
+      expectedHz: 329.63, stringConstruction: 'unwound', backgroundNoise: 'quiet', pluckMethod: 'finger', pluckStrength: 'medium', device: 'phone', notes: null,
+      durationMs: 4000, sampleRate: 48000, peak: 0.5, hasFingerprint: false, status: 'accepted', recordedAt: '2026-11-01T10:00:00Z' })
+    const page = { items: [0, 1, 2, 3, 4, 5].map(sample), total: 6, page: 1, pageSize: 20 }
+    const routes = Object.fromEntries([0, 1, 2, 3, 4, 5].flatMap((i) => [
+      [`GET /api/dataset/samples/s${i}/audio`, () => [200, {}] as [number, unknown]],
+      [`PUT /api/dataset/samples/s${i}/fingerprint`, () => [200, { ...sample(i), hasFingerprint: true }] as [number, unknown]],
+    ]))
     const calls = fakeServer({
-      ...signedInAs(ADMIN),
-      'GET /api/dataset/guitars': () => [200, [GUITAR]],
+      ...signedInAs(USER),
+      'GET /api/dataset/guitars': () => [200, [mine]],
       'GET /api/dataset/samples?page=1&pageSize=20': () => [200, page],
       'GET /api/dataset/samples?guitarId=g1&page=1&pageSize=20': () => [200, page],
       'GET /api/dataset/samples?guitarId=g1&page=1&pageSize=100': () => [200, { ...page, pageSize: 100 }],
-      ...audio,
-      'PUT /api/dataset/guitars/g1/fingerprints': () => [200, { ...GUITAR, fingerprints: 6 }],
+      ...routes,
     })
-    mic.measured = PLACES.map((p) => sounding(p.second))
-    renderApp('/admin/dataset')
-    await userEvent.click(await screen.findByRole('button', { name: /Samples/ }))
+    mic.measured = [0, 1, 2, 3, 4, 5].map(() => sounding(-10, 3e-5))
+    renderApp('/record-guitar')
+    await userEvent.click(await screen.findByRole('button', { name: /My recordings/ }))
     await userEvent.selectOptions(within(screen.getByLabelText('Filters')).getByLabelText('Guitar'), 'g1')
     const card = await screen.findByLabelText('Sound match')
-    await userEvent.click(within(card).getByRole('button', { name: 'Prepare sound match from these recordings' }))
-    expect(await screen.findByTestId('sound-match-ready')).toHaveTextContent('Ready: 6 plucks. 1 of 16 same-note pairs can be told apart on this guitar.')
-    expect(calls.find((c) => c.key === 'PUT /api/dataset/guitars/g1/fingerprints')!.body).toEqual({ fingerprints: ROWS })
-    expect(within(card).getByRole('button', { name: 'Prepare again' })).toBeInTheDocument()
+    expect(within(card).queryByRole('checkbox')).not.toBeInTheDocument() // the default guitar: admin only
+    await userEvent.click(within(card).getByRole('button', { name: 'Update 6 older recordings' }))
+    expect(await screen.findByTestId('sound-match-ready')).toHaveTextContent('Updated 6 recordings.')
+    expect(calls.filter((c) => c.key.endsWith('/fingerprint'))).toHaveLength(6)
+    expect(calls.find((c) => c.key === 'PUT /api/dataset/samples/s0/fingerprint')!.body).toEqual({ v: fingerprint(sounding(-10, 3e-5)) })
+    expect(within(card).queryByRole('button', { name: /older recordings/ })).not.toBeInTheDocument()
   })
 })
 
-describe('sound match in practice (admin test)', () => {
-  // String 2 not in the setup: the string check has no plan for 10, so only the sound match can tell.
-  const SETUP = { open: { 1: 1.7e-5 }, misfit: { 1: 0.3 }, savedAt: '2026-10-28T10:00:00.000Z' }
-  const server = (user: object) =>
+describe('guitar for the string check, in practice (signed-in players)', () => {
+  const server = (user: object, open: Record<number, number>, guitars = [NO_NAME]) =>
     fakeServer({
       ...signedInAs(user),
-      'GET /api/string-setup': () => [200, SETUP],
-      'GET /api/dataset/guitars': () => [200, [{ ...GUITAR, fingerprints: 6 }]],
-      'GET /api/dataset/guitars/g1/fingerprints': () => [200, { fingerprints: ROWS, madeAt: '2026-11-01T10:00:00Z' }],
+      'GET /api/string-setup': () => [200, setupOf(open)],
+      'GET /api/dataset/guitars': () => [200, guitars],
+      'GET /api/dataset/guitars/g1/fingerprints': () => [200, { fingerprints: ROWS }],
     })
-
-  it('compared with a recorded guitar: 25 played for 10 is caught', async () => {
-    server(ADMIN)
-    renderApp('/songs/sample-first-frets/practice') // 10 11 13 ...
-    await screen.findByTestId('expected-number')
-    expect(mic.probes.at(-1)).toBeNull() // the string check alone cannot check 10 with this setup
-    await userEvent.selectOptions(await screen.findByLabelText(/Compare with recorded guitar/), 'g1')
-    await vi.waitFor(() => expect(mic.probes.at(-1)).toBe(64)) // now 10 = E4 is measured
+  const play = (noteId: number, stiffness: Stiffness) =>
     act(() =>
       mic.send!([
-        { type: 'noteStart', noteId: 900, midi: 64, time: 0, stiffness: sounding(-2) },
-        { type: 'noteConfirmed', noteId: 900, midi: 64, time: 0, stiffness: sounding(-2) },
+        { type: 'noteStart', noteId, midi: 64, time: 0, stiffness },
+        { type: 'noteConfirmed', noteId, midi: 64, time: 0, stiffness },
       ]),
     )
+
+  it('the default guitar matches this guitar: 25 played for 10 is caught', async () => {
+    server(USER, OPEN_B)
+    renderApp('/songs/sample-first-frets/practice') // 10 11 13 ...
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent(/Using No name: it matches your guitar/))
+    await vi.waitFor(() => expect(mic.probes.at(-1)).toBe(64)) // 10 = E4 is measured
+    expect(screen.getByTestId('same-pitch')).toHaveTextContent('The string check listens for the string')
+    play(900, sounding(-2, 3.5e-5))
     expect(screen.getByTestId('feedback')).toHaveTextContent('Right note, wrong string. That sounded like 25 (string 2, fret 5).')
     expect(screen.getByTestId('expected-number')).toHaveTextContent('10')
-    // Played on string 1: correct, on to 11.
-    act(() => mic.send!([{ type: 'noteStart', noteId: 901, midi: 64, time: 0, stiffness: sounding(-12) }]))
+    play(901, sounding(-12, 3e-5))
     expect(screen.getByTestId('feedback')).toHaveTextContent('Correct note!')
     expect(screen.getByTestId('expected-number')).toHaveTextContent('11')
-    expect(localStorage.getItem('guitar-practice:sound-match-guitar')).toBe('g1')
   })
 
-  it('anyone but the admin: no choice, and nothing is asked about recorded guitars', async () => {
-    const calls = server(USER)
+  it('another guitar (its strings sound different): the recordings are not used, and nothing is called wrong', async () => {
+    server(USER, Object.fromEntries(Object.entries(OPEN_B).map(([s, b]) => [s, b * 2])))
+    renderApp('/songs/sample-first-frets/practice')
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent('No name does not match your guitar'))
+    expect(mic.probes.at(-1)).toBeNull()
+    play(900, sounding(-2, 7e-5))
+    expect(screen.getByTestId('feedback')).toHaveTextContent('Correct note!')
+    expect(screen.getByRole('link', { name: /Record my guitar/ })).toHaveAttribute('href', '/record-guitar')
+  })
+
+  it('off, remembered for this player on this device', async () => {
+    const calls = server(USER, OPEN_B)
+    renderApp('/songs/sample-first-frets/practice')
+    await vi.waitFor(() => expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent(/Using No name/))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /Guitar for the string check/ }), 'off')
+    expect(screen.getByTestId('guitar-choice-status')).toHaveTextContent('Off: the string check uses your guitar setup only.')
+    expect(localStorage.getItem(`guitar-practice:sound-match-guitar:${USER.id}`)).toBe('off')
+    play(900, sounding(-2, 3.5e-5))
+    expect(screen.getByTestId('feedback')).toHaveTextContent('Correct note!')
+    expect(calls.filter((c) => c.key.endsWith('/fingerprints'))).toHaveLength(1) // loaded once for the default, before Off
+  })
+
+  it('lists every recorded guitar: the default, theirs, other players', async () => {
+    const mine = { ...NO_NAME, id: 'g2', name: 'My Yamaha', mine: true, isDefault: false, ownerName: 'Isura Perera' }
+    server(USER, OPEN_B, [NO_NAME, mine])
+    renderApp('/songs/sample-first-frets/practice')
+    const choice = await screen.findByRole('combobox', { name: /Guitar for the string check/ })
+    await vi.waitFor(() =>
+      expect(within(choice).getAllByRole('option').map((o) => o.textContent)).toEqual(['Default (No name)', 'No name · by Melantha', 'My Yamaha · yours', 'Off']),
+    )
+    expect(screen.getByRole('link', { name: /Record another guitar/ })).toBeInTheDocument()
+  })
+
+  it('visitors: no choice, and nothing is asked about recorded guitars', async () => {
+    localStorage.setItem('guitar-practice:string-setup', JSON.stringify(setupOf(OPEN_B)))
+    const calls = fakeServer(signedOut)
     renderApp('/songs/sample-first-frets/practice')
     await screen.findByTestId('expected-number')
-    expect(screen.queryByLabelText(/Compare with recorded guitar/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /Guitar for the string check/ })).not.toBeInTheDocument()
     expect(calls.some((c) => c.key.includes('/api/dataset'))).toBe(false)
   })
 })

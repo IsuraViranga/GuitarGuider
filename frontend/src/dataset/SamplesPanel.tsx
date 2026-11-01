@@ -24,8 +24,11 @@ const STATUS_LABELS: Record<ReviewStatus, string> = { accepted: 'Accepted', need
 
 const message = (problem: unknown, fallback: string) => (problem instanceof ApiError ? problem.message : fallback)
 
-/** The saved samples: filter, play, mark, delete, and export the labels for later research. */
-export function SamplesPanel({ guitars, onGuitarChanged }: { guitars: DatasetGuitar[]; onGuitarChanged: (guitar: DatasetGuitar) => void }) {
+/**
+ * The saved samples: filter, play, mark, delete; the admin also exports the labels for research.
+ * Players see only their own guitars' recordings (the server sends no others).
+ */
+export function SamplesPanel({ guitars, admin, onGuitarChanged }: { guitars: DatasetGuitar[]; admin: boolean; onGuitarChanged: (guitar: DatasetGuitar) => void }) {
   const [filters, setFilters] = useState<SampleFilters>({})
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<SamplePage | null>(null)
@@ -145,24 +148,28 @@ export function SamplesPanel({ guitars, onGuitarChanged }: { guitars: DatasetGui
             ))}
           </select>
         </label>
-        <label>
-          Strings
-          <select className={styles.select} value={filters.stringMaterial ?? ''} onChange={(e) => filter({ stringMaterial: (e.target.value || undefined) as StringMaterial | undefined })}>
-            <option value="">All</option>
-            <option value="steel">Steel</option>
-            <option value="nylon">Nylon</option>
-            <option value="unknown">Not sure</option>
-          </select>
-        </label>
-        <label>
-          Noise
-          <select className={styles.select} value={filters.backgroundNoise ?? ''} onChange={(e) => filter({ backgroundNoise: (e.target.value || undefined) as Noise | undefined })}>
-            <option value="">All</option>
-            <option value="quiet">Quiet</option>
-            <option value="moderate">Moderate</option>
-            <option value="noisy">Noisy</option>
-          </select>
-        </label>
+        {admin && (
+          <label>
+            Strings
+            <select className={styles.select} value={filters.stringMaterial ?? ''} onChange={(e) => filter({ stringMaterial: (e.target.value || undefined) as StringMaterial | undefined })}>
+              <option value="">All</option>
+              <option value="steel">Steel</option>
+              <option value="nylon">Nylon</option>
+              <option value="unknown">Not sure</option>
+            </select>
+          </label>
+        )}
+        {admin && (
+          <label>
+            Noise
+            <select className={styles.select} value={filters.backgroundNoise ?? ''} onChange={(e) => filter({ backgroundNoise: (e.target.value || undefined) as Noise | undefined })}>
+              <option value="">All</option>
+              <option value="quiet">Quiet</option>
+              <option value="moderate">Moderate</option>
+              <option value="noisy">Noisy</option>
+            </select>
+          </label>
+        )}
         <label>
           Status
           <select className={styles.select} value={filters.status ?? ''} onChange={(e) => filter({ status: (e.target.value || undefined) as ReviewStatus | undefined })}>
@@ -174,14 +181,16 @@ export function SamplesPanel({ guitars, onGuitarChanged }: { guitars: DatasetGui
             ))}
           </select>
         </label>
-        <div className={styles.exportButtons}>
-          <button type="button" className="button" onClick={() => void exportAs('csv')}>
-            ⬇ CSV
-          </button>
-          <button type="button" className="button" onClick={() => void exportAs('jsonl')}>
-            ⬇ JSONL
-          </button>
-        </div>
+        {admin && (
+          <div className={styles.exportButtons}>
+            <button type="button" className="button" onClick={() => void exportAs('csv')}>
+              ⬇ CSV
+            </button>
+            <button type="button" className="button" onClick={() => void exportAs('jsonl')}>
+              ⬇ JSONL
+            </button>
+          </div>
+        )}
         {exportError && (
           <p role="alert" className={styles.error}>
             {exportError}
@@ -189,7 +198,7 @@ export function SamplesPanel({ guitars, onGuitarChanged }: { guitars: DatasetGui
         )}
       </section>
 
-      {chosen && <SoundMatchCard key={chosen.id} guitar={chosen} onPrepared={onGuitarChanged} />}
+      {chosen && <SoundMatchCard key={chosen.id} guitar={chosen} admin={admin} onChanged={onGuitarChanged} />}
 
       {error && (
         <p role="alert" className={styles.error}>

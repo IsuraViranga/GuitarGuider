@@ -62,7 +62,10 @@ function take(): PracticeRecording {
   return { samples, sampleRate: 48000, log: { createdAt: '', userAgent: '', sampleRate: 48000, frameSize: 2048, intervalMs: 25, frames, events: [{ t: 700, kind: 'noteStart', noteId: 1, midi: 64 }] } }
 }
 
-const GUITAR = { id: 'g1', name: 'Yamaha black', guitarType: 'acoustic', stringMaterial: 'steel', woundStrings: [3, 4, 5, 6], samples: 0 }
+const GUITAR = {
+  id: 'g1', name: 'Yamaha black', guitarType: 'acoustic', stringMaterial: 'steel', woundStrings: [3, 4, 5, 6], samples: 0,
+  fingerprints: 0, missingFingerprints: 0, ownerName: 'Melantha', mine: true, isDefault: false,
+}
 
 function sample(id: string, extra: Record<string, unknown> = {}) {
   return {
@@ -91,32 +94,67 @@ async function recordOne() {
   await userEvent.click(screen.getByRole('button', { name: /Stop/ }))
 }
 
-describe('dataset collector: admin only', () => {
-  it('other accounts and visitors see "Admins only", and nothing is asked from the server', async () => {
-    const calls = fakeServer(signedInAs(USER))
-    renderApp('/admin/dataset')
-    expect(await screen.findByRole('heading', { name: 'Admins only' })).toBeInTheDocument()
+describe('record my guitar: who sees what', () => {
+  it('visitors are asked to sign in, and nothing is asked from the server', async () => {
+    const calls = fakeServer(signedOut)
+    renderApp('/record-guitar')
+    expect(await screen.findByRole('heading', { name: 'Record my guitar' })).toBeInTheDocument()
+    const page = screen.getByRole('heading', { name: 'Record my guitar' }).parentElement!
+    expect(within(page).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/signin')
     expect(calls.some((c) => c.key.includes('/api/dataset'))).toBe(false)
   })
 
-  it('visitors too', async () => {
+  it('the old admin address leads to the same page', async () => {
     fakeServer(signedOut)
     renderApp('/admin/dataset')
-    expect(await screen.findByRole('heading', { name: 'Admins only' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Record my guitar' })).toBeInTheDocument()
   })
 
-  it('the account menu links to it only for the admin', async () => {
-    fakeServer({ ...signedInAs(ADMIN), 'GET /api/songs?scope=global': () => [200, { songs: [] }] })
+  it.each([
+    ['a player', USER, 'Record my guitar'],
+    ['the admin', ADMIN, 'Dataset collector'],
+  ])('%s has it in the account menu', async (_who, user, label) => {
+    fakeServer({ ...signedInAs(user), 'GET /api/songs?scope=global': () => [200, { songs: [] }] })
     renderApp('/songs')
     await userEvent.click(await screen.findByRole('button', { name: /Account:/ }))
-    expect(screen.getByRole('link', { name: /Dataset collector/ })).toHaveAttribute('href', '/admin/dataset')
+    expect(screen.getByRole('link', { name: new RegExp(label) })).toHaveAttribute('href', '/record-guitar')
   })
 
-  it('a student has no such link', async () => {
-    fakeServer({ ...signedInAs(USER), 'GET /api/songs?scope=global': () => [200, { songs: [] }] })
-    renderApp('/songs')
-    await userEvent.click(await screen.findByRole('button', { name: /Account:/ }))
-    expect(screen.queryByRole('link', { name: /Dataset collector/ })).toBeNull()
+  it("a player records their own guitar: just its name and type, then the grid, 3 plucks per place, each with its fingerprint", async () => {
+    let guitars: object[] = [{ ...GUITAR, id: 'academy', name: 'No name', mine: false, ownerName: 'Melantha' }]
+    let uploaded: FormData | null = null
+    const calls = fakeServer({
+      ...signedInAs(USER),
+      'GET /api/dataset/guitars': () => [200, guitars],
+      'POST /api/dataset/guitars': (body) => {
+        guitars = [...guitars, { ...GUITAR, ...(body as object), id: 'g1', mine: true, ownerName: 'Isura Perera' }]
+        return [201, guitars.at(-1)]
+      },
+      'GET /api/dataset/guitars/g1/progress': () => [200, []],
+      'POST /api/dataset/samples': (body) => {
+        uploaded = body as FormData
+        return [201, { sample: sample('s1', { stringNumber: 1, fret: 0, position: '10' }), countAtPosition: 1 }]
+      },
+    })
+    renderApp('/record-guitar')
+    expect(await screen.findByRole('heading', { name: 'Record my guitar' })).toBeInTheDocument()
+    // Another player's guitar is not offered for recording: straight to adding their own.
+    await userEvent.type(await screen.findByLabelText('Guitar name'), 'My Yamaha')
+    expect(screen.queryByRole('radio', { name: 'Nylon' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Add guitar' }))
+    expect(calls.find((c) => c.key === 'POST /api/dataset/guitars')!.body).toEqual({ name: 'My Yamaha', guitarType: 'acoustic', stringMaterial: 'steel', woundStrings: [3, 4, 5, 6] })
+    expect(screen.queryByRole('radio', { name: 'Pick' })).not.toBeInTheDocument() // research details: admin only
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(screen.getByLabelText('Guitar and conditions')).toHaveTextContent('My Yamaha')
+    expect(screen.getByLabelText('Guitar and conditions')).toHaveTextContent('3 per position')
+    await userEvent.click(screen.getByRole('button', { name: /^10: string 1, fret 0/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Turn on the microphone/ }))
+    await recordOne()
+    await userEvent.click(screen.getByRole('button', { name: /Save/ }))
+    expect(await screen.findByTestId('dataset-saved')).toHaveTextContent('Saved ✓ 1 of 3 at 10.')
+    const meta = JSON.parse(uploaded!.get('meta') as string)
+    expect(meta.guitarId).toBe('g1')
+    expect('fingerprint' in meta).toBe(true) // null here: the pretend recording is not a real pluck
   })
 })
 
@@ -137,7 +175,7 @@ describe('dataset collector: recording', () => {
         return [201, { sample: sample('s1'), countAtPosition: 1 }]
       },
     })
-    renderApp('/admin/dataset')
+    renderApp('/record-guitar')
     // No guitar yet: add one (acoustic: steel, strings 3-6 wound).
     await userEvent.type(await screen.findByLabelText('Guitar name'), 'Yamaha black')
     // One step at a time: the conditions and Done appear once the guitar is saved.
@@ -169,6 +207,7 @@ describe('dataset collector: recording', () => {
     expect(meta).toEqual({
       guitarId: 'g1', stringNumber: 2, fret: 5, backgroundNoise: 'quiet', pluckMethod: 'pick', pluckStrength: 'medium', device: 'phone', notes: null,
       pluckAtMs: 700, capture: { sampleRate: 48000, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      fingerprint: null,
     })
     const audio = uploaded!.get('audio') as File
     expect(audio.type).toBe('audio/wav')

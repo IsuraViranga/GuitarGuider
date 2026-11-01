@@ -47,8 +47,11 @@ const MATERIALS: { value: StringMaterial; label: string }[] = [
   { value: 'unknown', label: 'Not sure' },
 ]
 
-/** Adding a guitar: done once per guitar, then it is chosen from the list. */
-export function GuitarForm({ onAdded, onCancel }: { onAdded: (guitar: DatasetGuitar) => void; onCancel?: () => void }) {
+/**
+ * Adding a guitar: done once per guitar, then it is chosen from the list. `simple` (players): only
+ * the name and type; the strings and which are wound take the usual values for that type.
+ */
+export function GuitarForm({ onAdded, onCancel, simple = false }: { onAdded: (guitar: DatasetGuitar) => void; onCancel?: () => void; simple?: boolean }) {
   const [name, setName] = useState('')
   const [guitarType, setGuitarType] = useState<GuitarType>('acoustic')
   const [stringMaterial, setStringMaterial] = useState<StringMaterial>('steel')
@@ -84,8 +87,8 @@ export function GuitarForm({ onAdded, onCancel }: { onAdded: (guitar: DatasetGui
         <input id={nameId} type="text" value={name} maxLength={60} placeholder="e.g. Yamaha black" onChange={(e) => setName(e.target.value)} required />
       </div>
       <ChoiceChips legend="Type" options={GUITAR_TYPES} value={guitarType} onChange={chooseType} />
-      <ChoiceChips legend="Strings" options={MATERIALS} value={stringMaterial} onChange={setStringMaterial} />
-      <fieldset className={styles.choice}>
+      {!simple && <ChoiceChips legend="Strings" options={MATERIALS} value={stringMaterial} onChange={setStringMaterial} />}
+      <fieldset className={styles.choice} hidden={simple}>
         <legend>Wound strings</legend>
         <div className={styles.chips}>
           {[1, 2, 3, 4, 5, 6].map((s) => (

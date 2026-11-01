@@ -78,9 +78,12 @@ used from there). Set up once:
 Without a key the "Forgot password?" page says reset by email is not ready. On your own computer
 `EMAIL_LOG_LINKS=true` (in `.env`) prints the link in the server log instead of sending it.
 
-## Dataset collector (admin only)
+## Guitar recordings (dataset collector)
 
-`/admin/dataset` records labelled single plucks for research (see docs/ARCHITECTURE.md, 8r).
+`/record-guitar` lets every signed-in player record their own guitar (labelled single plucks);
+the string check then compares same-sounding places with a recorded guitar, and the admin uses
+the recordings for research (see docs/ARCHITECTURE.md, 8r). After deploying, the admin ticks
+**Default guitar for players** on one guitar (Samples tab → choose the guitar).
 The sound files go to a **private Backblaze B2 bucket** (free 10 GB, about 12,000 plucks; no card
 needed). On your own computer `DATASET_STORAGE=local` (in `.env`) keeps them in
 `../datasets/collector` instead (git-ignored). Set up B2 once:

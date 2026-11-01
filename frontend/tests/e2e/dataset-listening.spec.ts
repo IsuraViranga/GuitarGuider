@@ -20,7 +20,7 @@ test('admin records one pluck, listens, saves it, then plays and deletes it', as
   const added = await page.request.post('/api/dataset/guitars', { headers: { 'X-Requested-With': 'fetch' }, data: { name: GUITAR } })
   expect([201, 409]).toContain(added.status())
 
-  await page.goto('/admin/dataset')
+  await page.goto('/record-guitar')
   const guitarId = await page.locator('#dataset-guitar option', { hasText: GUITAR }).first().getAttribute('value')
   await page.getByLabel('Guitar', { exact: true }).selectOption(guitarId!)
   await page.getByRole('button', { name: 'Done' }).click()
@@ -49,4 +49,40 @@ test('admin records one pluck, listens, saves it, then plays and deletes it', as
   await newest.getByRole('button', { name: /Delete/ }).click()
   await newest.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
   expect((await page.request.get(src!)).status()).toBe(404)
+})
+
+test('a player records their own guitar: each pluck counts at once, with its fingerprint (no waiting)', async ({ page }, info) => {
+  const up = await page.request.get('http://localhost:8000/api/health').then((r) => r.ok(), () => false)
+  test.skip(!up, 'The API server is not running on localhost:8000.')
+  await page.goto('/signup')
+  await page.getByLabel('Your name').fill('Guitar Player')
+  await page.getByLabel('Email').fill(`player-${Date.now()}-${info.project.name}@example.com`)
+  await page.getByLabel('Password').fill('guitar-123')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('button', { name: 'Account: Guitar Player' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Account: Guitar Player' }).click()
+  await page.getByRole('link', { name: /Record my guitar/ }).click()
+  await expect(page.getByRole('heading', { name: 'Record my guitar' })).toBeVisible()
+  await page.getByLabel('Guitar name').fill('My guitar')
+  await page.getByRole('button', { name: 'Add guitar' }).click()
+  await page.getByRole('button', { name: 'Done' }).click()
+  await page.getByRole('button', { name: /^13: string 1, fret 3/ }).click()
+  await page.getByRole('button', { name: /Turn on the microphone/ }).click()
+  await page.getByRole('button', { name: '● Record 13' }).click()
+  await expect(page.getByRole('heading', { name: 'Listen to 13' })).toBeVisible({ timeout: 20_000 })
+  await page.getByRole('button', { name: /Save/ }).click()
+  await expect(page.getByTestId('dataset-saved')).toContainText('Saved ✓ 1 of 3 at 13.')
+
+  // The fingerprint was made in the browser and saved with the pluck: nothing to prepare.
+  const guitars = await (await page.request.get('/api/dataset/guitars')).json()
+  const mine = guitars.find((g: { mine: boolean }) => g.mine)
+  expect(mine.fingerprints).toBe(1)
+  expect(mine.missingFingerprints).toBe(0)
+  const rows = (await (await page.request.get(`/api/dataset/guitars/${mine.id}/fingerprints`)).json()).fingerprints
+  expect(rows).toHaveLength(1)
+  expect(rows[0].v).toHaveLength(19)
+  // Tidy up: the recording is deleted (its audio too).
+  const list = await (await page.request.get('/api/dataset/samples')).json()
+  expect((await page.request.delete(`/api/dataset/samples/${list.items[0].id}`, { headers: { 'X-Requested-With': 'fetch' } })).status()).toBe(204)
 })

@@ -11,7 +11,7 @@ import { judgeString, MAX_STRING_MISFIT, planStringCheck, type GuitarStrings, ty
 import { decodeWav } from '../audio/wav'
 import type { GuitarPosition } from '../music/guitarNumber'
 import { STANDARD_TUNING, type StringNumber } from '../music/tuning'
-import { createSoundMatch, fingerprint, MAX_MATCHED_FRET, measureRecording, type Reference } from './soundMatch'
+import { createSoundMatch, fingerprint, fitsSetup, MAX_MATCHED_FRET, measureRecording, type Reference } from './soundMatch'
 
 const FOLDER = '../datasets/collector-b2'
 const available = existsSync(`${FOLDER}/labels.jsonl`)
@@ -103,6 +103,18 @@ describe.skipIf(!available)('sound match on the collected recordings', { timeout
 
   it('never calls a correct pluck wrong that the string check alone did not', () => {
     for (const [guitar, t] of Object.entries(results)) expect(t.falseWith, guitar).toBe(t.falseToday)
+  })
+
+  it("a guitar's recordings fit its own setup, and never another guitar's (so they are not used there)", () => {
+    const refsOf = (guitar: string): Reference[] =>
+      plucks.filter((p) => p.guitar === guitar).flatMap((p) => {
+        const v = fingerprint(p.stiffness)
+        return v ? [{ ...p.position, v }] : []
+      })
+    const setupFor = (guitar: string) => setupOf(plucks.filter((p) => p.guitar === guitar))
+    expect(fitsSetup(refsOf('No name'), setupFor('No name'))).toBe(true)
+    expect(fitsSetup(refsOf('No name'), setupFor('Sqoe'))).toBe(false)
+    expect(fitsSetup(refsOf('Sqoe'), setupFor('No name'))).toBe(false)
   })
 
   it('"No name": wrong places caught go up by at least 15 points, with no false call', () => {

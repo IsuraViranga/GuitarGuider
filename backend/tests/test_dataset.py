@@ -217,28 +217,83 @@ def test_without_storage_set_up_nothing_can_be_saved():
 # ---------- admin only ----------
 
 
-def test_only_the_admin_can_use_the_collector(store):
+def test_visitors_cannot_use_guitar_recordings(store):
     owner = admin()
     guitar = add_guitar(owner)
     sample = save(owner, guitar["id"]).json()["sample"]
-    student = person("Isura", "isura@example.com")
     visitor = guest()
     calls = [
         ("get", "/api/dataset/guitars", {}),
         ("post", "/api/dataset/guitars", {"json": {"name": "Mine"}}),
         ("get", f"/api/dataset/guitars/{guitar['id']}/progress", {}),
+        ("get", f"/api/dataset/guitars/{guitar['id']}/fingerprints", {}),
         ("post", "/api/dataset/samples", {"files": {"audio": ("p.wav", wav(), "audio/wav")}, "data": {"meta": json.dumps({"guitarId": guitar["id"], "stringNumber": 1, "fret": 0})}}),
         ("get", "/api/dataset/samples", {}),
         ("get", f"/api/dataset/samples/{sample['id']}/audio-url", {}),
         ("get", f"/api/dataset/samples/{sample['id']}/audio", {}),
         ("patch", f"/api/dataset/samples/{sample['id']}", {"json": {"status": "rejected"}}),
+        ("put", f"/api/dataset/samples/{sample['id']}/fingerprint", {"json": {"v": [0.5] * 19}}),
         ("delete", f"/api/dataset/samples/{sample['id']}", {}),
         ("get", "/api/dataset/export?format=csv", {}),
     ]
     for method, url, kwargs in calls:
-        assert getattr(student, method)(url, **kwargs).status_code == 403, url
         assert getattr(visitor, method)(url, **kwargs).status_code == 401, url
     assert len(rows()) == 1 and len(store.files) == 1 and rows()[0].status == "accepted"
+
+
+def test_every_player_records_their_own_guitars_and_sees_everyone_s(store):
+    academy = admin()
+    no_name = add_guitar(academy, name="No name")
+    save(academy, no_name["id"])
+    player = person("Isura", "isura@example.com")
+    mine = add_guitar(player, name="My Yamaha")
+    assert mine["mine"] is True and mine["ownerName"] == "Isura" and mine["isDefault"] is False
+    assert save(player, mine["id"], fingerprint=[0.5] * 19).status_code == 201
+    listed = {g["name"]: g for g in player.get("/api/dataset/guitars").json()}
+    assert listed["No name"]["mine"] is False and listed["No name"]["ownerName"] == "Melantha" and listed["No name"]["samples"] == 1
+    assert listed["My Yamaha"]["mine"] is True and listed["My Yamaha"]["fingerprints"] == 1 and listed["My Yamaha"]["missingFingerprints"] == 0
+    # The same name may be used by another player, not twice by the same one.
+    assert add_guitar(academy, name="My Yamaha")["mine"] is True
+    assert player.post("/api/dataset/guitars", json={"name": "my yamaha"}).status_code == 409
+    # Their own recordings only (the admin sees all).
+    assert [s["guitarName"] for s in player.get("/api/dataset/samples").json()["items"]] == ["My Yamaha"]
+    assert player.get("/api/dataset/samples").json()["total"] == 1
+    assert academy.get("/api/dataset/samples").json()["total"] == 2
+
+
+def test_a_player_cannot_touch_another_players_guitar_or_recordings(store):
+    academy = admin()
+    no_name = add_guitar(academy, name="No name")
+    sample = save(academy, no_name["id"]).json()["sample"]
+    player = person("Isura", "isura@example.com")
+    assert save(player, no_name["id"]).status_code == 403
+    for method, url, kwargs in [
+        ("get", f"/api/dataset/guitars/{no_name['id']}/progress", {}),
+        ("get", f"/api/dataset/samples/{sample['id']}/audio-url", {}),
+        ("get", f"/api/dataset/samples/{sample['id']}/audio", {}),
+        ("patch", f"/api/dataset/samples/{sample['id']}", {"json": {"status": "rejected"}}),
+        ("put", f"/api/dataset/samples/{sample['id']}/fingerprint", {"json": {"v": [0.5] * 19}}),
+        ("delete", f"/api/dataset/samples/{sample['id']}", {}),
+        ("put", f"/api/dataset/guitars/{no_name['id']}/default", {"json": {"isDefault": True}}),
+        ("get", "/api/dataset/export?format=csv", {}),
+    ]:
+        assert getattr(player, method)(url, **kwargs).status_code == 403, url
+    assert len(rows()) == 1 and rows()[0].status == "accepted" and len(store.files) == 1
+
+
+def test_limits_keep_the_free_storage_from_filling_up(store, monkeypatch):
+    from app import dataset
+
+    player = person("Isura", "isura@example.com")
+    for n in range(dataset.MAX_GUITARS_PER_PLAYER):
+        add_guitar(player, name=f"Guitar {n}")
+    assert player.post("/api/dataset/guitars", json={"name": "One more"}).status_code == 409
+    assert add_guitar(admin(), name="Academy 4")["mine"] is True  # the admin has no limit
+    monkeypatch.setattr(dataset, "MAX_SAMPLES_PER_GUITAR", 2)
+    guitar = next(g for g in player.get("/api/dataset/guitars").json() if g["mine"])
+    assert save(player, guitar["id"]).status_code == 201 and save(player, guitar["id"]).status_code == 201
+    third = save(player, guitar["id"])
+    assert third.status_code == 409 and "plenty" in third.json()["detail"]
 
 
 # ---------- reviewing ----------
@@ -410,44 +465,73 @@ def test_download_copies_the_audio_and_skips_rejected_and_finished_files(tmp_pat
 # ---------- sound match fingerprints ----------
 
 
-def fingerprint(sample, **fields):
-    return {"sampleId": sample["id"], "stringNumber": sample["stringNumber"], "fret": sample["fret"], "v": [0.5] * 19, **fields}
+def test_each_recording_keeps_the_fingerprint_made_in_the_browser_and_every_player_can_read_them(store):
+    academy = admin()
+    no_name = add_guitar(academy, name="No name")
+    first = save(academy, no_name["id"], fingerprint=[0.5] * 19).json()["sample"]
+    save(academy, no_name["id"], stringNumber=1, fret=0)  # an older recording: no fingerprint yet
+    rejected = save(academy, no_name["id"], fingerprint=[0.7] * 19).json()["sample"]
+    academy.patch(f"/api/dataset/samples/{rejected['id']}", json={"status": "rejected"})
+    assert first["hasFingerprint"] is True
+    player = person("Isura", "isura@example.com")
+    got = player.get(f"/api/dataset/guitars/{no_name['id']}/fingerprints").json()
+    assert got == {"fingerprints": [{"sampleId": first["id"], "stringNumber": 2, "fret": 5, "v": [0.5] * 19}]}  # kept ones only
+    listed = player.get("/api/dataset/guitars").json()[0]
+    assert (listed["samples"], listed["fingerprints"], listed["missingFingerprints"]) == (3, 1, 1)
 
 
-def test_fingerprints_are_kept_with_the_guitar_and_replaced_on_each_prepare(store):
+def test_an_older_recording_gets_its_fingerprint_later(store):
     client = admin()
     guitar = add_guitar(client)
-    first = save(client, guitar["id"]).json()["sample"]
-    second = save(client, guitar["id"], stringNumber=1, fret=0).json()["sample"]
-    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json() == {"fingerprints": [], "madeAt": None}
-    saved = client.put(f"/api/dataset/guitars/{guitar['id']}/fingerprints", json={"fingerprints": [fingerprint(first), fingerprint(second)]})
-    assert saved.status_code == 200 and saved.json()["fingerprints"] == 2 and saved.json()["samples"] == 2
-    got = client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()
-    assert got["fingerprints"] == [fingerprint(first), fingerprint(second)] and got["madeAt"]
-    assert client.get("/api/dataset/guitars").json()[0]["fingerprints"] == 2
-    client.put(f"/api/dataset/guitars/{guitar['id']}/fingerprints", json={"fingerprints": [fingerprint(second)]})
-    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()["fingerprints"] == [fingerprint(second)]
+    sample = save(client, guitar["id"]).json()["sample"]
+    assert sample["hasFingerprint"] is False
+    saved = client.put(f"/api/dataset/samples/{sample['id']}/fingerprint", json={"v": [0.25] * 19})
+    assert saved.status_code == 200 and saved.json()["hasFingerprint"] is True
+    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()["fingerprints"][0]["v"] == [0.25] * 19
 
 
-def test_fingerprints_must_match_this_guitars_recordings_and_be_numbers(store):
+def test_fingerprints_must_be_19_finite_numbers(store):
     client = admin()
     guitar = add_guitar(client)
-    other = add_guitar(client, name="Other guitar")
-    mine = save(client, guitar["id"]).json()["sample"]
-    theirs = save(client, other["id"]).json()["sample"]
-    url = f"/api/dataset/guitars/{guitar['id']}/fingerprints"
-    assert client.put(url, json={"fingerprints": [fingerprint(theirs)]}).status_code == 422
-    assert client.put(url, json={"fingerprints": [fingerprint(mine, fret=6)]}).status_code == 422
-    assert client.put(url, json={"fingerprints": [fingerprint(mine, v=[0.5] * 18)]}).status_code == 422
-    assert client.put(url, content='{"fingerprints": [{"sampleId": "%s", "stringNumber": 2, "fret": 5, "v": [NaN%s]}]}' % (mine["id"], ", 0" * 18),
-                      headers={"Content-Type": "application/json", "X-Requested-With": "fetch"}).status_code == 422
-    assert client.get(url).json()["fingerprints"] == []
+    assert save(client, guitar["id"], fingerprint=[0.5] * 18).status_code == 422
+    sample = save(client, guitar["id"]).json()["sample"]
+    url = f"/api/dataset/samples/{sample['id']}/fingerprint"
+    assert client.put(url, json={"v": [0.5] * 20}).status_code == 422
+    assert client.put(url, content='{"v": [NaN%s]}' % (", 0" * 18), headers={"Content-Type": "application/json", "X-Requested-With": "fetch"}).status_code == 422
+    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()["fingerprints"] == []
 
 
-def test_fingerprints_are_admin_only(store):
+def test_the_admin_chooses_one_default_guitar_for_players(store):
+    academy = admin()
+    no_name = add_guitar(academy, name="No name")
+    sqoe = add_guitar(academy, name="Sqoe")
+    assert academy.put(f"/api/dataset/guitars/{no_name['id']}/default", json={"isDefault": True}).json()["isDefault"] is True
+    academy.put(f"/api/dataset/guitars/{sqoe['id']}/default", json={"isDefault": True})
+    defaults = [g["name"] for g in person("Isura", "isura@example.com").get("/api/dataset/guitars").json() if g["isDefault"]]
+    assert defaults == ["Sqoe"]  # only one at a time
+    academy.put(f"/api/dataset/guitars/{sqoe['id']}/default", json={"isDefault": False})
+    assert not any(g["isDefault"] for g in academy.get("/api/dataset/guitars").json())
+
+
+def test_the_migration_moves_each_fingerprint_and_the_owner_safely(store):
+    import os
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import text
+
+    from app.db import engine
+
     client = admin()
     guitar = add_guitar(client)
-    url = f"/api/dataset/guitars/{guitar['id']}/fingerprints"
-    for who, code in ((person("Student", "student@example.com"), 403), (guest(), 401)):
-        assert who.get(url).status_code == code
-        assert who.put(url, json={"fingerprints": []}).status_code == code
+    sample = save(client, guitar["id"], fingerprint=[0.5] * 19).json()["sample"]
+    config = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    config.set_main_option("script_location", os.path.join(os.path.dirname(__file__), "..", "alembic"))
+    config.attributes["configure_logger"] = False
+    command.downgrade(config, "0008_dataset_fingerprints")  # back: the fingerprints go to the guitar
+    with engine.begin() as connection:
+        moved = connection.execute(text("select fingerprints from dataset_guitars")).scalar()
+    assert moved == [{"sampleId": sample["id"], "stringNumber": 2, "fret": 5, "v": [0.5] * 19}]
+    command.upgrade(config, "head")  # forward again: to the sample; the owner from who recorded it
+    assert client.get(f"/api/dataset/guitars/{guitar['id']}/fingerprints").json()["fingerprints"][0]["v"] == [0.5] * 19
+    assert client.get("/api/dataset/guitars").json()[0]["mine"] is True

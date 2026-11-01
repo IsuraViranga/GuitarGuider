@@ -86,11 +86,10 @@ export function AccountButton() {
             <Link to="/guitar-setup" state={{ from: location.pathname }} className={styles.link}>
               <span aria-hidden="true">🎵</span> Redo guitar setup
             </Link>
-            {user.role === 'admin' && (
-              <Link to="/admin/dataset" className={styles.link}>
-                <span aria-hidden="true">🎙</span> Dataset collector
-              </Link>
-            )}
+            {/* Recording their own guitar makes the string check tell same-sounding places apart. */}
+            <Link to="/record-guitar" className={styles.link}>
+              <span aria-hidden="true">🎙</span> {user.role === 'admin' ? 'Dataset collector' : 'Record my guitar'}
+            </Link>
           </nav>
           {error && (
             <p role="alert" className={styles.error}>

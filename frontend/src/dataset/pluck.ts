@@ -16,6 +16,8 @@ export const READY_MS = 600
 export const MAIN_FRETS = 7
 
 export const PLUCK_TARGETS = [3, 5, 10] as const
+/** Plucks per place when a player records their own guitar (all 6 strings, frets 0–7). */
+export const PLAYER_PLUCKS = 3
 
 export type Position = { stringNumber: StringNumber; fret: number }
 
