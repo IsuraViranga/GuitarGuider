@@ -97,13 +97,19 @@ export function CollectPanel({
   onGuitarAdded,
   admin,
   userId,
+  start,
+  onTest,
 }: {
   guitars: DatasetGuitar[]
   onGuitarAdded: (guitar: DatasetGuitar) => void
   admin: boolean
   userId: string
+  /** Open at this guitar and place (from Test my guitar: add a recording where it was not heard right). */
+  start?: { guitarId: string; position: Position }
+  /** Test the guitar just finished. */
+  onTest?: (guitarId: string) => void
 }) {
-  const [session, setSession] = useState<Session>(loadSession)
+  const [session, setSession] = useState<Session>(() => (start ? { ...loadSession(), guitarId: start.guitarId, position: start.position } : loadSession()))
   const target = admin ? session.target : PLAYER_PLUCKS
   const [ready, setReady] = useState(false)
   const guitar = guitars.find((g) => g.id === session.guitarId) ?? null
@@ -472,9 +478,16 @@ export function CollectPanel({
                         ? 'Players can choose it on the practice page.'
                         : 'Practice now compares same-sounding places with your recordings.'}
                     </p>
-                    <Link to="/songs" className="button button-primary">
-                      Practise a song
-                    </Link>
+                    <div className={styles.readyActions}>
+                      {onTest && (
+                        <button type="button" className="button" onClick={() => onTest(guitar.id)}>
+                          🎯 Test it
+                        </button>
+                      )}
+                      <Link to="/songs" className="button button-primary">
+                        Practise a song
+                      </Link>
+                    </div>
                   </div>
                 )}
                 <button type="button" className={`button button-primary ${styles.big}`} onClick={record}>

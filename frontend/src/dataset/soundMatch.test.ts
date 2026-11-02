@@ -57,6 +57,23 @@ describe('comparing a pluck with the guitar recordings', () => {
     expect(match.pairsOn(P10)).toEqual([])
   })
 
+  it('test my guitar: names the place a pluck was played at, or not sure', () => {
+    const match = createSoundMatch(apart)!
+    expect(match.identify([P10, P25], print(-2.2))).toEqual({ result: 'heard', position: P25 })
+    expect(match.identify([P10, P25], print(-11.8))).toEqual({ result: 'heard', position: P10 })
+    expect(match.identify([P10, P25], print(-7))).toEqual({ result: 'unsure', positions: expect.arrayContaining([P10, P25]) }) // in between
+    expect(createSoundMatch(alike)!.identify([P10, P25], print(-12))).toMatchObject({ result: 'unsure' }) // recordings overlap
+  })
+
+  it('test my guitar: only recorded places are compared', () => {
+    const match = createSoundMatch(apart)!
+    const P39 = { stringNumber: 3 as const, fret: 9 }
+    expect(match.hasRecordings(P10)).toBe(true)
+    expect(match.hasRecordings(P39)).toBe(false)
+    expect(match.identify([P10, P39], print(-2))).toEqual({ result: 'heard', position: P10 }) // the only recorded place
+    expect(match.identify([P39], print(-2))).toEqual({ result: 'notRecorded' })
+  })
+
   it('no usable recordings: no sound match', () => {
     expect(createSoundMatch([])).toBeNull()
     expect(createSoundMatch([{ ...P10, v: [1, 2] }])).toBeNull()

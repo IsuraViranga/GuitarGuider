@@ -48,7 +48,17 @@ export type SoundMatch = {
   pairsOn: (position: GuitarPosition) => GuitarPosition[]
   /** The other place the pluck was clearly played at, or null (expected place, or not sure). */
   judge: (expected: GuitarPosition, pluck: Fingerprint) => GuitarPosition | null
+  /** Test my guitar: which of these places (same note) the pluck was played at, with no expected place. */
+  identify: (places: readonly GuitarPosition[], pluck: Fingerprint) => Identified
+  /** Whether the guitar has recordings of this place. */
+  hasRecordings: (position: GuitarPosition) => boolean
 }
+
+/**
+ * A pluck identified among a note's places: clearly at one place, not sure between the closest
+ * places (their recordings overlap, or the pluck is not clearly closer to one), or none recorded.
+ */
+export type Identified = { result: 'heard'; position: GuitarPosition } | { result: 'unsure'; positions: GuitarPosition[] } | { result: 'notRecorded' }
 
 const key = (p: { stringNumber: number; fret: number }) => `${p.stringNumber}-${p.fret}`
 
@@ -128,6 +138,18 @@ export function createSoundMatch(references: readonly Reference[], tuning: Tunin
       }
       return best?.position ?? null
     },
+    identify(places, pluck) {
+      const ranked = places
+        .filter((p) => at.has(key(p)))
+        .map((position) => ({ position, d: pluck.length === FINGERPRINT_SIZE ? nearest(scale(pluck), at.get(key(position))!) : Infinity }))
+        .sort((a, b) => a.d - b.d)
+      if (ranked.length === 0) return { result: 'notRecorded' }
+      const [best, ...rest] = ranked
+      // Clearly at the closest place only when it is kept apart from, and clearly closer than, every other.
+      const close = rest.filter((r) => !(passes(best.position, r.position) && best.d * DECISION_MARGIN < r.d))
+      return Number.isFinite(best.d) && close.length === 0 ? { result: 'heard', position: best.position } : { result: 'unsure', positions: [best, ...close].map((r) => r.position) }
+    },
+    hasRecordings: (position) => at.has(key(position)),
   }
 }
 

@@ -4,14 +4,16 @@ import { ApiError } from '../api/client'
 import { usePageTitle } from '../app/usePageTitle'
 import { useAuth } from '../auth/authContext'
 import { CollectPanel } from '../dataset/CollectPanel'
-import { listGuitars, type DatasetGuitar } from '../dataset/datasetApi'
+import { listGuitars, type DatasetGuitar, type SampleFilters } from '../dataset/datasetApi'
+import type { Position } from '../dataset/pluck'
 import { SamplesPanel } from '../dataset/SamplesPanel'
+import { TestPanel } from '../dataset/TestPanel'
 import styles from '../dataset/Dataset.module.css'
 
 /**
  * Recording a guitar for the string check: every signed-in player records their own guitars
  * (record labelled plucks, review them); the admin also sees every guitar and the research
- * details, and exports. The server checks who may do what; visitors are asked to sign in.
+ * details, and exports. Test my guitar: play a note and see which string the recordings name. The server checks who may do what; visitors are asked to sign in.
  */
 export function DatasetPage() {
   const auth = useAuth()
@@ -19,7 +21,18 @@ export function DatasetPage() {
   const isAdmin = user?.role === 'admin'
   usePageTitle(isAdmin ? 'Dataset collector' : 'Record my guitar')
   const location = useLocation()
-  const [tab, setTab] = useState<'record' | 'samples'>('record')
+  const [tab, setTab] = useState<'record' | 'samples' | 'test'>('record')
+  /** The guitar to test first (the one just finished recording). */
+  const [testGuitar, setTestGuitar] = useState<string | null>(null)
+  /** From Test my guitar: record at this guitar and place, or see its recordings. */
+  const [recordAt, setRecordAt] = useState<{ guitarId: string; position: Position } | undefined>(undefined)
+  const [samplesOf, setSamplesOf] = useState<SampleFilters | undefined>(undefined)
+  /** A tab chosen by the player starts as usual (not at a place the test asked for). */
+  const open = (next: typeof tab) => {
+    setRecordAt(undefined)
+    setSamplesOf(undefined)
+    setTab(next)
+  }
   const [guitars, setGuitars] = useState<DatasetGuitar[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,11 +70,14 @@ export function DatasetPage() {
         </p>
       </header>
       <div className={styles.tabs} role="group" aria-label="View">
-        <button type="button" className={`button ${tab === 'record' ? 'button-primary' : ''}`} aria-pressed={tab === 'record'} onClick={() => setTab('record')}>
+        <button type="button" className={`button ${tab === 'record' ? 'button-primary' : ''}`} aria-pressed={tab === 'record'} onClick={() => open('record')}>
           🎙 Record
         </button>
-        <button type="button" className={`button ${tab === 'samples' ? 'button-primary' : ''}`} aria-pressed={tab === 'samples'} onClick={() => setTab('samples')}>
+        <button type="button" className={`button ${tab === 'samples' ? 'button-primary' : ''}`} aria-pressed={tab === 'samples'} onClick={() => open('samples')}>
           📋 {isAdmin ? 'Samples' : 'My recordings'}
+        </button>
+        <button type="button" className={`button ${tab === 'test' ? 'button-primary' : ''}`} aria-pressed={tab === 'test'} onClick={() => open('test')}>
+          🎯 Test
         </button>
       </div>
       {error && (
@@ -71,9 +87,36 @@ export function DatasetPage() {
       )}
       {own === null && !error && <p>Loading…</p>}
       {own && tab === 'record' && (
-        <CollectPanel guitars={own} admin={isAdmin} userId={user.id} onGuitarAdded={(guitar) => setGuitars((list) => [...(list ?? []), guitar])} />
+        <CollectPanel
+          guitars={own}
+          admin={isAdmin}
+          userId={user.id}
+          start={recordAt}
+          onGuitarAdded={(guitar) => setGuitars((list) => [...(list ?? []), guitar])}
+          onTest={(guitarId) => {
+            setTestGuitar(guitarId)
+            setTab('test')
+          }}
+        />
       )}
-      {own && tab === 'samples' && <SamplesPanel guitars={own} admin={isAdmin} onGuitarChanged={replace} />}
+      {own && tab === 'samples' && <SamplesPanel guitars={own} admin={isAdmin} onGuitarChanged={replace} initialFilters={samplesOf} />}
+      {guitars && tab === 'test' && (
+        <TestPanel
+          guitars={guitars.filter((g) => g.fingerprints > 0)}
+          preferredGuitarId={testGuitar}
+          admin={isAdmin}
+          onAddRecording={(guitarId, position) => {
+            setTestGuitar(guitarId)
+            setRecordAt({ guitarId, position: { stringNumber: position.stringNumber, fret: position.fret } })
+            setTab('record')
+          }}
+          onCheckRecordings={(guitarId, position) => {
+            setTestGuitar(guitarId)
+            setSamplesOf({ guitarId, stringNumber: position.stringNumber, fret: position.fret })
+            setTab('samples')
+          }}
+        />
+      )}
     </div>
   )
 }

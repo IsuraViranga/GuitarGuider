@@ -451,6 +451,13 @@
   margin: 0;
 }
 
+.readyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
 .defaultPick {
   display: flex;
   align-items: center;
@@ -485,4 +492,174 @@
   color: var(--color-accent-strong);
   font-weight: 600;
   text-decoration: none;
+}
+
+/* ---------- test my guitar ---------- */
+.test {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.test p {
+  margin: 0;
+}
+
+.testField {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+}
+
+.testSummary strong {
+  color: var(--color-accent-strong);
+}
+
+/* Each note as a big chip: its name and the places it sounds at. */
+.testNotes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+}
+
+.testNote {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: var(--touch-target);
+  padding: var(--space-2);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.testNote span {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.testNoteOn {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.testNoteOn span {
+  color: var(--color-accent-strong);
+}
+
+.testNote:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.testCue {
+  font-size: 1.15rem;
+}
+
+.testCue strong {
+  color: var(--color-accent-strong);
+}
+
+.testResult {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+  min-height: 120px;
+  align-content: center;
+  animation: testPop 220ms ease-out;
+}
+
+.testHeardLabel {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+
+.testHeard {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--color-accent-strong);
+  text-shadow: var(--glow-accent);
+}
+
+.testAnswer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.testAnswer > span {
+  width: 100%;
+  font-weight: 600;
+}
+
+.testRight {
+  border-color: var(--color-correct);
+  color: var(--color-correct);
+}
+
+.testWrong {
+  border-color: var(--color-incorrect);
+  color: var(--color-incorrect);
+}
+
+/* Not heard right: where it was played, and how to help the guitar's recordings. */
+.testFix {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface-alt);
+}
+
+.testFix > p {
+  font-weight: 600;
+}
+
+.testPlaces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.testScore {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-weight: 600;
+}
+
+.testScoreRight {
+  color: var(--color-correct);
+}
+
+.testScoreWrong {
+  color: var(--color-incorrect);
+}
+
+@keyframes testPop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testResult {
+    animation: none;
+  }
 }

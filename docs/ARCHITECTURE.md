@@ -814,6 +814,13 @@ a recorded guitar's recordings (the sound match). Research data comes from the s
   client's 2 guitars (`soundMatch.real.test.ts`, each pluck against the other takes): one guitar
   70% → 94% wrong places caught with no correct pluck called wrong; on the other the recordings
   overlap and the self-test switches every pair off; neither guitar's recordings fit the other.
+- **Test my guitar** (`TestPanel`, the "🎯 Test" tab, every signed-in player; also "Test it" when a
+  guitar is finished): choose any recorded guitar and any note on strings 1–6 up to fret 7 (all 48
+  places), play it on any of its places, and `SoundMatch.identify` names the place (clearly closest, and kept apart
+  by the self-test from every other place) or says "can't tell". The player marks Yes/No for a
+  score (not saved). Not heard right: they say where they played; on their own guitar (the admin:
+  any) "Add a recording of …" opens Record at that guitar and place, and "Check its recordings"
+  opens My recordings filtered to it (play, mark, delete). Practice is not changed.
 - **Removing it later:** delete `app/dataset*.py`, `src/dataset/`, `pages/DatasetPage.tsx`, their
   tests, the routes, the menu link and the router line in `main.py`; in `PracticePage.tsx` the
   sound-match lines (imports, `useSoundMatch`, `withSoundMatch`, the probe condition, the hint link

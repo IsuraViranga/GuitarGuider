@@ -189,3 +189,91 @@ describe('guitar for the string check, in practice (signed-in players)', () => {
     expect(calls.some((c) => c.key.includes('/api/dataset'))).toBe(false)
   })
 })
+
+describe('test my guitar (record my guitar page)', () => {
+  const MINE = { ...NO_NAME, name: 'My Yamaha', mine: true, isDefault: false }
+  const server = (guitar: object) =>
+    fakeServer({
+      ...signedInAs(USER),
+      'GET /api/dataset/guitars': () => [200, [guitar]],
+      'GET /api/dataset/guitars/g1/fingerprints': () => [200, { fingerprints: ROWS }],
+      'GET /api/dataset/guitars/g1/progress': () => [200, []],
+      'GET /api/dataset/samples?guitarId=g1&stringNumber=1&fret=0&page=1&pageSize=20': () => [200, { items: [], total: 0, page: 1, pageSize: 20 }],
+    })
+  const pluck = (noteId: number, stiffness: Stiffness | undefined, midi = 64) => act(() => mic.send!([{ type: 'noteStart', noteId, midi, time: 0, stiffness }]))
+  const openTest = async () => {
+    renderApp('/record-guitar')
+    await userEvent.click(await screen.findByRole('button', { name: /Test/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /^E4/ }))
+    expect(await screen.findByTestId('test-pairs')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Start listening/ }))
+  }
+
+  it('names the place played, and keeps a score', async () => {
+    server(MINE)
+    await openTest()
+    expect(mic.probes.at(-1)).toBe(64)
+    pluck(900, sounding(-2, 3.5e-5))
+    expect(screen.getByTestId('test-result')).toHaveTextContent('Heard at25string 2, fret 5')
+    await userEvent.click(screen.getByRole('button', { name: '✓ Yes' }))
+    expect(screen.getByTestId('test-score')).toHaveTextContent('✓ Right 1')
+    pluck(901, sounding(-12, 3e-5))
+    expect(screen.getByTestId('test-result')).toHaveTextContent('Heard at10string 1, open')
+    pluck(902, undefined, 65)
+    expect(screen.getByTestId('test-result')).toHaveTextContent('That was F4. Play E4.')
+  })
+
+  it('not heard right on their own guitar: say where, then add a recording of that place', async () => {
+    server(MINE)
+    await openTest()
+    pluck(900, sounding(-2, 3.5e-5))
+    await userEvent.click(screen.getByRole('button', { name: '✗ No' }))
+    expect(screen.getByTestId('test-score')).toHaveTextContent('✗ Wrong 1')
+    await userEvent.click(within(screen.getByTestId('test-fix')).getByRole('button', { name: '10' }))
+    await userEvent.click(screen.getByRole('button', { name: /Add a recording of 10/ }))
+    expect(await screen.findByRole('button', { name: /^10: string 1, fret 0/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('…or check the recordings of that place', async () => {
+    server(MINE)
+    await openTest()
+    pluck(900, sounding(-2, 3.5e-5))
+    await userEvent.click(screen.getByRole('button', { name: '✗ No' }))
+    await userEvent.click(within(screen.getByTestId('test-fix')).getByRole('button', { name: '10' }))
+    await userEvent.click(screen.getByRole('button', { name: /Check its recordings/ }))
+    const filters = await screen.findByLabelText('Filters')
+    expect(within(filters).getByLabelText('Guitar')).toHaveValue('g1')
+    expect(within(filters).getByLabelText('String')).toHaveValue('1')
+    expect(within(filters).getByLabelText('Fret')).toHaveValue('0')
+  })
+
+  it('every note up to fret 7 can be tested, also one with a single place (E2: string 6, open)', async () => {
+    server(MINE)
+    renderApp('/record-guitar')
+    await userEvent.click(await screen.findByRole('button', { name: /Test/ }))
+    const notes = within(await screen.findByRole('group', { name: 'Note to play' })).getAllByRole('button')
+    expect(notes).toHaveLength(32) // E2 (string 6, open) to B4 (string 1, fret 7): all 48 places
+    expect(notes[0]).toHaveTextContent('E260')
+    expect(notes.at(-1)).toHaveTextContent('B417')
+    await userEvent.click(notes[0])
+    expect(await screen.findByTestId('test-pairs')).toBeInTheDocument()
+    expect(screen.getByText(/^Play/)).toHaveTextContent('Play E2 at 60')
+    await userEvent.click(screen.getByRole('button', { name: /Start listening/ }))
+    expect(mic.probes.at(-1)).toBe(40)
+    pluck(900, sounding(-8, OPEN_B[6]), 40)
+    expect(screen.getByTestId('test-result')).toHaveTextContent('Heard at60string 6, open')
+    await userEvent.click(screen.getByRole('button', { name: '✗ No' }))
+    await userEvent.click(within(screen.getByTestId('test-fix')).getByRole('button', { name: '60' }))
+    expect(screen.getByRole('button', { name: /Add a recording of 60/ })).toBeInTheDocument()
+  })
+
+  it("another player's guitar: tested, but only its owner can change its recordings", async () => {
+    server(NO_NAME)
+    await openTest()
+    pluck(900, sounding(-2, 3.5e-5))
+    await userEvent.click(screen.getByRole('button', { name: '✗ No' }))
+    await userEvent.click(within(screen.getByTestId('test-fix')).getByRole('button', { name: '10' }))
+    expect(screen.getByTestId('test-fix')).toHaveTextContent('Only the owner of No name can change its recordings.')
+    expect(screen.queryByRole('button', { name: /Add a recording/ })).not.toBeInTheDocument()
+  })
+})

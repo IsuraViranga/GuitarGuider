@@ -28,8 +28,19 @@ const message = (problem: unknown, fallback: string) => (problem instanceof ApiE
  * The saved samples: filter, play, mark, delete; the admin also exports the labels for research.
  * Players see only their own guitars' recordings (the server sends no others).
  */
-export function SamplesPanel({ guitars, admin, onGuitarChanged }: { guitars: DatasetGuitar[]; admin: boolean; onGuitarChanged: (guitar: DatasetGuitar) => void }) {
-  const [filters, setFilters] = useState<SampleFilters>({})
+export function SamplesPanel({
+  guitars,
+  admin,
+  onGuitarChanged,
+  initialFilters,
+}: {
+  guitars: DatasetGuitar[]
+  admin: boolean
+  onGuitarChanged: (guitar: DatasetGuitar) => void
+  /** Open with these filters (from Test my guitar: the recordings of one place). */
+  initialFilters?: SampleFilters
+}) {
+  const [filters, setFilters] = useState<SampleFilters>(initialFilters ?? {})
   const [page, setPage] = useState(1)
   const [result, setResult] = useState<SamplePage | null>(null)
   const [error, setError] = useState<string | null>(null)
