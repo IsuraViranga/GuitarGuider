@@ -1,0 +1,22 @@
+# Jenkins plugins (latest versions that fit this Jenkins LTS, chosen when the image is built).
+# Pipelines written in the repository (Jenkinsfile), with stages and a manual approval step
+workflow-aggregator
+pipeline-stage-view
+# GitHub: the private repository, every branch and pull request, webhooks, build status on GitHub
+git
+github
+github-branch-source
+# Keys kept in Jenkins Credentials, handed to a step only while it runs
+credentials-binding
+# Each step in its own clean container
+docker-workflow
+# Jenkins set up from casc.yaml (no clicking through a setup wizard)
+configuration-as-code
+# Logins and who may do what
+matrix-auth
+# Readable logs, clean workspaces, failure emails
+timestamper
+ws-cleanup
+mailer
+# Backups of Jenkins' own settings and jobs
+thinBackup

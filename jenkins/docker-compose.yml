@@ -1,0 +1,27 @@
+# Jenkins on your own computer (free phase), and later on the VPS with the same files.
+#
+#   cd jenkins
+#   cp .env.example .env        # then set a strong JENKINS_ADMIN_PASSWORD
+#   docker compose up -d --build
+#   open http://localhost:8080 and sign in as admin
+#
+# Jenkins' data (jobs, credentials, build history) lives in the jenkins_home volume.
+services:
+  jenkins:
+    build: .
+    image: melantha-jenkins
+    container_name: melantha-jenkins
+    restart: unless-stopped
+    # Only this computer can open Jenkins (on the VPS, Nginx with HTTPS sits in front).
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file: .env
+    # Jenkins starts pipeline steps as containers through the computer's Docker. Docker Desktop's
+    # socket belongs to root, so Jenkins runs as root here (your PC only; see README for the VPS).
+    user: root
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  jenkins_home:

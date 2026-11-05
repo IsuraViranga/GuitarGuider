@@ -827,6 +827,49 @@ a recorded guitar's recordings (the sound match). Research data comes from the s
   and `<GuitarChoice>`); `Stiffness.harmonics` may stay. Add a migration that drops the two
   tables; remove the `DATASET_*` settings.
 
+### 8s. Production readiness, phase 1 (free plans)
+
+The plan, step by step: first make everything safe and measured on the free plans, then give the
+client a budget, then go paid (Neon and Render, plus a VPS for Jenkins).
+
+- **Server:**
+  - Sign-in and reset limits are moved from memory to the table `auth_attempts` (Alembic
+    `0010`), so they hold with several workers.
+  - Pool sizes and workers come from settings (`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`,
+    `WEB_CONCURRENCY`).
+  - Table updates (`alembic/env.py`) and song seeding (`app/seed.py`) take one Postgres
+    advisory lock, so two starts never clash.
+  - Uvicorn shuts down gracefully (25 s), and each request logs one JSON line with an
+    `X-Request-ID`.
+  - Sentry is used in the server and the app, but only when a DSN is set. The app's Sentry
+    code is not even built without one.
+- **Checks:**
+  - `scripts/ci.sh` runs gitleaks; ruff (errors only), bandit (high severity) and pip-audit;
+    pytest; and oxlint, vitest, build and npm audit.
+  - The `Jenkinsfile` runs the same checks in containers (tests on PostgreSQL 18, like Neon).
+    On `main` only, it then deploys staging, runs a smoke test, waits for the owner's
+    approval, deploys production, and runs a smoke test with a rollback offer.
+  - The deploy, smoke and rollback scripts are `scripts/deploy.sh` (Render API with the exact
+    commit, then the Netlify CLI), `scripts/smoke.sh` (read-only) and `scripts/rollback.sh`.
+  - Jenkins runs in Docker (`jenkins/`: plugins, settings as code, local PC now, VPS later). It
+    was tested locally: the full pipeline passed in about 4 minutes.
+- **Load tests:**
+  - `backend/loadtest/k6/journeys.js` and `scripts/loadtest.sh` (k6 in Docker), with profiles
+    from smoke to target500, spike and soak.
+  - The targets are p95 under 500 ms for normal requests, under 2 s for heavy ones, and under
+    1 % errors; audio is measured apart.
+  - It refuses production. The local smoke test had 0 failures.
+- **Backups:** `scripts/backup-db.sh` (pg_dump 18 in Docker, keeps 8) and
+  `scripts/restore-drill.sh` (restores into a temporary PostgreSQL, checks the tables and
+  readiness; 5 s on the dev database). B2 keeps the latest version only (owner's choice).
+- **Measured on 5 Nov 2026 (normal use):**
+  - Netlify is on the Free Legacy plan (100 GB, no credits).
+  - Render's keep-alive uses about 740 of the 750 free hours, so staging needs a second
+    workspace.
+  - Neon free uses about 1 compute hour in 5 days, on Postgres 18.
+  - B2 holds 312.6 MB.
+  - The repository is private; a solo owner needs no branch protection.
+
 ## 9. Later phases (unchanged from the brief, condensed)
 
 2. Microphone + YIN + recognizer + live debug readout.

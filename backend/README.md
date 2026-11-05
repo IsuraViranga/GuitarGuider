@@ -141,6 +141,59 @@ save practice, My progress) and prints the time per request and any errors:
 It refuses a server that is not on this computer unless `--allow-remote` is given (it creates
 real accounts). Results (October 2026) are in `docs/ARCHITECTURE.md` (8n).
 
+**k6 (staging, realistic journeys).** `loadtest/k6/journeys.js` runs with k6 in Docker. Nothing
+needs installing:
+
+```bash
+bash ../scripts/loadtest.sh smoke https://<staging-api>.onrender.com yes   # 5 students, 1 minute
+# then load50, load100, load250, target500, spike (50 → 500 → 50), soak (150 for 60 min)
+```
+
+Each student signs up, practises songs, saves practice, reads their guitar setup, sometimes
+signs in again; 1 in 20 records and plays back a pluck, and a few ask for a password reset.
+
+Targets:
+- normal requests: 95 % under 500 ms
+- heavy ones (sign up and sign in, save, upload): 95 % under 2 s
+- under 1 % errors
+
+The live site is refused unless `ALLOW_PRODUCTION=yes`. Results go to `loadtest/k6/results/`
+(git-ignored).
+
+## Checks before deploying
+
+`bash ../scripts/ci.sh` runs everything Jenkins runs:
+- a secret scan (gitleaks)
+- ruff, bandit and pip-audit on the server
+- the server tests
+- the app's lint, tests, build and npm audit
+
+See `jenkins/README.md` for the pipeline.
+
+## Server settings for more users
+
+- `WEB_CONCURRENCY`: worker processes (1 when not set; 2–3 on a paid 1–2 CPU instance).
+- `DB_POOL_SIZE` + `DB_MAX_OVERFLOW` (10 + 10): database connections per worker. Keep
+  `workers × (pool + overflow)` under the database's limit.
+- `SENTRY_DSN` / `SENTRY_ENVIRONMENT`: error tracking. It is off without a DSN, and sends no
+  cookies or emails.
+- Sign-in and reset limits are kept in the database (`auth_attempts`), so every worker shares
+  them.
+- Every API request logs one JSON line (`id`, `method`, `path`, `status`, `ms`), and the id is
+  in the `X-Request-ID` answer header.
+
+## Backups
+
+```bash
+BACKUP_DATABASE_URL="<Neon direct address>" bash ../scripts/backup-db.sh   # → backups/db/*.dump (git-ignored)
+bash ../scripts/restore-drill.sh                                         # proves the newest backup restores
+```
+
+Use Neon's **direct** address (Connect → connection pooling off), pasted only for the command.
+The restore drill puts the backup into a temporary PostgreSQL 18 in Docker. It checks the
+tables and the server's readiness, prints how long it took, and touches nothing on Neon.
+Recordings in B2 keep only their latest version, by choice.
+
 ## How sign-in works
 
 - Passwords are stored only as argon2 hashes. At most two are worked out at the same moment

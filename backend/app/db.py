@@ -12,13 +12,19 @@ class Base(DeclarativeBase):
     pass
 
 
+_settings = get_settings()
+
 # At most this many requests use the database at the same moment (app/main.py waits the others).
-MAX_CONNECTIONS = 20
+MAX_CONNECTIONS = _settings.db_pool_size + _settings.db_max_overflow
+
+# Taken while the tables are updated (alembic/env.py) and while built-in songs are added
+# (app/seed.py), so two servers starting at the same moment never do it twice at once.
+PREPARE_LOCK_ID = 7_202_611
 
 engine = create_engine(
-    get_settings().sqlalchemy_url,
-    pool_size=10,
-    max_overflow=MAX_CONNECTIONS - 10,
+    _settings.sqlalchemy_url,
+    pool_size=_settings.db_pool_size,
+    max_overflow=_settings.db_max_overflow,
     pool_pre_ping=True,  # Neon closes idle connections; check before use
     pool_recycle=300,
     # Neon's pooled address shares connections between users (PgBouncer), where psycopg's

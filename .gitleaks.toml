@@ -1,0 +1,3 @@
+# Secret scan (scripts/ci.sh, Jenkins): gitleaks' standard rules for API keys, tokens and passwords.
+[extend]
+useDefault = true

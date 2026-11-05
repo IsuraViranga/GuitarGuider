@@ -19,8 +19,8 @@ from .security import hash_password, hash_token, needs_rehash, new_session_token
 COOKIE_NAME = "mga_session"
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 _settings = get_settings()
-signin_limiter = AttemptLimiter(_settings.signin_attempts, _settings.signin_window_seconds)
-reset_limiter = AttemptLimiter(_settings.reset_requests_per_address, 3600)
+signin_limiter = AttemptLimiter("signin", _settings.signin_attempts, _settings.signin_window_seconds)
+reset_limiter = AttemptLimiter("reset", _settings.reset_requests_per_address, 3600)
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -103,15 +103,15 @@ def sign_up(body: SignUpIn, request: Request, response: Response, db: DbSession)
 @router.post("/signin")
 def sign_in(body: SignInIn, request: Request, response: Response, db: DbSession) -> UserOut:
     keys = (f"email:{body.email}", f"addr:{_client_address(request)}")
-    if signin_limiter.blocked(*keys):
+    if signin_limiter.blocked(db, *keys):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many sign-in attempts. Please wait a few minutes and try again.")
     user = db.scalar(select(User).where(User.email == body.email))
     db.commit()  # gives the database connection back while the password is checked (slow on purpose)
     if not verify_password(user.password_hash if user else None, body.password) or user is None:
-        signin_limiter.record_failure(*keys)
+        signin_limiter.record_failure(db, *keys)
         # The same message for an unknown email and a wrong password, so accounts cannot be discovered here.
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email or password is incorrect.")
-    signin_limiter.clear(f"email:{body.email}")
+    signin_limiter.clear(db, f"email:{body.email}")
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(body.password)
     _start_session(db, user, request, response)
@@ -143,9 +143,9 @@ def forgot_password(body: ForgotPasswordIn, request: Request, background: Backgr
     if not _settings.email_ready:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Password reset by email is not ready yet. Please ask the admin for help.")
     address = f"addr:{_client_address(request)}"
-    if reset_limiter.blocked(address):
+    if reset_limiter.blocked(db, address):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests. Please wait a while and try again.")
-    reset_limiter.record_failure(address)
+    reset_limiter.record_failure(db, address)
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None:
         return {"detail": FORGOT_ANSWER}
@@ -193,6 +193,6 @@ def reset_password(body: ResetPasswordIn, request: Request, response: Response, 
     user.password_hash = new_hash
     db.execute(update(PasswordReset).where(PasswordReset.user_id == user.id, PasswordReset.used_at.is_(None)).values(used_at=now))
     db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
-    signin_limiter.clear(f"email:{user.email}")
+    signin_limiter.clear(db, f"email:{user.email}")
     _start_session(db, user, request, response)
     return UserOut.of(user)

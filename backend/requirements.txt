@@ -8,5 +8,7 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 python-multipart==0.0.32
 pydantic-settings==2.16.1
+# Error tracking (Sentry): only used when SENTRY_DSN is set.
+sentry-sdk[fastapi]==2.72.0
 SQLAlchemy==2.1.6
 uvicorn[standard]==0.54.0

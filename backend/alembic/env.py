@@ -3,10 +3,10 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app.config import get_settings
-from app.db import Base
+from app.db import PREPARE_LOCK_ID, Base
 from app import models  # noqa: F401  (registers the tables)
 
 config = context.config
@@ -26,6 +26,11 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
+        if connection.dialect.name == "postgresql":
+            # One server at a time: another one starting now waits here, then finds nothing to do.
+            # The lock belongs to this connection and ends with it.
+            connection.execute(text("select pg_advisory_lock(:id)"), {"id": PREPARE_LOCK_ID})
+            connection.commit()
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()

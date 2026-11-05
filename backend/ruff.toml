@@ -1,0 +1,3 @@
+# scripts/ci.sh: only real mistakes (syntax errors, undefined names, unused imports), not style.
+[lint]
+select = ["E9", "F"]

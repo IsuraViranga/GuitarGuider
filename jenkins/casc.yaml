@@ -1,0 +1,50 @@
+# Jenkins settings as code (Configuration as Code plugin). Values like ${JENKINS_ADMIN_PASSWORD}
+# come from jenkins/.env (never committed), see jenkins/.env.example.
+jenkins:
+  systemMessage: "Melantha Guitar Academy: CI/CD (checks every branch; deploys main after approval)"
+  # Steps run in Docker containers started from here. On the VPS, add a separate build agent and
+  # set this to 0 (jenkins/README.md, "On the VPS").
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID:-admin}"
+          name: "Owner"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    globalMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_ID:-admin}"
+            permissions:
+              - "Overall/Administer"
+        - group:
+            name: "authenticated"
+            permissions:
+              - "Overall/Read"
+              - "Job/Read"
+  globalNodeProperties:
+    - envVars:
+        env:
+          # Addresses of each environment (not secret). Deploy stages run only when DEPLOY_ENABLED=yes.
+          - key: DEPLOY_ENABLED
+            value: "${DEPLOY_ENABLED:-no}"
+          - key: STAGING_API_URL
+            value: "${STAGING_API_URL:-}"
+          - key: STAGING_SITE_URL
+            value: "${STAGING_SITE_URL:-}"
+          - key: PRODUCTION_API_URL
+            value: "${PRODUCTION_API_URL:-https://melantha-guitar-api.onrender.com}"
+          - key: PRODUCTION_SITE_URL
+            value: "${PRODUCTION_SITE_URL:-https://melantha-guitar-academy.netlify.app}"
+          - key: PRODUCTION_APPROVERS
+            value: "${JENKINS_ADMIN_ID:-admin}"
+          - key: NOTIFY_EMAIL
+            value: "${NOTIFY_EMAIL:-}"
+          # Error tracking in the app (public in the app anyway, so not a secret).
+          - key: VITE_SENTRY_DSN
+            value: "${VITE_SENTRY_DSN:-}"
+unclassified:
+  location:
+    url: "${JENKINS_URL:-http://localhost:8080/}"

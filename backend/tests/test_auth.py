@@ -99,6 +99,36 @@ def test_too_many_wrong_passwords_are_stopped_for_a_while(client):
     assert "Too many sign-in attempts" in blocked.json()["detail"]
 
 
+def test_the_sign_in_limit_is_shared_by_every_server_process(client):
+    """Counts live in the database: another worker (a second limiter) sees the same attempts."""
+    from app.ratelimit import AttemptLimiter
+
+    sign_up(client)
+    client.post("/api/auth/signout")
+    for _ in range(10):
+        client.post("/api/auth/signin", json={"email": ISURA["email"], "password": "wrong-pass"})
+    other_worker = AttemptLimiter("signin", 10, 15 * 60)
+    with SessionLocal() as db:
+        assert other_worker.blocked(db, f"email:{ISURA['email'].lower()}")
+        # Limits with another name (password reset requests) are counted apart.
+        assert not AttemptLimiter("reset", 10, 3600).blocked(db, f"email:{ISURA['email'].lower()}")
+
+
+def test_a_right_password_clears_the_count_and_old_attempts_expire(client):
+    from app.ratelimit import AttemptLimiter
+
+    sign_up(client)
+    client.post("/api/auth/signout")
+    for _ in range(9):
+        client.post("/api/auth/signin", json={"email": ISURA["email"], "password": "wrong-pass"})
+    assert client.post("/api/auth/signin", json={"email": ISURA["email"], "password": "guitar-123"}).status_code == 200
+    with SessionLocal() as db:
+        assert not AttemptLimiter("signin", 1, 15 * 60).blocked(db, f"email:{ISURA['email'].lower()}")
+        db.execute(text("update auth_attempts set at = now() - interval '1 hour'"))
+        db.commit()
+        assert not AttemptLimiter("signin", 1, 15 * 60).blocked(db, "addr:testclient")
+
+
 def test_sign_out_ends_the_session_on_the_server_too(client):
     sign_up(client)
     token = client.cookies.get(COOKIE_NAME)

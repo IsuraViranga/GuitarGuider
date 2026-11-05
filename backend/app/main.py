@@ -1,8 +1,11 @@
 """The API server. Run locally: uvicorn app.main:app --reload (from the backend folder)."""
 
 import asyncio
+import json
 import logging
 import os
+import time
+import uuid
 from functools import lru_cache
 
 from alembic.script import ScriptDirectory
@@ -17,6 +20,7 @@ from .progress import router as progress_router
 from .string_setup import router as string_setup_router
 from .sharing import router as sharing_router
 from .songs import router as songs_router
+from .config import get_settings
 from .db import MAX_CONNECTIONS, engine
 
 # The app's own messages (e.g. "Brevo refused the email … because …") in Render's Logs tab.
@@ -27,6 +31,19 @@ if not _app_log.handlers:
     _app_log.addHandler(_handler)
     _app_log.setLevel(logging.INFO)
     _app_log.propagate = False
+
+_settings = get_settings()
+if _settings.sentry_dsn:
+    # Error tracking: every unexpected error (500) reaches Sentry with its request, without cookies,
+    # emails or other personal data. Off unless SENTRY_DSN is set (never in tests).
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=_settings.sentry_dsn,
+        environment=_settings.sentry_environment,
+        send_default_pii=False,
+        traces_sample_rate=_settings.sentry_traces_sample_rate,
+    )
 
 app = FastAPI(title="Melantha Guitar Academy API", docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
@@ -64,6 +81,30 @@ async def one_turn_per_connection(request: Request, call_next):
         return await call_next(request)
     async with _database_turns:
         return await call_next(request)
+
+
+_request_log = logging.getLogger("app.request")
+QUIET_PATHS = {"/api/health", "/api/health/live"}  # checked every few minutes; not worth a line each
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """One line per API request (JSON: id, method, path, status, milliseconds including any wait for
+    the database), and the id in the X-Request-ID answer header, so a problem a student reports can
+    be found in Render's logs. Never the query string or the body (they can hold private data)."""
+    if not request.url.path.startswith("/api/") or request.url.path in QUIET_PATHS:
+        return await call_next(request)
+    request_id = uuid.uuid4().hex[:12]
+    started = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        response.headers["X-Request-ID"] = request_id
+        return response
+    finally:
+        entry = {"id": request_id, "method": request.method, "path": request.url.path, "status": status_code, "ms": round((time.perf_counter() - started) * 1000)}
+        _request_log.info(json.dumps(entry))
 
 
 @app.exception_handler(RequestValidationError)

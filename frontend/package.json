@@ -17,6 +17,7 @@
     "export:songs": "tsx scripts/export-global-songs.ts"
   },
   "dependencies": {
+    "@sentry/react": "11.8.0",
     "fflate": "0.8.3",
     "pdfjs-dist": "6.3.289",
     "react": "^19.3.1",

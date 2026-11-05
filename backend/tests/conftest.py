@@ -16,7 +16,6 @@ from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from app.auth import reset_limiter, signin_limiter  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -38,9 +37,7 @@ def database():
 @pytest.fixture(autouse=True)
 def clean_tables():
     with engine.begin() as connection:
-        connection.execute(text("truncate dataset_samples, dataset_guitars, string_setups, password_resets, practice_saves, share_requests, seed_log, songs, auth_sessions, users cascade"))
-    signin_limiter.reset()
-    reset_limiter.reset()
+        connection.execute(text("truncate auth_attempts, dataset_samples, dataset_guitars, string_setups, password_resets, practice_saves, share_requests, seed_log, songs, auth_sessions, users cascade"))
     yield
 
 

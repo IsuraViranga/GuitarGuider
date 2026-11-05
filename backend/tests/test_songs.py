@@ -64,6 +64,16 @@ def test_built_in_songs_are_added_to_the_global_set_list_once():
     assert twinkle["sourceText"].startswith("title: Twinkle, twinkle")
 
 
+def test_two_servers_starting_together_add_each_song_once():
+    """Both run the seeding at the same moment (two instances deploying): one waits for the other."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(2) as pool:
+        first, second = pool.map(lambda _: seed(), range(2))
+    assert sorted(first + second) == sorted(song_id for song_id, _ in load_seed_songs())
+    assert len(guest().get("/api/songs").json()["songs"]) == len(load_seed_songs())
+
+
 def test_a_built_in_song_the_admin_deleted_is_not_added_again():
     seed()
     admin = person("Isura", "admin@example.com", admin=True)

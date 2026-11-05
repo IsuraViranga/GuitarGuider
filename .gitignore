@@ -10,3 +10,15 @@ sharedSongs/
 
 # Downloaded research datasets (large; get them from their own sites)
 datasets/
+
+# k6 load test results (scripts/loadtest.sh)
+backend/loadtest/k6/results/
+
+# Database backups (scripts/backup-db.sh): private data, never committed
+backups/
+
+# Written by scripts/deploy.sh
+.render-deploy-id
+
+# Jenkins settings with the admin password (jenkins/.env.example shows what goes in it)
+jenkins/.env

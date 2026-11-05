@@ -8,9 +8,10 @@ later changes or deletes it, that choice stays (seed_log remembers what was alre
 import json
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from .db import PREPARE_LOCK_ID
 from .models import SeedLog, Song
 from .song_schemas import SongIn
 from .songs import apply
@@ -25,6 +26,9 @@ def load_seed_songs(path: Path = SEED_FILE) -> list[tuple[str, SongIn]]:
 
 def seed_global_songs(db: Session, path: Path = SEED_FILE) -> list[str]:
     """Adds built-in songs never added before. Returns the ids added."""
+    if db.get_bind().dialect.name == "postgresql":
+        # Two servers starting at once: the second waits here, then finds every song already added.
+        db.execute(text("select pg_advisory_xact_lock(:id)"), {"id": PREPARE_LOCK_ID})
     done = set(db.scalars(select(SeedLog.song_id)).all())
     added = []
     for song_id, data in load_seed_songs(path):

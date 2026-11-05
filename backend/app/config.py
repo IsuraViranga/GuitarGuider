@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     dataset_s3_key_id: str = ""
     dataset_s3_secret: str = ""
     dataset_local_dir: str = "../datasets/collector"
+    # Database connections per server process: a pool, plus extra ones for busy moments. With several
+    # worker processes (WEB_CONCURRENCY), each has its own: workers × (pool + extra) must fit the
+    # database's limit (docs/ARCHITECTURE.md, production plan).
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
+    # Error tracking (Sentry): off without a DSN. Nothing personal is sent (no cookies, no emails).
+    sentry_dsn: str = ""
+    sentry_environment: str = "production"
+    sentry_traces_sample_rate: float = 0.0
 
     @property
     def email_ready(self) -> bool:

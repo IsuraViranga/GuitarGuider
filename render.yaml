@@ -7,8 +7,11 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    # Applies any new database changes, then starts the server.
-    startCommand: alembic upgrade head && python -m app.cli seed-songs && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    # Applies any new database changes, then starts the server (both take a database lock, so two
+    # starts never clash). Workers: WEB_CONCURRENCY (1 when not set; 2-3 on a paid instance). On a
+    # deploy the old server finishes its requests for up to 25 s. The app logs one JSON line per
+    # request itself, so uvicorn's own access log is off.
+    startCommand: alembic upgrade head && python -m app.cli seed-songs && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*" --timeout-graceful-shutdown 25 --no-access-log
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
@@ -38,3 +41,8 @@ services:
         sync: false
       - key: DATASET_S3_SECRET
         sync: false
+      # Error tracking (Sentry, free plan): the DSN from the Sentry project; empty = off.
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
